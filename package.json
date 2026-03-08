@@ -1,0 +1,22 @@
+{
+  "name": "morechat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MoreChat — Small is boring. A web chat tool with third-party API integration",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.5.3",
+    "@types/node": "^20.14.9"
+  },
+  "packageManager": "pnpm@9.4.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
