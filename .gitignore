@@ -41,3 +41,5 @@ next-env.d.ts
 *.swp
 *.swo
 *~
+samples/*.json
+!samples/.gitkeep
