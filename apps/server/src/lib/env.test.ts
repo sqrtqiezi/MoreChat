@@ -19,6 +19,9 @@ describe('env', () => {
     process.env.PORT = '3100'
     process.env.NODE_ENV = 'test'
     process.env.JUHEXBOT_API_URL = 'http://test.com'
+    process.env.JUHEXBOT_APP_KEY = 'test-key'
+    process.env.JUHEXBOT_APP_SECRET = 'test-secret'
+    process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
 
     // 动态导入以重新加载环境变量
     const { env } = await import('./env.js')
@@ -26,6 +29,9 @@ describe('env', () => {
     expect(env.DATABASE_URL).toBe('file:./test.db')
     expect(env.PORT).toBe('3100')
     expect(env.JUHEXBOT_API_URL).toBe('http://test.com')
+    expect(env.JUHEXBOT_APP_KEY).toBe('test-key')
+    expect(env.JUHEXBOT_APP_SECRET).toBe('test-secret')
+    expect(env.JUHEXBOT_CLIENT_GUID).toBe('test-guid')
   })
 
   it('should throw error when required variable is missing', async () => {
@@ -34,6 +40,9 @@ describe('env', () => {
     process.env.PORT = '3100'
     process.env.NODE_ENV = 'test'
     process.env.JUHEXBOT_API_URL = 'http://test.com'
+    process.env.JUHEXBOT_APP_KEY = 'test-key'
+    process.env.JUHEXBOT_APP_SECRET = 'test-secret'
+    process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
     delete process.env.DATABASE_URL
 
     await expect(async () => {
@@ -48,6 +57,9 @@ describe('env', () => {
     process.env.PORT = '3100'
     process.env.NODE_ENV = 'test'
     process.env.JUHEXBOT_API_URL = 'http://test.com'
+    process.env.JUHEXBOT_APP_KEY = 'test-key'
+    process.env.JUHEXBOT_APP_SECRET = 'test-secret'
+    process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
 
     await expect(async () => {
       await import('./env.js')
@@ -61,6 +73,9 @@ describe('env', () => {
     process.env.PORT = '3100'
     process.env.NODE_ENV = 'invalid'
     process.env.JUHEXBOT_API_URL = 'http://test.com'
+    process.env.JUHEXBOT_APP_KEY = 'test-key'
+    process.env.JUHEXBOT_APP_SECRET = 'test-secret'
+    process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
 
     await expect(async () => {
       await import('./env.js')
