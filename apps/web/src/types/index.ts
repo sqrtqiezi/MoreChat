@@ -1,8 +1,3 @@
-// User interface
-export interface User {
-  username: string;
-}
-
 // Conversation interface
 export interface Conversation {
   id: string;
