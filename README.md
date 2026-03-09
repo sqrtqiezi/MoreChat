@@ -39,6 +39,52 @@ morechat/
 └── turbo.json        # Turborepo 配置
 ```
 
+## Phase 1: 基础架构 ✅
+
+已完成的功能：
+- ✅ 数据库模型和 Prisma 配置
+- ✅ Data Lake 存储服务
+- ✅ juhexbot 适配器
+- ✅ WebSocket 服务器
+- ✅ 消息服务层
+- ✅ 依赖注入架构
+- ✅ 环境变量管理
+- ✅ 优雅关闭机制
+
+## 快速开始
+
+### 环境配置
+
+复制环境变量模板：
+
+```bash
+cp apps/server/.env.example apps/server/.env
+```
+
+编辑 `.env` 文件，配置必要的参数。
+
+### 启动开发服务器
+
+```bash
+pnpm install
+pnpm dev
+```
+
+服务器将在 http://localhost:3100 启动。
+
+### 测试
+
+```bash
+# 运行所有测试
+pnpm test
+
+# 运行特定测试
+pnpm test database.test.ts
+
+# 测试 UI
+pnpm test:ui
+```
+
 ## 开发
 
 ```bash
