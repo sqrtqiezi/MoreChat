@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { authRoutes } from './routes/auth'
 import { authMiddleware } from './middleware/auth'
 import { clientRoutes } from './routes/client'
@@ -21,10 +22,16 @@ export interface AppDependencies {
     passwordHash: string
     jwtSecret: string
   }
+  corsOrigin?: string
 }
 
 export function createApp(deps: AppDependencies) {
   const app = new Hono()
+
+  // CORS
+  if (deps.corsOrigin) {
+    app.use('*', cors({ origin: deps.corsOrigin }))
+  }
 
   // Health check
   app.get('/health', (c) => {

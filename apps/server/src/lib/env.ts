@@ -21,6 +21,7 @@ interface EnvConfig {
   JUHEXBOT_CLIENT_GUID: string
   AUTH_PASSWORD_HASH: string
   AUTH_JWT_SECRET: string
+  CORS_ORIGIN?: string
 }
 
 function loadEnv(): EnvConfig {
@@ -66,7 +67,8 @@ function loadEnv(): EnvConfig {
     JUHEXBOT_APP_SECRET: process.env.JUHEXBOT_APP_SECRET!,
     JUHEXBOT_CLIENT_GUID: process.env.JUHEXBOT_CLIENT_GUID!,
     AUTH_PASSWORD_HASH: process.env.AUTH_PASSWORD_HASH!,
-    AUTH_JWT_SECRET: process.env.AUTH_JWT_SECRET!
+    AUTH_JWT_SECRET: process.env.AUTH_JWT_SECRET!,
+    CORS_ORIGIN: process.env.CORS_ORIGIN
   }
 }
 
