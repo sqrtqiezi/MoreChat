@@ -6,11 +6,12 @@ import { DatabaseService } from './services/database.js'
 import { MessageService } from './services/message.js'
 import { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import { WebSocketService } from './services/websocket.js'
+import { ClientService } from './services/clientService.js'
+import { ConversationService } from './services/conversationService.js'
 import { createApp } from './app.js'
-import type { ParsedWebhookPayload } from './services/juhexbotAdapter.js'
 import type { Server } from 'http'
 
-describe('Integration Tests - Phase 1', () => {
+describe('Integration Tests', () => {
   let server: Server
   let wsService: WebSocketService
   let databaseService: DatabaseService
@@ -18,17 +19,14 @@ describe('Integration Tests - Phase 1', () => {
   let wsUrl: string
 
   beforeAll(async () => {
-    // 1. Data Lake Service
     const dataLakeService = new DataLakeService({
       type: 'local',
       path: './data/test-datalake'
     })
 
-    // 2. Database Service
     databaseService = new DatabaseService()
     await databaseService.connect()
 
-    // 3. Juhexbot Adapter
     const juhexbotAdapter = new JuhexbotAdapter({
       apiUrl: 'https://test.api.com',
       appKey: 'test-key',
@@ -36,28 +34,24 @@ describe('Integration Tests - Phase 1', () => {
       clientGuid: 'test-guid'
     })
 
-    // 4. Message Service
-    const messageService = new MessageService(
-      databaseService,
-      dataLakeService,
-      juhexbotAdapter
-    )
+    const clientService = new ClientService(juhexbotAdapter)
+    const conversationService = new ConversationService(databaseService, dataLakeService)
+    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter)
 
-    // 5. Message Handler
-    async function handleWebhookMessage(parsed: ParsedWebhookPayload) {
-      await messageService.handleIncomingMessage(parsed)
-    }
+    // wsService 需要在 server 创建后初始化，用 getter 延迟访问
+    let _wsService: WebSocketService
 
-    // 6. Create Hono App
-    const app = createApp(juhexbotAdapter, handleWebhookMessage)
+    const app = createApp({
+      clientService,
+      conversationService,
+      messageService,
+      juhexbotAdapter,
+      get wsService() { return _wsService },
+      clientGuid: 'test-guid'
+    } as any)
 
-    // 7. Start HTTP Server (use port 0 for random port)
-    server = serve({
-      fetch: app.fetch,
-      port: 0
-    })
+    server = serve({ fetch: app.fetch, port: 0 })
 
-    // 8. Get actual port
     const address = server.address()
     if (!address || typeof address === 'string') {
       throw new Error('Failed to get server address')
@@ -66,12 +60,11 @@ describe('Integration Tests - Phase 1', () => {
     baseUrl = `http://localhost:${port}`
     wsUrl = `ws://localhost:${port}`
 
-    // 9. Create WebSocket Service
-    wsService = new WebSocketService(server)
+    _wsService = new WebSocketService(server)
+    wsService = _wsService
   })
 
   afterAll(async () => {
-    // Cleanup
     wsService.close()
     await databaseService.disconnect()
     server.close()
@@ -99,7 +92,6 @@ describe('Integration Tests - Phase 1', () => {
         }, 5000)
 
         ws.on('open', () => {
-          // Send client:connect event
           ws.send(JSON.stringify({
             event: 'client:connect',
             data: { guid: 'test-client-123' }
@@ -109,8 +101,6 @@ describe('Integration Tests - Phase 1', () => {
         ws.on('message', (data: Buffer) => {
           try {
             const message = JSON.parse(data.toString())
-
-            // Verify connected event
             if (message.event === 'connected') {
               expect(message.data).toHaveProperty('clientId', 'test-client-123')
               clearTimeout(timeout)
@@ -132,5 +122,27 @@ describe('Integration Tests - Phase 1', () => {
       })
     })
   })
-})
 
+  describe('Phase 2 - API Routes', () => {
+    it('GET /api/conversations should return empty list initially', async () => {
+      const res = await fetch(`${baseUrl}/api/conversations`)
+      const body = await res.json() as any
+
+      expect(res.status).toBe(200)
+      expect(body.success).toBe(true)
+      expect(body.data.conversations).toEqual([])
+    })
+
+    it('POST /api/messages/send should return 400 when missing params', async () => {
+      const res = await fetch(`${baseUrl}/api/messages/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: 'conv_1' })
+      })
+      const body = await res.json() as any
+
+      expect(res.status).toBe(400)
+      expect(body.success).toBe(false)
+    })
+  })
+})
