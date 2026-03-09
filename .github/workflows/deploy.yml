@@ -95,7 +95,9 @@ jobs:
             mv web-package.json apps/web/package.json
             rm -rf apps/web/dist
             mv web-dist apps/web/dist
+            rm -rf apps/server/prisma
             mv prisma apps/server/prisma
+            rm -rf apps/server/dist
             mv dist apps/server/dist
 
             # 生成 .env 文件
