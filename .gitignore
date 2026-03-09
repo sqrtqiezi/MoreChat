@@ -44,3 +44,6 @@ next-env.d.ts
 samples/*.json
 !samples/.gitkeep
 tools/samples/*.json
+
+# Database
+apps/server/data/
