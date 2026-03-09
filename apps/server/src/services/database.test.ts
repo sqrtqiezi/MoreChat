@@ -94,6 +94,85 @@ describe('DatabaseService', () => {
     })
   })
 
+  describe('getConversations', () => {
+    it('should return conversations ordered by lastMessageAt desc', async () => {
+      const client = await db.createClient({ guid: 'conv_test_guid' })
+
+      const conv1 = await db.createConversation({ clientId: client.id, type: 'private' })
+      const conv2 = await db.createConversation({ clientId: client.id, type: 'group' })
+      await db.updateConversationLastMessage(conv2.id, new Date('2026-03-09'))
+
+      const result = await db.getConversations(client.id, { limit: 50, offset: 0 })
+      expect(result.length).toBe(2)
+      // conv2 有更新的 lastMessageAt，应该排在前面
+      expect(result[0].id).toBe(conv2.id)
+    })
+  })
+
+  describe('findConversationById', () => {
+    it('should return conversation by id', async () => {
+      const client = await db.createClient({ guid: 'find_conv_guid' })
+      const conv = await db.createConversation({ clientId: client.id, type: 'private' })
+
+      const result = await db.findConversationById(conv.id)
+      expect(result).not.toBeNull()
+      expect(result!.id).toBe(conv.id)
+    })
+
+    it('should return null when not found', async () => {
+      const result = await db.findConversationById('not_exist')
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('updateConversation', () => {
+    it('should update unreadCount', async () => {
+      const client = await db.createClient({ guid: 'update_conv_guid' })
+      const conv = await db.createConversation({ clientId: client.id, type: 'private' })
+
+      await db.updateConversation(conv.id, { unreadCount: 0 })
+      const updated = await db.findConversationById(conv.id)
+      expect(updated!.unreadCount).toBe(0)
+    })
+  })
+
+  describe('findContactById', () => {
+    it('should return contact by id', async () => {
+      const contact = await db.createContact({
+        username: 'find_by_id_user',
+        nickname: 'Find User',
+        type: 'friend'
+      })
+
+      const result = await db.findContactById(contact.id)
+      expect(result).not.toBeNull()
+      expect(result!.username).toBe('find_by_id_user')
+    })
+
+    it('should return null when not found', async () => {
+      const result = await db.findContactById('not_exist')
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('findGroupById', () => {
+    it('should return group by id', async () => {
+      const group = await db.createGroup({
+        roomUsername: 'room@chatroom',
+        name: 'Test Group'
+      })
+
+      const result = await db.findGroupById(group.id)
+      expect(result).not.toBeNull()
+      expect(result!.roomUsername).toBe('room@chatroom')
+    })
+
+    it('should return null when not found', async () => {
+      const result = await db.findGroupById('not_exist')
+      expect(result).toBeNull()
+    })
+  })
+
   describe('MessageStateChange', () => {
     it('should record message state change', async () => {
       await db.createMessageStateChange({

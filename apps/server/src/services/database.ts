@@ -161,6 +161,25 @@ export class DatabaseService {
     return this.prisma.contact.findUnique({ where: { username } })
   }
 
+  async findContactById(id: string) {
+    return this.prisma.contact.findUnique({ where: { id } })
+  }
+
+  // --- Group ---
+
+  async createGroup(data: { roomUsername: string; name: string; avatar?: string }) {
+    return this.prisma.group.create({
+      data: {
+        ...data,
+        updatedAt: new Date()
+      }
+    })
+  }
+
+  async findGroupById(id: string) {
+    return this.prisma.group.findUnique({ where: { id } })
+  }
+
   // --- Conversation ---
 
   async createConversation(data: { clientId: string; type: string; contactId?: string; groupId?: string }) {
@@ -198,6 +217,27 @@ export class DatabaseService {
     return this.prisma.conversation.update({
       where: { id: conversationId },
       data: { lastMessageAt, updatedAt: new Date() }
+    })
+  }
+
+  async getConversations(clientId: string, options: { limit?: number; offset?: number } = {}) {
+    const { limit = 50, offset = 0 } = options
+    return this.prisma.conversation.findMany({
+      where: { clientId },
+      orderBy: { lastMessageAt: 'desc' },
+      take: limit,
+      skip: offset
+    })
+  }
+
+  async findConversationById(id: string) {
+    return this.prisma.conversation.findUnique({ where: { id } })
+  }
+
+  async updateConversation(id: string, data: { unreadCount?: number }) {
+    return this.prisma.conversation.update({
+      where: { id },
+      data: { ...data, updatedAt: new Date() }
     })
   }
 
