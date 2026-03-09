@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import type { Server } from 'http'
+import { logger } from '../lib/logger.js'
 
 export interface WebSocketMessage<T = unknown> {
   event: string
@@ -22,14 +23,14 @@ export class WebSocketService {
 
   private setupEventHandlers() {
     this.wss.on('connection', (ws: WebSocket) => {
-      console.log('WebSocket client connected')
+      logger.debug('WebSocket client connected')
 
       ws.on('message', (data: Buffer) => {
         try {
           const message: WebSocketMessage = JSON.parse(data.toString())
           this.handleMessage(ws, message)
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
+          logger.error({ err: error }, 'Failed to parse WebSocket message')
         }
       })
 
@@ -38,12 +39,12 @@ export class WebSocketService {
         if (clientId) {
           this.clients.delete(clientId)
           this.wsToClientId.delete(ws)
-          console.log(`Client disconnected: ${clientId}`)
+          logger.debug({ clientId }, 'Client disconnected')
         }
       })
 
       ws.on('error', (error) => {
-        console.error('WebSocket error:', error)
+        logger.error({ err: error }, 'WebSocket error')
       })
     })
   }
@@ -53,7 +54,7 @@ export class WebSocketService {
       case 'client:connect':
         const data = message.data as ClientConnectData
         if (!data?.guid || typeof data.guid !== 'string') {
-          console.error('Invalid client:connect data:', data)
+          logger.error({ data }, 'Invalid client:connect data')
           return
         }
         const clientId = data.guid
@@ -61,18 +62,18 @@ export class WebSocketService {
         // 处理重复注册
         const existingWs = this.clients.get(clientId)
         if (existingWs && existingWs !== ws) {
-          console.warn(`Client ${clientId} already connected, closing old connection`)
+          logger.warn({ clientId }, 'Client already connected, closing old connection')
           existingWs.close()
         }
 
         this.clients.set(clientId, ws)
         this.wsToClientId.set(ws, clientId)
         this.send(ws, 'connected', { clientId })
-        console.log(`Client registered: ${clientId}`)
+        logger.debug({ clientId }, 'Client registered')
         break
 
       default:
-        console.log('Unknown event:', message.event)
+        logger.debug({ event: message.event }, 'Unknown event')
     }
   }
 
@@ -84,7 +85,7 @@ export class WebSocketService {
       try {
         ws.send(JSON.stringify({ event, data }))
       } catch (error) {
-        console.error('Failed to send message:', error)
+        logger.error({ err: error }, 'Failed to send message')
       }
     }
   }
@@ -99,7 +100,7 @@ export class WebSocketService {
         try {
           client.send(message)
         } catch (error) {
-          console.error('Failed to broadcast message:', error)
+          logger.error({ err: error }, 'Failed to broadcast message')
         }
       }
     })

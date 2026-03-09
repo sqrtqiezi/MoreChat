@@ -1,4 +1,5 @@
 import pkg from '@prisma/client'
+import { logger } from './logger.js'
 const { PrismaClient } = pkg
 type PrismaClientType = InstanceType<typeof PrismaClient>
 
@@ -31,7 +32,7 @@ export async function disconnectPrisma() {
   try {
     await prisma.$disconnect()
   } catch (error) {
-    console.error('Failed to disconnect Prisma client:', error)
+    logger.error({ err: error }, 'Failed to disconnect Prisma client')
     throw error
   }
 }

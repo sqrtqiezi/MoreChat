@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { ConversationService } from '../services/conversationService.js'
+import { logger } from '../lib/logger.js'
 
 interface ConversationRouteDeps {
   conversationService: ConversationService
@@ -18,7 +19,7 @@ export function conversationRoutes(deps: ConversationRouteDeps) {
       const conversations = await deps.conversationService.list(deps.clientGuid, limit, offset)
       return c.json({ success: true, data: { conversations } })
     } catch (error) {
-      console.error('Failed to get conversations:', error)
+      logger.error({ err: error }, 'Failed to get conversations')
       return c.json({ success: false, error: { message: 'Failed to get conversations' } }, 500)
     }
   })
@@ -33,7 +34,7 @@ export function conversationRoutes(deps: ConversationRouteDeps) {
       if (error.message === 'Conversation not found') {
         return c.json({ success: false, error: { message: 'Conversation not found' } }, 404)
       }
-      console.error('Failed to get conversation:', error)
+      logger.error({ err: error }, 'Failed to get conversation')
       return c.json({ success: false, error: { message: 'Failed to get conversation' } }, 500)
     }
   })
@@ -45,7 +46,7 @@ export function conversationRoutes(deps: ConversationRouteDeps) {
       await deps.conversationService.markAsRead(id)
       return c.json({ success: true })
     } catch (error) {
-      console.error('Failed to mark as read:', error)
+      logger.error({ err: error }, 'Failed to mark as read')
       return c.json({ success: false, error: { message: 'Failed to mark as read' } }, 500)
     }
   })
@@ -60,7 +61,7 @@ export function conversationRoutes(deps: ConversationRouteDeps) {
       const result = await deps.conversationService.getMessages(id, { limit, before })
       return c.json({ success: true, data: result })
     } catch (error) {
-      console.error('Failed to get messages:', error)
+      logger.error({ err: error }, 'Failed to get messages')
       return c.json({ success: false, error: { message: 'Failed to get messages' } }, 500)
     }
   })

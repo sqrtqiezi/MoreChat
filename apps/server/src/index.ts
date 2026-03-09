@@ -9,6 +9,7 @@ import { WebSocketService } from './services/websocket.js'
 import { ClientService } from './services/clientService.js'
 import { ConversationService } from './services/conversationService.js'
 import { createApp } from './app.js'
+import { logger } from './lib/logger.js'
 
 // ============================================================================
 // 主函数
@@ -16,7 +17,7 @@ import { createApp } from './app.js'
 
 async function main() {
   try {
-    console.log('🔧 Initializing services...')
+    logger.info('Initializing services...')
 
     // 1. 基础设施层
     const dataLakeService = new DataLakeService({
@@ -60,47 +61,47 @@ async function main() {
 
     // 4. 启动 HTTP 服务器
     const port = parseInt(env.PORT)
-    console.log(`🚀 Starting server on http://localhost:${port}`)
+    logger.info({ port }, 'Starting server')
 
     const server = serve({ fetch: app.fetch, port })
 
     // 5. 创建 WebSocket 服务
     wsService = new WebSocketService(server as unknown as Server)
-    console.log('✅ WebSocket service initialized')
+    logger.info('WebSocket service initialized')
 
     // 6. 检查 juhexbot 状态
     try {
       const status = await clientService.getStatus()
-      console.log(`✅ juhexbot client: ${status.online ? 'online' : 'offline'}`)
+      logger.info({ online: status.online }, 'juhexbot client status')
     } catch (error) {
-      console.warn('⚠️ Could not check juhexbot status:', error)
+      logger.warn({ err: error }, 'Could not check juhexbot status')
     }
 
     // 7. 注册 webhook 到 juhexbot
     if (env.WEBHOOK_URL) {
       try {
-        console.log(`🔗 Registering webhook: ${env.WEBHOOK_URL}`)
+        logger.info({ webhookUrl: env.WEBHOOK_URL }, 'Registering webhook')
         await juhexbotAdapter.setNotifyUrl(env.WEBHOOK_URL)
-        console.log('✅ Webhook registered successfully')
+        logger.info('Webhook registered successfully')
       } catch (error) {
-        console.warn('⚠️ Could not register webhook:', error)
+        logger.warn({ err: error }, 'Could not register webhook')
       }
     } else {
-      console.warn('⚠️ WEBHOOK_URL not configured, skipping webhook registration')
+      logger.warn('WEBHOOK_URL not configured, skipping webhook registration')
     }
 
     // 8. 优雅关闭
     async function gracefulShutdown(signal: string) {
-      console.log(`\n${signal} received, shutting down gracefully...`)
+      logger.info({ signal }, 'Shutting down gracefully...')
       try {
         wsService.close()
-        console.log('✅ WebSocket connections closed')
+        logger.info('WebSocket connections closed')
         await databaseService.disconnect()
-        console.log('✅ Database disconnected')
-        console.log('👋 Shutdown complete')
+        logger.info('Database disconnected')
+        logger.info('Shutdown complete')
         process.exit(0)
       } catch (error) {
-        console.error('❌ Error during shutdown:', error)
+        logger.error({ err: error }, 'Error during shutdown')
         process.exit(1)
       }
     }
@@ -108,9 +109,9 @@ async function main() {
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
-    console.log('✅ Server is ready')
+    logger.info('Server is ready')
   } catch (error) {
-    console.error('❌ Failed to start server:', error)
+    logger.fatal({ err: error }, 'Failed to start server')
     process.exit(1)
   }
 }

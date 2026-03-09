@@ -14,6 +14,7 @@ import type { ConversationService } from './services/conversationService.js'
 import type { MessageService } from './services/message.js'
 import type { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import type { WebSocketService } from './services/websocket.js'
+import { logger } from './lib/logger.js'
 
 export interface AppDependencies {
   clientService: ClientService
@@ -47,11 +48,13 @@ export function createApp(deps: AppDependencies) {
   app.post('/webhook', async (c) => {
     try {
       const payload = await c.req.json()
+      logger.debug({ payload }, 'Webhook received')
       const parsed = deps.juhexbotAdapter.parseWebhookPayload(payload)
+      logger.debug({ notifyType: parsed.notifyType, msgType: parsed.message?.msgType, msgId: parsed.message?.msgId, from: parsed.message?.fromUsername }, 'Webhook parsed')
       await deps.messageService.handleIncomingMessage(parsed)
       return c.json({ success: true })
     } catch (error) {
-      console.error('Webhook error:', error)
+      logger.error({ err: error }, 'Webhook error')
       return c.json({ success: false, error: 'Internal error' }, 500)
     }
   })

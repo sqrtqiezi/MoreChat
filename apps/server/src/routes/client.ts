@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { ClientService } from '../services/clientService.js'
+import { logger } from '../lib/logger.js'
 
 interface ClientRouteDeps {
   clientService: ClientService
@@ -13,7 +14,7 @@ export function clientRoutes(deps: ClientRouteDeps) {
       const status = await deps.clientService.getStatus()
       return c.json({ success: true, data: status })
     } catch (error) {
-      console.error('Failed to get client status:', error)
+      logger.error({ err: error }, 'Failed to get client status')
       return c.json({ success: false, error: { message: 'Failed to get client status' } }, 500)
     }
   })

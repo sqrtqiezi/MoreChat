@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { MessageService } from '../services/message.js'
+import { logger } from '../lib/logger.js'
 
 interface MessageRouteDeps {
   messageService: MessageService
@@ -21,7 +22,7 @@ export function messageRoutes(deps: MessageRouteDeps) {
       const result = await deps.messageService.sendMessage(conversationId, content)
       return c.json({ success: true, data: result })
     } catch (error) {
-      console.error('Failed to send message:', error)
+      logger.error({ err: error }, 'Failed to send message')
       return c.json({ success: false, error: { message: 'Failed to send message' } }, 500)
     }
   })
