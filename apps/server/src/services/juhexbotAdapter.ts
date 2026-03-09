@@ -1,0 +1,93 @@
+export interface JuhexbotConfig {
+  apiUrl: string
+  appKey: string
+  appSecret: string
+  clientGuid: string
+}
+
+export interface ParsedWebhookPayload {
+  guid: string
+  notifyType: number
+  message: ParsedMessage
+}
+
+export interface ParsedMessage {
+  msgId: string
+  msgType: number
+  fromUsername: string
+  toUsername: string
+  chatroomSender: string
+  chatroom: string
+  content: string
+  desc: string
+  createTime: number
+  isChatroomMsg: boolean
+  source: string
+}
+
+export interface GatewayRequest<T = any> {
+  app_key: string
+  app_secret: string
+  path: string
+  data: T
+}
+
+export class JuhexbotAdapter {
+  private config: JuhexbotConfig
+
+  constructor(config: JuhexbotConfig) {
+    this.config = config
+  }
+
+  parseWebhookPayload(payload: any): ParsedWebhookPayload {
+    const data = payload.data
+
+    return {
+      guid: payload.guid,
+      notifyType: payload.notify_type,
+      message: {
+        msgId: data.msg_id,
+        msgType: data.msg_type,
+        fromUsername: data.from_username,
+        toUsername: data.to_username,
+        chatroomSender: data.chatroom_sender || '',
+        chatroom: data.chatroom || '',
+        content: data.content,
+        desc: data.desc || '',
+        createTime: data.create_time,
+        isChatroomMsg: data.is_chatroom_msg === 1,
+        source: data.source || ''
+      }
+    }
+  }
+
+  getConversationId(parsed: ParsedWebhookPayload): string {
+    if (parsed.message.isChatroomMsg) {
+      return parsed.message.chatroom
+    }
+    // 私聊：取对方的 username
+    if (parsed.message.fromUsername === this.config.clientGuid) {
+      return parsed.message.toUsername
+    }
+    return parsed.message.fromUsername
+  }
+
+  buildGatewayRequest<T>(path: string, data: T): GatewayRequest<T> {
+    return {
+      app_key: this.config.appKey,
+      app_secret: this.config.appSecret,
+      path,
+      data
+    }
+  }
+
+  async sendRequest<T>(path: string, data: T): Promise<any> {
+    const request = this.buildGatewayRequest(path, data)
+    const response = await fetch(this.config.apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    })
+    return response.json()
+  }
+}
