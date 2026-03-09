@@ -5,8 +5,9 @@ import { DatabaseService } from './services/database.js'
 import { MessageService } from './services/message.js'
 import { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import { WebSocketService } from './services/websocket.js'
+import { ClientService } from './services/clientService.js'
+import { ConversationService } from './services/conversationService.js'
 import { createApp } from './app.js'
-import type { ParsedWebhookPayload } from './services/juhexbotAdapter.js'
 
 // ============================================================================
 // 主函数
@@ -16,17 +17,15 @@ async function main() {
   try {
     console.log('🔧 Initializing services...')
 
-    // 1. Data Lake Service
+    // 1. 基础设施层
     const dataLakeService = new DataLakeService({
       type: env.DATA_LAKE_TYPE,
       path: env.DATA_LAKE_PATH
     })
 
-    // 2. Database Service
     const databaseService = new DatabaseService()
     await databaseService.connect()
 
-    // 3. Juhexbot Adapter
     const juhexbotAdapter = new JuhexbotAdapter({
       apiUrl: env.JUHEXBOT_API_URL,
       appKey: env.JUHEXBOT_APP_KEY,
@@ -34,56 +33,50 @@ async function main() {
       clientGuid: env.JUHEXBOT_CLIENT_GUID
     })
 
-    // 4. Message Service
-    const messageService = new MessageService(
-      databaseService,
-      dataLakeService,
-      juhexbotAdapter
-    )
+    // 2. 业务服务层
+    const clientService = new ClientService(juhexbotAdapter)
+    const conversationService = new ConversationService(databaseService, dataLakeService)
+    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter)
 
-    // 5. 创建消息处理器
-    async function handleWebhookMessage(parsed: ParsedWebhookPayload) {
-      try {
-        console.log('📨 Received message:', {
-          guid: parsed.guid,
-          msgId: parsed.message.msgId,
-          msgType: parsed.message.msgType,
-          from: parsed.message.fromUsername
-        })
-        await messageService.handleIncomingMessage(parsed)
-      } catch (error) {
-        console.error('❌ Failed to handle webhook message:', error)
-        throw error
-      }
-    }
+    // 3. 创建 HTTP 应用
+    // 注意：wsService 需要在 HTTP server 创建后才能初始化，用 getter 延迟访问
+    let wsService: WebSocketService
 
-    // 6. 创建 Hono App
-    const app = createApp(juhexbotAdapter, handleWebhookMessage)
+    const app = createApp({
+      clientService,
+      conversationService,
+      messageService,
+      juhexbotAdapter,
+      get wsService() { return wsService },
+      clientGuid: env.JUHEXBOT_CLIENT_GUID
+    } as any)
 
-    // 7. 启动 HTTP 服务器
+    // 4. 启动 HTTP 服务器
     const port = parseInt(env.PORT)
     console.log(`🚀 Starting server on http://localhost:${port}`)
 
-    const server = serve({
-      fetch: app.fetch,
-      port
-    })
+    const server = serve({ fetch: app.fetch, port })
 
-    // 8. 创建 WebSocket 服务
-    const wsService = new WebSocketService(server)
+    // 5. 创建 WebSocket 服务
+    wsService = new WebSocketService(server)
     console.log('✅ WebSocket service initialized')
 
-    // 9. 优雅关闭
+    // 6. 检查 juhexbot 状态
+    try {
+      const status = await clientService.getStatus()
+      console.log(`✅ juhexbot client: ${status.online ? 'online' : 'offline'}`)
+    } catch (error) {
+      console.warn('⚠️ Could not check juhexbot status:', error)
+    }
+
+    // 7. 优雅关闭
     async function gracefulShutdown(signal: string) {
       console.log(`\n${signal} received, shutting down gracefully...`)
-
       try {
         wsService.close()
         console.log('✅ WebSocket connections closed')
-
         await databaseService.disconnect()
         console.log('✅ Database disconnected')
-
         console.log('👋 Shutdown complete')
         process.exit(0)
       } catch (error) {
@@ -96,8 +89,6 @@ async function main() {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
     console.log('✅ Server is ready')
-
-    return { dataLakeService, databaseService, messageService, juhexbotAdapter, wsService }
   } catch (error) {
     console.error('❌ Failed to start server:', error)
     process.exit(1)
