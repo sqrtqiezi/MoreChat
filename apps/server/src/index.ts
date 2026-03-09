@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server'
+import type { Server } from 'http'
 import { env } from './lib/env.js'
 import { DataLakeService } from './services/dataLake.js'
 import { DatabaseService } from './services/database.js'
@@ -19,7 +20,7 @@ async function main() {
 
     // 1. 基础设施层
     const dataLakeService = new DataLakeService({
-      type: env.DATA_LAKE_TYPE,
+      type: env.DATA_LAKE_TYPE as 'filesystem',
       path: env.DATA_LAKE_PATH
     })
 
@@ -64,7 +65,7 @@ async function main() {
     const server = serve({ fetch: app.fetch, port })
 
     // 5. 创建 WebSocket 服务
-    wsService = new WebSocketService(server)
+    wsService = new WebSocketService(server as unknown as Server)
     console.log('✅ WebSocket service initialized')
 
     // 6. 检查 juhexbot 状态
