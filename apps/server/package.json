@@ -13,7 +13,8 @@
     "type-check": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "tsx scripts/seed-test-data.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.11.4",
