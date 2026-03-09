@@ -90,4 +90,33 @@ export class JuhexbotAdapter {
     })
     return response.json()
   }
+
+  async getClientStatus(): Promise<{ online: boolean; guid: string }> {
+    const result = await this.sendRequest('client/get_client_status', {
+      guid: this.config.clientGuid
+    })
+
+    if (result.error_code !== 0) {
+      throw new Error(result.error_message || 'Failed to get client status')
+    }
+
+    return {
+      online: result.data.status === 1,
+      guid: this.config.clientGuid
+    }
+  }
+
+  async sendTextMessage(toUsername: string, content: string): Promise<{ msgId: string }> {
+    const result = await this.sendRequest('message/send_text', {
+      guid: this.config.clientGuid,
+      to_username: toUsername,
+      content
+    })
+
+    if (result.error_code !== 0) {
+      throw new Error(result.error_message || 'Failed to send message')
+    }
+
+    return { msgId: result.data.msg_id }
+  }
 }

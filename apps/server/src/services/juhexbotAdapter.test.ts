@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { JuhexbotAdapter } from './juhexbotAdapter'
 import { textMessage, imageMessage, messageRecall, voiceCallMessage, appMessage } from '../../../../tests/fixtures/messages'
 
@@ -81,6 +81,80 @@ describe('JuhexbotAdapter', () => {
       expect(request.app_secret).toBe('test_secret')
       expect(request.path).toBe('/msg/send_text')
       expect(request.data.content).toBe('hello')
+    })
+  })
+
+  describe('getClientStatus', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should return online status when client is active', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          error_code: 0,
+          data: { status: 1, guid: 'test-guid-123' }
+        })
+      })
+
+      const result = await adapter.getClientStatus()
+      expect(result).toEqual({ online: true, guid: 'test-guid-123' })
+    })
+
+    it('should return offline status when client is inactive', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          error_code: 0,
+          data: { status: 0, guid: 'test-guid-123' }
+        })
+      })
+
+      const result = await adapter.getClientStatus()
+      expect(result).toEqual({ online: false, guid: 'test-guid-123' })
+    })
+
+    it('should throw error when API returns error', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          error_code: 1001,
+          error_message: 'Invalid credentials'
+        })
+      })
+
+      await expect(adapter.getClientStatus()).rejects.toThrow('Invalid credentials')
+    })
+  })
+
+  describe('sendTextMessage', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should send text message successfully', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          error_code: 0,
+          data: { msg_id: 'sent_msg_123' }
+        })
+      })
+
+      const result = await adapter.sendTextMessage('wxid_target', '你好')
+      expect(result).toEqual({ msgId: 'sent_msg_123' })
+
+      expect(fetch).toHaveBeenCalledWith('http://chat-api.juhebot.com/open/GuidRequest', expect.objectContaining({
+        method: 'POST'
+      }))
+    })
+
+    it('should throw error when send fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          error_code: 2001,
+          error_message: 'Client offline'
+        })
+      })
+
+      await expect(adapter.sendTextMessage('wxid_target', '你好')).rejects.toThrow('Client offline')
     })
   })
 })
