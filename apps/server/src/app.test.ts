@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { sign } from 'hono/jwt'
 import { createApp } from './app'
 import type { AppDependencies } from './app'
+
+const TEST_JWT_SECRET = 'test-jwt-secret'
+
+async function validToken() {
+  const now = Math.floor(Date.now() / 1000)
+  return sign({ iat: now, exp: now + 3600 }, TEST_JWT_SECRET)
+}
 
 describe('createApp', () => {
   let deps: AppDependencies
@@ -25,7 +33,11 @@ describe('createApp', () => {
         broadcast: vi.fn(),
         sendToClient: vi.fn()
       } as any,
-      clientGuid: 'test_guid'
+      clientGuid: 'test_guid',
+      auth: {
+        passwordHash: '$2a$10$some_test_hash',
+        jwtSecret: TEST_JWT_SECRET,
+      }
     }
   })
 
@@ -44,7 +56,10 @@ describe('createApp', () => {
     })
 
     const app = createApp(deps)
-    const res = await app.request('/api/client/status')
+    const token = await validToken()
+    const res = await app.request('/api/client/status', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
 
     expect(res.status).toBe(200)
   })
@@ -53,20 +68,71 @@ describe('createApp', () => {
     vi.mocked(deps.conversationService.list).mockResolvedValue([])
 
     const app = createApp(deps)
-    const res = await app.request('/api/conversations')
+    const token = await validToken()
+    const res = await app.request('/api/conversations', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
 
     expect(res.status).toBe(200)
   })
 
   it('should mount message routes', async () => {
     const app = createApp(deps)
+    const token = await validToken()
     const res = await app.request('/api/messages/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ conversationId: 'conv_1', content: 'test' })
     })
 
     // 即使 mock 返回 undefined，路由应该存在
     expect(res.status).not.toBe(404)
+  })
+
+  it('should reject /api/* requests without token', async () => {
+    const app = createApp(deps)
+    const res = await app.request('/api/client/status')
+
+    expect(res.status).toBe(401)
+  })
+
+  it('should allow /api/auth/login without token', async () => {
+    const app = createApp(deps)
+    const res = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'wrong-password' })
+    })
+
+    // Should not be 401 from middleware — the route itself may return 401 for wrong password,
+    // but that's the route logic, not the middleware blocking it
+    expect(res.status).not.toBe(404)
+  })
+
+  it('should allow /health without token', async () => {
+    const app = createApp(deps)
+    const res = await app.request('/health')
+
+    expect(res.status).toBe(200)
+  })
+
+  it('should allow /webhook without token', async () => {
+    vi.mocked(deps.juhexbotAdapter.parseWebhookPayload).mockReturnValue({
+      conversationId: 'conv_1',
+      content: 'hello',
+    } as any)
+    vi.mocked(deps.messageService.handleIncomingMessage).mockResolvedValue(undefined as any)
+
+    const app = createApp(deps)
+    const res = await app.request('/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'message', data: {} })
+    })
+
+    expect(res.status).toBe(200)
   })
 })

@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { authRoutes } from './routes/auth'
+import { authMiddleware } from './middleware/auth'
 import { clientRoutes } from './routes/client'
 import { conversationRoutes } from './routes/conversations'
 import { messageRoutes } from './routes/messages'
@@ -15,6 +17,10 @@ export interface AppDependencies {
   juhexbotAdapter: JuhexbotAdapter
   wsService: WebSocketService
   clientGuid: string
+  auth: {
+    passwordHash: string
+    jwtSecret: string
+  }
 }
 
 export function createApp(deps: AppDependencies) {
@@ -38,7 +44,16 @@ export function createApp(deps: AppDependencies) {
     }
   })
 
-  // Mount routes
+  // Auth login (no auth required — must be before middleware)
+  app.route('/api/auth', authRoutes({
+    passwordHash: deps.auth.passwordHash,
+    jwtSecret: deps.auth.jwtSecret,
+  }))
+
+  // JWT middleware for all /api/* routes (login is already matched above)
+  app.use('/api/*', authMiddleware(deps.auth.jwtSecret))
+
+  // Mount protected routes
   app.route('/api/client', clientRoutes({ clientService: deps.clientService }))
   app.route('/api/conversations', conversationRoutes({
     conversationService: deps.conversationService,

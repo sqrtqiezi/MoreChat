@@ -48,7 +48,11 @@ async function main() {
       messageService,
       juhexbotAdapter,
       get wsService() { return wsService },
-      clientGuid: env.JUHEXBOT_CLIENT_GUID
+      clientGuid: env.JUHEXBOT_CLIENT_GUID,
+      auth: {
+        passwordHash: env.AUTH_PASSWORD_HASH,
+        jwtSecret: env.AUTH_JWT_SECRET,
+      }
     } as any)
 
     // 4. 启动 HTTP 服务器
