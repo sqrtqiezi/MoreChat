@@ -82,7 +82,8 @@ export class JuhexbotAdapter {
   }
 
   async sendRequest<T>(path: string, data: T): Promise<any> {
-    const request = this.buildGatewayRequest(path, data)
+    const fullPath = path.startsWith('/') ? path : `/${path}`
+    const request = this.buildGatewayRequest(fullPath, data)
     const response = await fetch(this.config.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -92,12 +93,12 @@ export class JuhexbotAdapter {
   }
 
   async getClientStatus(): Promise<{ online: boolean; guid: string }> {
-    const result = await this.sendRequest('client/get_client_status', {
+    const result = await this.sendRequest('/client/get_client_status', {
       guid: this.config.clientGuid
     })
 
-    if (result.error_code !== 0) {
-      throw new Error(result.error_message || 'Failed to get client status')
+    if (result.errcode !== 0) {
+      throw new Error(result.err_msg || 'Failed to get client status')
     }
 
     return {
@@ -107,27 +108,27 @@ export class JuhexbotAdapter {
   }
 
   async sendTextMessage(toUsername: string, content: string): Promise<{ msgId: string }> {
-    const result = await this.sendRequest('message/send_text', {
+    const result = await this.sendRequest('/message/send_text', {
       guid: this.config.clientGuid,
       to_username: toUsername,
       content
     })
 
-    if (result.error_code !== 0) {
-      throw new Error(result.error_message || 'Failed to send message')
+    if (result.errcode !== 0) {
+      throw new Error(result.err_msg || 'Failed to send message')
     }
 
     return { msgId: result.data.msg_id }
   }
 
   async setNotifyUrl(notifyUrl: string): Promise<void> {
-    const result = await this.sendRequest('client/set_notify_url', {
+    const result = await this.sendRequest('/client/set_notify_url', {
       guid: this.config.clientGuid,
       notify_url: notifyUrl
     })
 
-    if (result.error_code !== 0) {
-      throw new Error(result.error_message || 'Failed to set notify URL')
+    if (result.errcode !== 0) {
+      throw new Error(result.err_msg || 'Failed to set notify URL')
     }
   }
 }

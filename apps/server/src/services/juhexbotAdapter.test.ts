@@ -92,7 +92,7 @@ describe('JuhexbotAdapter', () => {
     it('should return online status when client is active', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          error_code: 0,
+          errcode: 0,
           data: { status: 1, guid: 'test-guid-123' }
         })
       })
@@ -104,7 +104,7 @@ describe('JuhexbotAdapter', () => {
     it('should return offline status when client is inactive', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          error_code: 0,
+          errcode: 0,
           data: { status: 0, guid: 'test-guid-123' }
         })
       })
@@ -116,8 +116,8 @@ describe('JuhexbotAdapter', () => {
     it('should throw error when API returns error', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          error_code: 1001,
-          error_message: 'Invalid credentials'
+          errcode: 1001,
+          err_msg: 'Invalid credentials'
         })
       })
 
@@ -133,7 +133,7 @@ describe('JuhexbotAdapter', () => {
     it('should send text message successfully', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          error_code: 0,
+          errcode: 0,
           data: { msg_id: 'sent_msg_123' }
         })
       })
@@ -149,8 +149,8 @@ describe('JuhexbotAdapter', () => {
     it('should throw error when send fails', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          error_code: 2001,
-          error_message: 'Client offline'
+          errcode: 2001,
+          err_msg: 'Client offline'
         })
       })
 
@@ -166,7 +166,7 @@ describe('JuhexbotAdapter', () => {
     it('should set notify URL successfully', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          error_code: 0,
+          errcode: 0,
           data: {}
         })
       })
@@ -176,15 +176,15 @@ describe('JuhexbotAdapter', () => {
       expect(fetch).toHaveBeenCalledWith('http://chat-api.juhebot.com/open/GuidRequest', expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: expect.stringContaining('client/set_notify_url')
+        body: expect.stringContaining('/client/set_notify_url')
       }))
     })
 
     it('should throw error when setting notify URL fails', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          error_code: 3001,
-          error_message: 'Invalid URL format'
+          errcode: 3001,
+          err_msg: 'Invalid URL format'
         })
       })
 
