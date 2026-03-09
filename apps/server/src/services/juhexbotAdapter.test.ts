@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { JuhexbotAdapter } from './juhexbotAdapter.js'
-import { textMessage, imageMessage, messageRecall, voiceCallMessage, appMessage } from '../../../../tests/fixtures/messages.js.js'
+import { textMessage, imageMessage, messageRecall, voiceCallMessage, appMessage } from '../../../../tests/fixtures/messages.js'
 
 describe('JuhexbotAdapter', () => {
   const adapter = new JuhexbotAdapter({
