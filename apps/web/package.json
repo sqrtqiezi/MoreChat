@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.6.0",
+    "@morechat/ui": "workspace:*",
     "@tanstack/react-query": "^5.45.1",
     "@tanstack/react-virtual": "^3.13.21",
     "axios": "^1.7.2",
