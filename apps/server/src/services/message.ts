@@ -112,4 +112,61 @@ export class MessageService {
       contactId: contact?.id
     })
   }
+
+  async sendMessage(conversationId: string, content: string): Promise<{ msgId: string }> {
+    // 1. 获取会话信息
+    const conversation = await this.db.findConversationById(conversationId)
+    if (!conversation) {
+      throw new Error('Conversation not found')
+    }
+
+    // 2. 确定接收者
+    let toUsername: string
+    if (conversation.type === 'group') {
+      const group = await this.db.findGroupById(conversation.groupId!)
+      if (!group) throw new Error('Group not found')
+      toUsername = group.roomUsername
+    } else {
+      const contact = await this.db.findContactById(conversation.contactId!)
+      if (!contact) throw new Error('Contact not found')
+      toUsername = contact.username
+    }
+
+    // 3. 发送消息
+    const { msgId } = await this.adapter.sendTextMessage(toUsername, content)
+
+    // 4. 保存到 DataLake
+    const createTime = Math.floor(Date.now() / 1000)
+    const chatMessage: ChatMessage = {
+      msg_id: msgId,
+      from_username: '',
+      to_username: toUsername,
+      content,
+      create_time: createTime,
+      msg_type: 1,
+      chatroom_sender: '',
+      desc: '',
+      is_chatroom_msg: conversation.type === 'group' ? 1 : 0,
+      chatroom: conversation.type === 'group' ? toUsername : '',
+      source: ''
+    }
+
+    const dataLakeKey = await this.dataLake.saveMessage(conversationId, chatMessage)
+
+    // 5. 创建消息索引
+    await this.db.createMessageIndex({
+      conversationId,
+      msgId,
+      msgType: 1,
+      fromUsername: '',
+      toUsername,
+      createTime,
+      dataLakeKey
+    })
+
+    // 6. 更新会话最后消息时间
+    await this.db.updateConversationLastMessage(conversationId, new Date(createTime * 1000))
+
+    return { msgId }
+  }
 }

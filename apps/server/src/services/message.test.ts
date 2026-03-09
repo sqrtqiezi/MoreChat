@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { MessageService } from './message'
 import { DatabaseService } from './database'
 import { DataLakeService } from './dataLake'
@@ -76,5 +76,38 @@ describe('MessageService', () => {
     const changes = await db.getMessageStateChanges(messageRecall.data.msg_id)
     expect(changes).toHaveLength(1)
     expect(changes[0].changeType).toBe('recall')
+  })
+
+  describe('sendMessage', () => {
+    it('should send text message via adapter and save to DataLake', async () => {
+      // Mock adapter.sendTextMessage
+      vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'sent_123' })
+
+      // 创建联系人和会话
+      const contact = await db.createContact({
+        username: 'wxid_target',
+        nickname: 'Target User',
+        type: 'friend'
+      })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      const result = await messageService.sendMessage(conversation.id, '你好')
+
+      expect(result.msgId).toBe('sent_123')
+      expect(adapter.sendTextMessage).toHaveBeenCalledWith('wxid_target', '你好')
+
+      // 验证消息索引已创建
+      const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
+      expect(indexes.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('should throw error when conversation not found', async () => {
+      await expect(messageService.sendMessage('not_exist', '你好')).rejects.toThrow('Conversation not found')
+    })
   })
 })
