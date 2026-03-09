@@ -34,12 +34,23 @@ function loadEnv(): EnvConfig {
     }
   }
 
+  // 验证枚举值
+  const dataLakeType = process.env.DATA_LAKE_TYPE
+  if (!['filesystem', 's3', 'minio'].includes(dataLakeType!)) {
+    throw new Error(`DATA_LAKE_TYPE must be one of: filesystem, s3, minio`)
+  }
+
+  const nodeEnv = process.env.NODE_ENV
+  if (!['development', 'production', 'test'].includes(nodeEnv!)) {
+    throw new Error(`NODE_ENV must be one of: development, production, test`)
+  }
+
   return {
     DATABASE_URL: process.env.DATABASE_URL!,
-    DATA_LAKE_TYPE: process.env.DATA_LAKE_TYPE as any,
+    DATA_LAKE_TYPE: dataLakeType as 'filesystem' | 's3' | 'minio',
     DATA_LAKE_PATH: process.env.DATA_LAKE_PATH!,
     PORT: process.env.PORT!,
-    NODE_ENV: process.env.NODE_ENV as any,
+    NODE_ENV: nodeEnv as 'development' | 'production' | 'test',
     JUHEXBOT_API_URL: process.env.JUHEXBOT_API_URL!
   }
 }
