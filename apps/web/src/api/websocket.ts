@@ -129,9 +129,14 @@ class WebSocketClient {
   }
 }
 
-// Get WebSocket URL from environment variable or default
+// Get WebSocket URL from environment variable or derive from page location
 const getWebSocketUrl = () => {
-  return import.meta.env.VITE_WS_URL || 'ws://localhost:3100';
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+  // 同源部署：从当前页面 URL 推导 WebSocket URL
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}`;
 };
 
 // Singleton instance
