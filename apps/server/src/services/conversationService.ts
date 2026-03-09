@@ -35,7 +35,7 @@ export class ConversationService {
     const actualIndexes = hasMore ? indexes.slice(0, limit) : indexes
 
     const messages = await this.dataLake.getMessages(
-      actualIndexes.map(idx => idx.dataLakeKey)
+      actualIndexes.map((idx: { dataLakeKey: string }) => idx.dataLakeKey)
     )
 
     return { messages, hasMore }
