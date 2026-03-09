@@ -167,6 +167,35 @@ export class DatabaseService {
     })
   }
 
+  async findConversation(clientId: string, peerId: string) {
+    // 先按 contactId 查找私聊
+    const contact = await this.prisma.contact.findUnique({ where: { username: peerId } })
+    if (contact) {
+      const conv = await this.prisma.conversation.findFirst({
+        where: { clientId, contactId: contact.id }
+      })
+      if (conv) return conv
+    }
+
+    // 按 groupId 查找群聊
+    const group = await this.prisma.group.findUnique({ where: { roomUsername: peerId } })
+    if (group) {
+      const conv = await this.prisma.conversation.findFirst({
+        where: { clientId, groupId: group.id }
+      })
+      if (conv) return conv
+    }
+
+    return null
+  }
+
+  async updateConversationLastMessage(conversationId: string, lastMessageAt: Date) {
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt, updatedAt: new Date() }
+    })
+  }
+
   // --- MessageIndex ---
 
   async createMessageIndex(data: {
