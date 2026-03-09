@@ -16,9 +16,6 @@ interface EnvConfig {
   PORT: string
   NODE_ENV: 'development' | 'production' | 'test'
   JUHEXBOT_API_URL: string
-  JUHEXBOT_APP_KEY: string
-  JUHEXBOT_APP_SECRET: string
-  JUHEXBOT_CLIENT_GUID: string
 }
 
 function loadEnv(): EnvConfig {
@@ -28,10 +25,7 @@ function loadEnv(): EnvConfig {
     'DATA_LAKE_PATH',
     'PORT',
     'NODE_ENV',
-    'JUHEXBOT_API_URL',
-    'JUHEXBOT_APP_KEY',
-    'JUHEXBOT_APP_SECRET',
-    'JUHEXBOT_CLIENT_GUID'
+    'JUHEXBOT_API_URL'
   ]
 
   for (const key of required) {
@@ -46,10 +40,7 @@ function loadEnv(): EnvConfig {
     DATA_LAKE_PATH: process.env.DATA_LAKE_PATH!,
     PORT: process.env.PORT!,
     NODE_ENV: process.env.NODE_ENV as any,
-    JUHEXBOT_API_URL: process.env.JUHEXBOT_API_URL!,
-    JUHEXBOT_APP_KEY: process.env.JUHEXBOT_APP_KEY!,
-    JUHEXBOT_APP_SECRET: process.env.JUHEXBOT_APP_SECRET!,
-    JUHEXBOT_CLIENT_GUID: process.env.JUHEXBOT_CLIENT_GUID!
+    JUHEXBOT_API_URL: process.env.JUHEXBOT_API_URL!
   }
 }
 
