@@ -4,17 +4,74 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      full_setup:
-        description: '首次部署（安装系统依赖 + 初始化）'
-        required: false
-        type: boolean
-        default: false
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build project
+        run: pnpm build
+
+      - name: Generate Prisma Client
+        run: cd apps/server && pnpm prisma generate
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy-package
+          cp -r apps/server/dist deploy-package/
+          cp -r apps/web/dist deploy-package/web-dist
+          cp -r apps/server/prisma deploy-package/
+          cp package.json pnpm-lock.yaml pnpm-workspace.yaml deploy-package/
+          cp -r apps/server/package.json deploy-package/server-package.json
+          cp -r apps/web/package.json deploy-package/web-package.json
+          cp ecosystem.config.cjs deploy-package/
+          cp deploy/init-env.sh deploy-package/
+          tar czf deploy.tar.gz -C deploy-package .
+
+      - name: Check VPS firewall for port 8079
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            echo "🔍 Checking firewall status..."
+            if sudo firewall-cmd --list-ports | grep -q 8079; then
+              echo "✅ Port 8079 is already open"
+            else
+              echo "⚠️ Port 8079 not open, adding..."
+              sudo firewall-cmd --permanent --add-port=8079/tcp
+              sudo firewall-cmd --reload
+              echo "✅ Port 8079 opened"
+            fi
+
+      - name: Upload deployment package
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "deploy.tar.gz"
+          target: "/tmp/"
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
@@ -22,24 +79,26 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          envs: JUHEXBOT_APP_KEY,JUHEXBOT_APP_SECRET,JUHEXBOT_CLIENT_GUID,AUTH_PASSWORD_HASH,AUTH_JWT_SECRET,DATABASE_URL,DATA_LAKE_TYPE,DATA_LAKE_PATH,PORT,NODE_ENV,CORS_ORIGIN,JUHEXBOT_API_URL
+          envs: DATABASE_URL,DATA_LAKE_TYPE,DATA_LAKE_PATH,PORT,NODE_ENV,CORS_ORIGIN,JUHEXBOT_API_URL,JUHEXBOT_APP_KEY,JUHEXBOT_APP_SECRET,JUHEXBOT_CLIENT_GUID,AUTH_PASSWORD_HASH,AUTH_JWT_SECRET
           script: |
-            # 检测是否首次部署
-            if [ ! -d ~/morechat ]; then
-              echo "🚀 首次部署：克隆仓库..."
-              git clone ${{ secrets.REPO_URL || format('https://github.com/{0}.git', github.repository) }} ~/morechat
-              cd ~/morechat
+            set -e
 
-              echo "📦 安装系统依赖..."
-              bash deploy/setup.sh
-            else
-              echo "🔄 更新部署：拉取最新代码..."
-              cd ~/morechat
-              git pull origin main
-            fi
+            # 创建部署目录
+            mkdir -p ~/morechat/apps/server ~/morechat/apps/web
+
+            # 解压部署包
+            echo "📦 Extracting deployment package..."
+            cd ~/morechat
+            tar xzf /tmp/deploy.tar.gz
+            rm /tmp/deploy.tar.gz
+
+            # 恢复 package.json
+            mv server-package.json apps/server/package.json
+            mv web-package.json apps/web/package.json
+            mv web-dist apps/web/dist
 
             # 生成 .env 文件
-            echo "⚙️ 配置环境变量..."
+            echo "⚙️ Configuring environment..."
             export DATABASE_URL="${DATABASE_URL}"
             export DATA_LAKE_TYPE="${DATA_LAKE_TYPE}"
             export DATA_LAKE_PATH="${DATA_LAKE_PATH}"
@@ -52,16 +111,37 @@ jobs:
             export JUHEXBOT_CLIENT_GUID="${JUHEXBOT_CLIENT_GUID}"
             export AUTH_PASSWORD_HASH="${AUTH_PASSWORD_HASH}"
             export AUTH_JWT_SECRET="${AUTH_JWT_SECRET}"
-            bash deploy/init-env.sh
+            bash init-env.sh
 
-            # 构建和部署
-            echo "🔨 构建和部署..."
-            bash deploy/update.sh
+            # 安装生产依赖
+            echo "📦 Installing production dependencies..."
+            pnpm install --prod --frozen-lockfile
+
+            # 数据库迁移
+            echo "🗄️ Running database migration..."
+            cd apps/server
+            pnpm prisma migrate deploy
+            cd ../..
+
+            # 重启服务
+            echo "🔄 Restarting service..."
+            if pm2 list | grep -q morechat; then
+              pm2 restart morechat
+            else
+              pm2 start ecosystem.config.cjs
+              pm2 save
+            fi
 
             # 健康检查
-            echo "🏥 健康检查..."
+            echo "🏥 Health check..."
             sleep 5
-            curl -sf http://localhost:3100/health || echo "⚠️ Health check failed"
+            if curl -sf http://localhost:3100/health; then
+              echo "✅ Deployment successful!"
+            else
+              echo "⚠️ Health check failed"
+              pm2 logs morechat --lines 20 --nostream
+              exit 1
+            fi
         env:
           DATABASE_URL: ${{ secrets.ENV_DATABASE_URL }}
           DATA_LAKE_TYPE: ${{ secrets.ENV_DATA_LAKE_TYPE }}
