@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { ChatHeader } from './ChatHeader';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { mockMessages } from '../../utils/mockData';
 import { mockConversations } from '../../utils/mockData';
 
 interface ChatWindowProps {
@@ -14,18 +13,6 @@ export function ChatWindow({ selectedConversationId }: ChatWindowProps) {
   const selectedConversation = useMemo(() => {
     return mockConversations.find((c) => c.id === selectedConversationId);
   }, [selectedConversationId]);
-
-  // Filter messages for selected conversation
-  const messages = useMemo(() => {
-    if (!selectedConversationId) return [];
-    return mockMessages.filter((m) => m.conversationId === selectedConversationId);
-  }, [selectedConversationId]);
-
-  const handleSend = (content: string) => {
-    // For now, just clear the input (handled by MessageInput)
-    // In the future, this will send the message to the backend
-    console.log('Sending message:', content);
-  };
 
   // Empty state when no conversation selected
   if (!selectedConversationId || !selectedConversation) {
@@ -58,8 +45,8 @@ export function ChatWindow({ selectedConversationId }: ChatWindowProps) {
   return (
     <div className="flex-1 flex flex-col bg-white">
       <ChatHeader conversationName={selectedConversation.name} />
-      <MessageList messages={messages} />
-      <MessageInput onSend={handleSend} />
+      <MessageList conversationId={selectedConversationId} />
+      <MessageInput conversationId={selectedConversationId} />
     </div>
   );
 }

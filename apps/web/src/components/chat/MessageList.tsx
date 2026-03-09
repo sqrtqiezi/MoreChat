@@ -1,17 +1,18 @@
 import { useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Message } from '../../types';
 import { MessageItem } from './MessageItem';
+import { useMessages } from '../../hooks/useMessages';
 
 interface MessageListProps {
-  messages: Message[];
+  conversationId: string | null;
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ conversationId }: MessageListProps) {
+  const { data: messages, isLoading, error } = useMessages(conversationId);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
-    count: messages.length,
+    count: messages?.length || 0,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 80,
     overscan: 5,
@@ -22,9 +23,29 @@ export function MessageList({ messages }: MessageListProps) {
     if (parentRef.current) {
       parentRef.current.scrollTop = parentRef.current.scrollHeight;
     }
-  }, [messages.length]);
+  }, [messages?.length]);
 
-  if (messages.length === 0) {
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-400 text-sm">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500 text-sm">加载失败，请稍后重试</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!messages || messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">

@@ -1,6 +1,5 @@
 import { Sidebar } from '../components/layout/Sidebar';
 import { ChatWindow } from '../components/chat/ChatWindow';
-import { mockConversations } from '../utils/mockData';
 import { useChatStore } from '../stores/chatStore';
 
 export function ChatPage() {
@@ -8,7 +7,7 @@ export function ChatPage() {
 
   return (
     <div className="h-screen flex">
-      <Sidebar conversations={mockConversations} />
+      <Sidebar />
       <ChatWindow selectedConversationId={selectedConversationId} />
     </div>
   );
