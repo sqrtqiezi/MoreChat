@@ -1,18 +1,19 @@
-import { useMemo } from 'react';
 import { ChatHeader } from './ChatHeader';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { mockConversations } from '../../utils/mockData';
+import { useConversations } from '../../hooks/useConversations';
 
 interface ChatWindowProps {
   selectedConversationId: string | null;
 }
 
 export function ChatWindow({ selectedConversationId }: ChatWindowProps) {
-  // Find selected conversation
-  const selectedConversation = useMemo(() => {
-    return mockConversations.find((c) => c.id === selectedConversationId);
-  }, [selectedConversationId]);
+  const { data: conversations } = useConversations();
+
+  // Find selected conversation from real API data
+  const selectedConversation = conversations?.find(
+    (c) => c.id === selectedConversationId
+  );
 
   // Empty state when no conversation selected
   if (!selectedConversationId || !selectedConversation) {
@@ -50,4 +51,3 @@ export function ChatWindow({ selectedConversationId }: ChatWindowProps) {
     </div>
   );
 }
-

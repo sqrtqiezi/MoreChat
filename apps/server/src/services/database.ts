@@ -220,10 +220,11 @@ export class DatabaseService {
     })
   }
 
-  async getConversations(clientId: string, options: { limit?: number; offset?: number } = {}) {
+  async getConversations(clientGuid: string, options: { limit?: number; offset?: number } = {}) {
     const { limit = 50, offset = 0 } = options
     return this.prisma.conversation.findMany({
-      where: { clientId },
+      where: { client: { guid: clientGuid } },
+      include: { contact: true, group: true },
       orderBy: { lastMessageAt: 'desc' },
       take: limit,
       skip: offset
@@ -231,7 +232,10 @@ export class DatabaseService {
   }
 
   async findConversationById(id: string) {
-    return this.prisma.conversation.findUnique({ where: { id } })
+    return this.prisma.conversation.findUnique({
+      where: { id },
+      include: { contact: true, group: true }
+    })
   }
 
   async updateConversation(id: string, data: { unreadCount?: number }) {
