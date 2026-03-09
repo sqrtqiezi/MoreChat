@@ -53,24 +53,65 @@ morechat/
 
 ## 快速开始
 
-### 环境配置
+### 开发环境
 
-复制环境变量模板：
-
-```bash
-cp apps/server/.env.example apps/server/.env
-```
-
-编辑 `.env` 文件，配置必要的参数。
-
-### 启动开发服务器
+1. 安装依赖：
 
 ```bash
 pnpm install
+```
+
+2. 配置环境变量：
+
+```bash
+cp apps/server/.env.example apps/server/.env
+# 编辑 apps/server/.env 填入配置
+```
+
+3. 启动开发服务器：
+
+```bash
 pnpm dev
 ```
 
-服务器将在 http://localhost:3100 启动。
+前端：http://localhost:3000
+后端：http://localhost:3100
+
+### 生产部署
+
+详细部署配置说明请查看：[部署配置指南](docs/deployment-config-guide.md)
+
+快速部署到 VPS：
+
+```bash
+# 1. SSH 到 VPS
+ssh user@your-vps-ip
+
+# 2. 克隆仓库
+git clone https://github.com/your-username/MoreChat.git ~/morechat
+cd ~/morechat
+
+# 3. 运行初始化脚本
+bash deploy/setup.sh
+
+# 4. 配置环境变量（使用配置助手）
+bash deploy/configure.sh
+
+# 5. 启动服务
+bash deploy/update.sh
+```
+
+配置 GitHub Actions 自动部署：
+
+```bash
+# 设置 GitHub Secrets
+gh secret set VPS_HOST
+gh secret set VPS_USER
+gh secret set VPS_SSH_KEY < ~/.ssh/id_rsa
+
+# 之后每次 push 到 main 会自动部署
+git push origin main
+```
 
 ### 测试
 
