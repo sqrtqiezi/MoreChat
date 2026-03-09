@@ -3,7 +3,7 @@ import { MessageService } from './message'
 import { DatabaseService } from './database'
 import { DataLakeService } from './dataLake'
 import { JuhexbotAdapter } from './juhexbotAdapter'
-import { textMessage, messageRecall, appMessage } from '../../../../tests/fixtures/messages'
+import { textMessage, messageRecall, appMessage } from '../../../../tests/fixtures/messages.js'
 import fs from 'fs/promises'
 import path from 'path'
 

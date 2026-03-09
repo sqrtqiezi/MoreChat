@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { MessageService } from '../services/message'
+import type { MessageService } from '../services/message.js'
 
 interface MessageRouteDeps {
   messageService: MessageService
