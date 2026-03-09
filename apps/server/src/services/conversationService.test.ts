@@ -69,16 +69,20 @@ describe('ConversationService', () => {
         { dataLakeKey: 'key1', createTime: 1000 },
         { dataLakeKey: 'key2', createTime: 900 }
       ]
-      const mockMessages = [
-        { msg_id: 'msg1', content: 'hello' },
-        { msg_id: 'msg2', content: 'world' }
+      const mockRawMessages = [
+        { msg_id: 'msg1', msg_type: 1, from_username: 'user1', to_username: 'user2', content: 'hello', create_time: 1000 },
+        { msg_id: 'msg2', msg_type: 1, from_username: 'user2', to_username: 'user1', content: 'world', create_time: 900 }
+      ]
+      const expectedMessages = [
+        { msgId: 'msg1', msgType: 1, fromUsername: 'user1', toUsername: 'user2', content: 'hello', createTime: 1000, chatroomSender: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined },
+        { msgId: 'msg2', msgType: 1, fromUsername: 'user2', toUsername: 'user1', content: 'world', createTime: 900, chatroomSender: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined }
       ]
 
       vi.mocked(mockDb.getMessageIndexes).mockResolvedValue(mockIndexes)
-      vi.mocked(mockDataLake.getMessages).mockResolvedValue(mockMessages)
+      vi.mocked(mockDataLake.getMessages).mockResolvedValue(mockRawMessages)
 
       const result = await service.getMessages('conv_1', { limit: 50 })
-      expect(result.messages).toEqual(mockMessages)
+      expect(result.messages).toEqual(expectedMessages)
       expect(result.hasMore).toBe(false)
     })
 

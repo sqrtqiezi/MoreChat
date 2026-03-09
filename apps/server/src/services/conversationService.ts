@@ -34,9 +34,24 @@ export class ConversationService {
     const hasMore = indexes.length > limit
     const actualIndexes = hasMore ? indexes.slice(0, limit) : indexes
 
-    const messages = await this.dataLake.getMessages(
+    const rawMessages = await this.dataLake.getMessages(
       actualIndexes.map((idx: { dataLakeKey: string }) => idx.dataLakeKey)
     )
+
+    // 转换字段名：下划线 -> 驼峰
+    const messages = rawMessages.map((msg: any) => ({
+      msgId: msg.msg_id,
+      msgType: msg.msg_type,
+      fromUsername: msg.from_username,
+      toUsername: msg.to_username,
+      content: msg.content,
+      createTime: msg.create_time,
+      chatroomSender: msg.chatroom_sender,
+      desc: msg.desc,
+      isChatroomMsg: msg.is_chatroom_msg,
+      chatroom: msg.chatroom,
+      source: msg.source
+    }))
 
     return { messages, hasMore }
   }
