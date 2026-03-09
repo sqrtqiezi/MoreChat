@@ -81,7 +81,7 @@ export class JuhexbotAdapter {
     }
   }
 
-  async sendRequest<T>(path: string, data: T): Promise<any> {
+  async sendRequest<T>(path: string, data: T): Promise<{ errcode: number; errmsg: string; data: any }> {
     const fullPath = path.startsWith('/') ? path : `/${path}`
     const request = this.buildGatewayRequest(fullPath, data)
     const response = await fetch(this.config.apiUrl, {
@@ -89,7 +89,13 @@ export class JuhexbotAdapter {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request)
     })
-    return response.json()
+    const result = await response.json() as any
+    // juhexbot API 返回字段不统一，统一为 errcode/errmsg
+    return {
+      errcode: result.errcode ?? result.err_code ?? -1,
+      errmsg: result.err_msg ?? result.msg ?? '',
+      data: result.data
+    }
   }
 
   async getClientStatus(): Promise<{ online: boolean; guid: string }> {
@@ -98,7 +104,7 @@ export class JuhexbotAdapter {
     })
 
     if (result.errcode !== 0) {
-      throw new Error(result.err_msg || 'Failed to get client status')
+      throw new Error(result.errmsg || 'Failed to get client status')
     }
 
     return {
@@ -115,7 +121,7 @@ export class JuhexbotAdapter {
     })
 
     if (result.errcode !== 0) {
-      throw new Error(result.err_msg || 'Failed to send message')
+      throw new Error(result.errmsg || 'Failed to send message')
     }
 
     return { msgId: result.data.msg_id }
@@ -128,7 +134,7 @@ export class JuhexbotAdapter {
     })
 
     if (result.errcode !== 0) {
-      throw new Error(result.err_msg || 'Failed to set notify URL')
+      throw new Error(result.errmsg || 'Failed to set notify URL')
     }
   }
 }
