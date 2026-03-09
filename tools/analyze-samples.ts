@@ -21,7 +21,10 @@ async function analyzeSamples() {
     const filepath = path.join(samplesDir, file)
     const content = await fs.readFile(filepath, 'utf-8')
     const data = JSON.parse(content)
-    samples.push({ filename: file, data, msgType: data.msg_type })
+
+    // juhexbot 推送格式：外层有 guid 和 notify_type，实际消息在 data 字段中
+    const msgType = data.data?.msg_type || data.msg_type
+    samples.push({ filename: file, data, msgType })
   }
 
   // 按消息类型分组
@@ -70,7 +73,9 @@ function getMessageTypeName(type: number): string {
     43: 'Video',
     47: 'Emoji',
     49: 'App/Link/File',
+    51: 'Voice/Video Call',
     10000: 'System',
+    10002: 'Message Recall',
   }
   return types[type] || 'Unknown'
 }

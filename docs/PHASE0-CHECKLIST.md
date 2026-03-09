@@ -119,18 +119,34 @@ ngrok http 3100
 
 ### 5. 设置 juhexbot notify_url
 
-**重要：替换以下变量为你的实际值**
+**重要：juhexbot 使用统一网关模式，所有请求都发送到同一个地址**
 
 ```bash
-# 设置变量
-JUHEXBOT_API="http://your-juhexbot-api:8000"
+# 设置变量（替换为你的实际值）
+JUHEXBOT_API="https://chat-api.juhebot.com/open/GuidRequest"
+APP_KEY="your_app_key"
+APP_SECRET="your_app_secret"
 CLIENT_GUID="your-client-guid"
-NGROK_URL="https://abc123.ngrok.io"  # 从上一步获取
+NGROK_URL="https://abc123.ngrok.io"
 
 # 设置 notify_url
-curl -X POST "${JUHEXBOT_API}/client/set_notify_url" \
+curl -X POST "${JUHEXBOT_API}" \
   -H "Content-Type: application/json" \
-  -d "{\"guid\":\"${CLIENT_GUID}\",\"notify_url\":\"${NGROK_URL}/webhook\"}"
+  -d "{
+    \"app_key\": \"${APP_KEY}\",
+    \"app_secret\": \"${APP_SECRET}\",
+    \"path\": \"/client/set_notify_url\",
+    \"data\": {
+      \"guid\": \"${CLIENT_GUID}\",
+      \"notify_url\": \"${NGROK_URL}/webhook\"
+    }
+  }"
+```
+
+**说明：**
+- juhexbot API 使用统一网关，通过 `path` 参数指定具体操作
+- 每个请求都需要 `app_key` 和 `app_secret` 认证
+- 详细文档见：`docs/juhexbot-api-guide.md`
 ```
 
 ### 6. 发送测试消息

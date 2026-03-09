@@ -218,7 +218,7 @@ Expected: 显示类似 `https://abc123.ngrok.io -> http://localhost:3100`
 
 ```bash
 # 替换为你的实际值
-JUHEXBOT_API="http://your-juhexbot-api:8000"
+JUHEXBOT_API="https://chat-api.juhebot.com/open/GuidRequest"
 CLIENT_GUID="your-client-guid"
 NGROK_URL="https://abc123.ngrok.io"
 
