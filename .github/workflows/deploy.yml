@@ -109,7 +109,7 @@ jobs:
             export JUHEXBOT_CLIENT_GUID="${JUHEXBOT_CLIENT_GUID}"
             export AUTH_PASSWORD_HASH="${AUTH_PASSWORD_HASH}"
             export AUTH_JWT_SECRET="${AUTH_JWT_SECRET}"
-            bash deploy/init-env.sh
+            bash init-env.sh
 
             # 安装生产依赖
             echo "📦 Installing production dependencies..."

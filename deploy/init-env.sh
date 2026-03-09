@@ -4,8 +4,14 @@
 
 set -e
 
+# 如果脚本在 deploy/ 目录下，PROJECT_DIR 是上一级
+# 如果脚本在根目录，PROJECT_DIR 就是当前目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+if [ "$(basename "$SCRIPT_DIR")" = "deploy" ]; then
+  PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+else
+  PROJECT_DIR="$SCRIPT_DIR"
+fi
 ENV_FILE="$PROJECT_DIR/apps/server/.env"
 
 echo "Generating $ENV_FILE from environment variables..."
