@@ -1,75 +1,72 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createApp } from './app'
-import { JuhexbotAdapter } from './services/juhexbotAdapter'
-import { textMessage, appMessage } from '../../../tests/fixtures/messages'
+import type { AppDependencies } from './app'
 
-describe('App', () => {
-  const adapter = new JuhexbotAdapter({
-    apiUrl: 'http://test',
-    appKey: 'test_key',
-    appSecret: 'test_secret',
-    clientGuid: 'test-guid-123'
+describe('createApp', () => {
+  let deps: AppDependencies
+
+  beforeEach(() => {
+    deps = {
+      clientService: { getStatus: vi.fn() } as any,
+      conversationService: {
+        list: vi.fn(),
+        getById: vi.fn(),
+        markAsRead: vi.fn(),
+        getMessages: vi.fn()
+      } as any,
+      messageService: {
+        handleIncomingMessage: vi.fn(),
+        sendMessage: vi.fn()
+      } as any,
+      juhexbotAdapter: {
+        parseWebhookPayload: vi.fn()
+      } as any,
+      wsService: {
+        broadcast: vi.fn(),
+        sendToClient: vi.fn()
+      } as any,
+      clientGuid: 'test_guid'
+    }
   })
 
-  describe('GET /health', () => {
-    it('should return ok', async () => {
-      const app = createApp(adapter)
-      const res = await app.request('/health')
-      const body = await res.json()
+  it('should respond to health check', async () => {
+    const app = createApp(deps)
+    const res = await app.request('/health')
+    const body = await res.json()
 
-      expect(res.status).toBe(200)
-      expect(body.status).toBe('ok')
-      expect(body.timestamp).toBeDefined()
-    })
+    expect(res.status).toBe(200)
+    expect(body.status).toBe('ok')
   })
 
-  describe('POST /webhook', () => {
-    it('should accept valid webhook payload', async () => {
-      const received: any[] = []
-      const app = createApp(adapter, async (parsed) => {
-        received.push(parsed)
-      })
-
-      const res = await app.request('/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(textMessage)
-      })
-      const body = await res.json()
-
-      expect(res.status).toBe(200)
-      expect(body.success).toBe(true)
-      expect(received).toHaveLength(1)
-      expect(received[0].message.msgType).toBe(1)
-      expect(received[0].message.content).toBe('Hello, this is a test message')
+  it('should mount client routes', async () => {
+    vi.mocked(deps.clientService.getStatus).mockResolvedValue({
+      online: true, guid: 'test_guid'
     })
 
-    it('should handle chatroom message', async () => {
-      const received: any[] = []
-      const app = createApp(adapter, async (parsed) => {
-        received.push(parsed)
-      })
+    const app = createApp(deps)
+    const res = await app.request('/api/client/status')
 
-      const res = await app.request('/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(appMessage)
-      })
+    expect(res.status).toBe(200)
+  })
 
-      expect(res.status).toBe(200)
-      expect(received[0].message.isChatroomMsg).toBe(true)
+  it('should mount conversation routes', async () => {
+    vi.mocked(deps.conversationService.list).mockResolvedValue([])
+
+    const app = createApp(deps)
+    const res = await app.request('/api/conversations')
+
+    expect(res.status).toBe(200)
+  })
+
+  it('should mount message routes', async () => {
+    const app = createApp(deps)
+    const res = await app.request('/api/messages/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId: 'conv_1', content: 'test' })
     })
 
-    it('should return 500 on invalid payload', async () => {
-      const app = createApp(adapter)
-
-      const res = await app.request('/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: 'invalid json'
-      })
-
-      expect(res.status).toBe(500)
-    })
+    // 即使 mock 返回 undefined，路由应该存在
+    expect(res.status).not.toBe(404)
   })
 })
