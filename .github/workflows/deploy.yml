@@ -15,35 +15,38 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: First-time setup
-        if: github.event.inputs.full_setup == 'true'
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          envs: JUHEXBOT_APP_KEY,JUHEXBOT_APP_SECRET,JUHEXBOT_CLIENT_GUID,AUTH_PASSWORD_HASH,AUTH_JWT_SECRET,DATABASE_URL,DATA_LAKE_TYPE,DATA_LAKE_PATH,PORT,NODE_ENV,CORS_ORIGIN,JUHEXBOT_API_URL
           script: |
-            # 克隆仓库（如果不存在）
+            # 检测是否首次部署
             if [ ! -d ~/morechat ]; then
+              echo "🚀 首次部署：克隆仓库..."
               git clone ${{ secrets.REPO_URL || format('https://github.com/{0}.git', github.repository) }} ~/morechat
-            fi
-            cd ~/morechat
-            git pull origin main
-            bash deploy/setup.sh
+              cd ~/morechat
 
-      - name: Generate .env and deploy
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          envs: JUHEXBOT_APP_KEY,JUHEXBOT_APP_SECRET,JUHEXBOT_CLIENT_GUID,AUTH_PASSWORD_HASH,AUTH_JWT_SECRET
-          script: |
-            cd ~/morechat
+              echo "📦 安装系统依赖..."
+              bash deploy/setup.sh
+            else
+              echo "🔄 更新部署：拉取最新代码..."
+              cd ~/morechat
+              git pull origin main
+            fi
 
             # 生成 .env 文件
+            echo "⚙️ 配置环境变量..."
+            export DATABASE_URL="${DATABASE_URL}"
+            export DATA_LAKE_TYPE="${DATA_LAKE_TYPE}"
+            export DATA_LAKE_PATH="${DATA_LAKE_PATH}"
+            export PORT="${PORT}"
+            export NODE_ENV="${NODE_ENV}"
+            export CORS_ORIGIN="${CORS_ORIGIN}"
+            export JUHEXBOT_API_URL="${JUHEXBOT_API_URL}"
             export JUHEXBOT_APP_KEY="${JUHEXBOT_APP_KEY}"
             export JUHEXBOT_APP_SECRET="${JUHEXBOT_APP_SECRET}"
             export JUHEXBOT_CLIENT_GUID="${JUHEXBOT_CLIENT_GUID}"
@@ -51,15 +54,24 @@ jobs:
             export AUTH_JWT_SECRET="${AUTH_JWT_SECRET}"
             bash deploy/init-env.sh
 
-            # 部署
+            # 构建和部署
+            echo "🔨 构建和部署..."
             bash deploy/update.sh
 
             # 健康检查
-            sleep 3
+            echo "🏥 健康检查..."
+            sleep 5
             curl -sf http://localhost:3100/health || echo "⚠️ Health check failed"
         env:
-          JUHEXBOT_APP_KEY: ${{ secrets.JUHEXBOT_APP_KEY }}
-          JUHEXBOT_APP_SECRET: ${{ secrets.JUHEXBOT_APP_SECRET }}
-          JUHEXBOT_CLIENT_GUID: ${{ secrets.JUHEXBOT_CLIENT_GUID }}
-          AUTH_PASSWORD_HASH: ${{ secrets.AUTH_PASSWORD_HASH }}
-          AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
+          DATABASE_URL: ${{ secrets.ENV_DATABASE_URL }}
+          DATA_LAKE_TYPE: ${{ secrets.ENV_DATA_LAKE_TYPE }}
+          DATA_LAKE_PATH: ${{ secrets.ENV_DATA_LAKE_PATH }}
+          PORT: ${{ secrets.ENV_PORT }}
+          NODE_ENV: ${{ secrets.ENV_NODE_ENV }}
+          CORS_ORIGIN: ${{ secrets.ENV_CORS_ORIGIN }}
+          JUHEXBOT_API_URL: ${{ secrets.ENV_JUHEXBOT_API_URL }}
+          JUHEXBOT_APP_KEY: ${{ secrets.ENV_JUHEXBOT_APP_KEY }}
+          JUHEXBOT_APP_SECRET: ${{ secrets.ENV_JUHEXBOT_APP_SECRET }}
+          JUHEXBOT_CLIENT_GUID: ${{ secrets.ENV_JUHEXBOT_CLIENT_GUID }}
+          AUTH_PASSWORD_HASH: ${{ secrets.ENV_AUTH_PASSWORD_HASH }}
+          AUTH_JWT_SECRET: ${{ secrets.ENV_AUTH_JWT_SECRET }}
