@@ -54,6 +54,7 @@ async function main() {
         jwtSecret: env.AUTH_JWT_SECRET,
       },
       corsOrigin: env.CORS_ORIGIN,
+      nodeEnv: env.NODE_ENV,
     } as any)
 
     // 4. 启动 HTTP 服务器

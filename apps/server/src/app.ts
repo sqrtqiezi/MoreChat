@@ -1,5 +1,9 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { serveStatic } from '@hono/node-server/serve-static'
+import path from 'path'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
 import { authRoutes } from './routes/auth'
 import { authMiddleware } from './middleware/auth'
 import { clientRoutes } from './routes/client'
@@ -23,6 +27,7 @@ export interface AppDependencies {
     jwtSecret: string
   }
   corsOrigin?: string
+  nodeEnv?: string
 }
 
 export function createApp(deps: AppDependencies) {
@@ -67,6 +72,23 @@ export function createApp(deps: AppDependencies) {
     clientGuid: deps.clientGuid
   }))
   app.route('/api/messages', messageRoutes({ messageService: deps.messageService }))
+
+  // 生产环境：serve 前端静态文件
+  if (deps.nodeEnv === 'production') {
+    const __filename = fileURLToPath(import.meta.url)
+    const __dirname = path.dirname(__filename)
+    // 构建后路径: apps/server/dist/app.js → apps/web/dist/
+    const webDistPath = path.resolve(__dirname, '../../web/dist')
+
+    app.use('/*', serveStatic({ root: webDistPath }))
+
+    // SPA fallback: 所有未匹配路由返回 index.html
+    app.get('*', (c) => {
+      const indexPath = path.join(webDistPath, 'index.html')
+      const html = fs.readFileSync(indexPath, 'utf-8')
+      return c.html(html)
+    })
+  }
 
   return app
 }
