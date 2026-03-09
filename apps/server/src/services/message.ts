@@ -75,12 +75,17 @@ export class MessageService {
   private async ensureContact(username: string): Promise<void> {
     const existing = await this.db.findContactByUsername(username)
     if (!existing) {
-      const type = username.endsWith('@chatroom') ? 'group' : 'friend'
-      await this.db.createContact({
-        username,
-        nickname: username,
-        type
-      })
+      try {
+        const type = username.endsWith('@chatroom') ? 'group' : 'friend'
+        await this.db.createContact({
+          username,
+          nickname: username,
+          type
+        })
+      } catch (error: any) {
+        // 并发创建时忽略 unique constraint 冲突
+        if (error?.code !== 'P2002') throw error
+      }
     }
   }
 
