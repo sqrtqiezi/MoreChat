@@ -90,11 +90,13 @@ jobs:
             tar xzf /tmp/deploy.tar.gz
             rm /tmp/deploy.tar.gz
 
-            # 恢复 package.json
+            # 恢复 package.json 和目录结构
             mv server-package.json apps/server/package.json
             mv web-package.json apps/web/package.json
             rm -rf apps/web/dist
             mv web-dist apps/web/dist
+            mv prisma apps/server/prisma
+            mv dist apps/server/dist
 
             # 生成 .env 文件
             echo "⚙️ Configuring environment..."
