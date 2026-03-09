@@ -28,6 +28,13 @@ async function main() {
     const databaseService = new DatabaseService()
     await databaseService.connect()
 
+    // 确保 client 记录存在
+    const existingClient = await databaseService.findClientByGuid(env.JUHEXBOT_CLIENT_GUID)
+    if (!existingClient) {
+      await databaseService.createClient({ guid: env.JUHEXBOT_CLIENT_GUID })
+      logger.info({ guid: env.JUHEXBOT_CLIENT_GUID }, 'Client record created')
+    }
+
     const juhexbotAdapter = new JuhexbotAdapter({
       apiUrl: env.JUHEXBOT_API_URL,
       appKey: env.JUHEXBOT_APP_KEY,
