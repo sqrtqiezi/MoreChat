@@ -1,0 +1,140 @@
+// This is your Prisma schema file
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 客户端实例
+model Client {
+  id             String   @id @default(cuid())
+  guid           String   @unique
+  proxy          String?
+  isLoginProxy   Boolean  @default(false)
+  bridge         String?
+  syncHistoryMsg Boolean  @default(true)
+  autoStart      Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  loginStatus    String   @default("offline")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversations Conversation[]
+}
+
+// 联系人
+model Contact {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  nickname  String
+  remark    String?
+  avatar    String?
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversations Conversation[]
+  groupMembers  GroupMember[]
+
+  @@index([nickname])
+}
+
+// 群组
+model Group {
+  id           String   @id @default(cuid())
+  roomUsername String   @unique
+  name         String
+  avatar       String?
+  memberCount  Int      @default(0)
+  version      Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  conversations Conversation[]
+  members       GroupMember[]
+
+  @@index([name])
+}
+
+// 群成员
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  username  String
+  nickname  String?
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [username], references: [username])
+
+  @@unique([groupId, username])
+  @@index([groupId])
+  @@index([username])
+}
+
+// 会话
+model Conversation {
+  id            String    @id @default(cuid())
+  clientId      String
+  type          String
+  contactId     String?
+  groupId       String?
+  unreadCount   Int       @default(0)
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  client         Client         @relation(fields: [clientId], references: [id])
+  contact        Contact?       @relation(fields: [contactId], references: [id])
+  group          Group?         @relation(fields: [groupId], references: [id])
+  messageIndexes MessageIndex[]
+
+  @@index([clientId])
+  @@index([contactId])
+  @@index([groupId])
+  @@index([lastMessageAt])
+  @@index([clientId, lastMessageAt])
+}
+
+// 消息索引
+model MessageIndex {
+  id             String   @id @default(cuid())
+  conversationId String
+  msgId          String   @unique
+  msgType        Int
+  fromUsername   String
+  toUsername     String
+  chatroomSender String?
+  createTime     Int
+  dataLakeKey    String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@index([createTime])
+  @@index([conversationId, createTime])
+  @@index([fromUsername])
+  @@index([toUsername])
+}
+
+// 消息状态变更
+model MessageStateChange {
+  id         String   @id @default(cuid())
+  msgId      String
+  changeType String
+  changeTime Int
+  changeData String?
+  createdAt  DateTime @default(now())
+
+  @@index([msgId])
+  @@index([changeTime])
+  @@index([msgId, changeTime])
+}
