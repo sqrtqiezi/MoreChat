@@ -12,6 +12,8 @@
     "lint": "eslint . --ext ts",
     "type-check": "tsc --noEmit",
     "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/seed-test-data.ts",
