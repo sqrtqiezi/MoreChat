@@ -1,8 +1,10 @@
-import { PrismaClient } from '@prisma/client'
+import pkg from '@prisma/client'
+const { PrismaClient } = pkg
+type PrismaClientType = InstanceType<typeof PrismaClient>
 
 // 全局类型声明
 declare global {
-  var __morechatPrismaClient: PrismaClient | undefined
+  var __morechatPrismaClient: PrismaClientType | undefined
 }
 
 // 创建 Prisma Client 实例的工厂函数

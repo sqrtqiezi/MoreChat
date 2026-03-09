@@ -124,6 +124,14 @@ class WebSocketClient {
     this.messageHandlers.delete(handler);
   }
 
+  onConnect(callback: () => void) {
+    this.onConnectCallback = callback;
+  }
+
+  onDisconnect(callback: () => void) {
+    this.onDisconnectCallback = callback;
+  }
+
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
   }

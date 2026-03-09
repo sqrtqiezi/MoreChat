@@ -19,6 +19,10 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   useEffect(() => {
     const wsClient = getWebSocketClient();
 
+    // Register connect/disconnect callbacks
+    wsClient.onConnect(handleConnect);
+    wsClient.onDisconnect(handleDisconnect);
+
     // Add message handler if provided
     const messageHandler = options?.onMessage;
     if (messageHandler) {
@@ -36,8 +40,6 @@ export function useWebSocket(options?: UseWebSocketOptions) {
       if (messageHandler) {
         wsClient.removeMessageHandler(messageHandler);
       }
-      // Note: We don't disconnect here because the WebSocket client is a singleton
-      // and may be used by other components. It will be cleaned up when the app unmounts.
     };
   }, [options?.onMessage, handleConnect, handleDisconnect]);
 
