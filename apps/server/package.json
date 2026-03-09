@@ -7,20 +7,30 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
     "lint": "eslint . --ext ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
-    "hono": "^4.4.9",
     "@hono/node-server": "^1.11.4",
+    "@morechat/types": "workspace:*",
+    "@prisma/client": "^7.4.2",
+    "dotenv": "^17.3.1",
+    "hono": "^4.4.9",
+    "prisma": "^7.4.2",
     "ws": "^8.17.1",
-    "zod": "^3.23.8",
-    "@morechat/types": "workspace:*"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",
     "@types/ws": "^8.5.10",
+    "@vitest/ui": "^4.0.18",
+    "tsx": "^4.15.7",
     "typescript": "^5.5.3",
-    "tsx": "^4.15.7"
+    "vitest": "^4.0.18"
   }
 }
