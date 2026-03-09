@@ -20,6 +20,7 @@
     "@hono/node-server": "^1.11.4",
     "@morechat/types": "workspace:*",
     "@prisma/client": "^5.0.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.3.1",
     "hono": "^4.4.9",
     "prisma": "^5.0.0",
@@ -27,6 +28,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20.14.9",
     "@types/ws": "^8.5.10",
     "@vitest/ui": "^4.0.18",
