@@ -119,4 +119,15 @@ export class JuhexbotAdapter {
 
     return { msgId: result.data.msg_id }
   }
+
+  async setNotifyUrl(notifyUrl: string): Promise<void> {
+    const result = await this.sendRequest('client/set_notify_url', {
+      guid: this.config.clientGuid,
+      notify_url: notifyUrl
+    })
+
+    if (result.error_code !== 0) {
+      throw new Error(result.error_message || 'Failed to set notify URL')
+    }
+  }
 }

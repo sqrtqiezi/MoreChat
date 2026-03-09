@@ -76,7 +76,20 @@ async function main() {
       console.warn('⚠️ Could not check juhexbot status:', error)
     }
 
-    // 7. 优雅关闭
+    // 7. 注册 webhook 到 juhexbot
+    if (env.WEBHOOK_URL) {
+      try {
+        console.log(`🔗 Registering webhook: ${env.WEBHOOK_URL}`)
+        await juhexbotAdapter.setNotifyUrl(env.WEBHOOK_URL)
+        console.log('✅ Webhook registered successfully')
+      } catch (error) {
+        console.warn('⚠️ Could not register webhook:', error)
+      }
+    } else {
+      console.warn('⚠️ WEBHOOK_URL not configured, skipping webhook registration')
+    }
+
+    // 8. 优雅关闭
     async function gracefulShutdown(signal: string) {
       console.log(`\n${signal} received, shutting down gracefully...`)
       try {

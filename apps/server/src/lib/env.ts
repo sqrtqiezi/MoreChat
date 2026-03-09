@@ -19,6 +19,7 @@ interface EnvConfig {
   JUHEXBOT_APP_KEY: string
   JUHEXBOT_APP_SECRET: string
   JUHEXBOT_CLIENT_GUID: string
+  WEBHOOK_URL?: string
   AUTH_PASSWORD_HASH: string
   AUTH_JWT_SECRET: string
   CORS_ORIGIN?: string
@@ -66,6 +67,7 @@ function loadEnv(): EnvConfig {
     JUHEXBOT_APP_KEY: process.env.JUHEXBOT_APP_KEY!,
     JUHEXBOT_APP_SECRET: process.env.JUHEXBOT_APP_SECRET!,
     JUHEXBOT_CLIENT_GUID: process.env.JUHEXBOT_CLIENT_GUID!,
+    WEBHOOK_URL: process.env.WEBHOOK_URL,
     AUTH_PASSWORD_HASH: process.env.AUTH_PASSWORD_HASH!,
     AUTH_JWT_SECRET: process.env.AUTH_JWT_SECRET!,
     CORS_ORIGIN: process.env.CORS_ORIGIN

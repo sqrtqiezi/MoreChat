@@ -157,4 +157,38 @@ describe('JuhexbotAdapter', () => {
       await expect(adapter.sendTextMessage('wxid_target', '你好')).rejects.toThrow('Client offline')
     })
   })
+
+  describe('setNotifyUrl', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should set notify URL successfully', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          error_code: 0,
+          data: {}
+        })
+      })
+
+      await adapter.setNotifyUrl('https://example.com/webhook')
+
+      expect(fetch).toHaveBeenCalledWith('http://chat-api.juhebot.com/open/GuidRequest', expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: expect.stringContaining('client/set_notify_url')
+      }))
+    })
+
+    it('should throw error when setting notify URL fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          error_code: 3001,
+          error_message: 'Invalid URL format'
+        })
+      })
+
+      await expect(adapter.setNotifyUrl('invalid-url')).rejects.toThrow('Invalid URL format')
+    })
+  })
 })
