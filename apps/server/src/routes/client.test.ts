@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
-import { clientRoutes } from './client'
-import type { ClientService } from '../services/clientService.js'
+import { clientRoutes } from './client.js'
+import type { ClientService } from '../services/clientService.js.js'
 
 describe('client routes', () => {
   let app: Hono

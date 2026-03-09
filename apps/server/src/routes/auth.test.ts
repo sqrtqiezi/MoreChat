@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Hono } from 'hono'
-import { authRoutes } from './auth'
+import { authRoutes } from './auth.js'
 
 // bcrypt hash of "test123"
 const TEST_HASH = '$2b$10$7C0HdyN1MmsEDq1N5ig5Tu/T/iwa4m0xv10LII5kr5vcQ6ThHdpIK'

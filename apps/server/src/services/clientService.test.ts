@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ClientService } from './clientService'
-import type { JuhexbotAdapter } from './juhexbotAdapter'
+import { ClientService } from './clientService.js'
+import type { JuhexbotAdapter } from './juhexbotAdapter.js'
 
 describe('ClientService', () => {
   let clientService: ClientService

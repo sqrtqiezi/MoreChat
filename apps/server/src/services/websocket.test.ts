@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { WebSocketService } from './websocket.js'
+import { WebSocketService } from './websocket.js.js'
 import { createServer } from 'http'
 import WebSocket from 'ws'
 

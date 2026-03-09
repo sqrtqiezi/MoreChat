@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { prisma as globalPrisma, createPrismaClient } from '../lib/prisma.js'
+import { prisma as globalPrisma, createPrismaClient } from '../lib/prisma.js.js'
 
 export class DatabaseService {
   private prisma: PrismaClient

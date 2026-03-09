@@ -1,6 +1,6 @@
-import type { DatabaseService } from './database'
-import type { DataLakeService, ChatMessage } from './dataLake'
-import type { JuhexbotAdapter, ParsedWebhookPayload } from './juhexbotAdapter'
+import type { DatabaseService } from './database.js'
+import type { DataLakeService, ChatMessage } from './dataLake.js'
+import type { JuhexbotAdapter, ParsedWebhookPayload } from './juhexbotAdapter.js'
 
 export class MessageService {
   constructor(

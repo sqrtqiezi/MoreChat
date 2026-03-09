@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ConversationService } from './conversationService'
-import type { DatabaseService } from './database'
-import type { DataLakeService } from './dataLake'
+import { ConversationService } from './conversationService.js'
+import type { DatabaseService } from './database.js'
+import type { DataLakeService } from './dataLake.js'
 
 describe('ConversationService', () => {
   let service: ConversationService

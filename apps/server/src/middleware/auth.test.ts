@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { sign } from 'hono/jwt'
-import { authMiddleware } from './auth'
+import { authMiddleware } from './auth.js'
 
 const JWT_SECRET = 'test-jwt-secret'
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { DatabaseService } from './database'
+import { DatabaseService } from './database.js'
 import fs from 'fs/promises'
 import path from 'path'
 

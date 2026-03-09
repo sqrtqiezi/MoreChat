@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { sign } from 'hono/jwt'
-import { createApp } from './app'
-import type { AppDependencies } from './app'
+import { createApp } from './app.js'
+import type { AppDependencies } from './app.js'
 
 const TEST_JWT_SECRET = 'test-jwt-secret'
 

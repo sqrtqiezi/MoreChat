@@ -1,4 +1,4 @@
-import type { JuhexbotAdapter } from './juhexbotAdapter'
+import type { JuhexbotAdapter } from './juhexbotAdapter.js'
 
 export class ClientService {
   constructor(private adapter: JuhexbotAdapter) {}

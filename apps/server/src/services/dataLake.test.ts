@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { DataLakeService } from './dataLake'
+import { DataLakeService } from './dataLake.js'
 import fs from 'fs/promises'
 
 describe('DataLakeService', () => {

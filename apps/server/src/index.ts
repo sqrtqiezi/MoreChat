@@ -1,14 +1,14 @@
 import { serve } from '@hono/node-server'
 import type { Server } from 'http'
-import { env } from './lib/env.js'
-import { DataLakeService } from './services/dataLake.js'
-import { DatabaseService } from './services/database.js'
-import { MessageService } from './services/message.js'
-import { JuhexbotAdapter } from './services/juhexbotAdapter.js'
-import { WebSocketService } from './services/websocket.js'
-import { ClientService } from './services/clientService.js'
-import { ConversationService } from './services/conversationService.js'
-import { createApp } from './app.js'
+import { env } from './lib/env.js.js'
+import { DataLakeService } from './services/dataLake.js.js'
+import { DatabaseService } from './services/database.js.js'
+import { MessageService } from './services/message.js.js'
+import { JuhexbotAdapter } from './services/juhexbotAdapter.js.js'
+import { WebSocketService } from './services/websocket.js.js'
+import { ClientService } from './services/clientService.js.js'
+import { ConversationService } from './services/conversationService.js.js'
+import { createApp } from './app.js.js'
 
 // ============================================================================
 // 主函数

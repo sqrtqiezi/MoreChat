@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { ClientService } from '../services/clientService.js'
+import type { ClientService } from '../services/clientService.js.js'
 
 interface ClientRouteDeps {
   clientService: ClientService

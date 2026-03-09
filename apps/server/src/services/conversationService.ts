@@ -1,5 +1,5 @@
-import type { DatabaseService } from './database'
-import type { DataLakeService, ChatMessage } from './dataLake'
+import type { DatabaseService } from './database.js'
+import type { DataLakeService, ChatMessage } from './dataLake.js'
 
 export class ConversationService {
   constructor(

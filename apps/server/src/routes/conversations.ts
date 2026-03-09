@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { ConversationService } from '../services/conversationService.js'
+import type { ConversationService } from '../services/conversationService.js.js'
 
 interface ConversationRouteDeps {
   conversationService: ConversationService
