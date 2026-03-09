@@ -93,6 +93,7 @@ jobs:
             # 恢复 package.json
             mv server-package.json apps/server/package.json
             mv web-package.json apps/web/package.json
+            rm -rf apps/web/dist
             mv web-dist apps/web/dist
 
             # 生成 .env 文件
