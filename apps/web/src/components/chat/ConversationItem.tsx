@@ -35,10 +35,10 @@ export function ConversationItem({
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-l-4 ${
+      className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 border-l-4 ${
         isSelected
           ? 'bg-blue-50 border-blue-500'
-          : 'border-transparent hover:bg-gray-50'
+          : 'border-transparent hover:bg-gray-50 hover:border-gray-200'
       }`}
     >
       {/* Avatar */}

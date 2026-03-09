@@ -1,7 +1,9 @@
-import { useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { MessageItem } from './MessageItem';
 import { useMessages } from '../../hooks/useMessages';
+import { useMessageScroll } from '../../hooks/useMessageScroll';
+import { MessageSkeleton } from '../common/Skeleton';
+import { EmptyState } from '../common/EmptyState';
 
 interface MessageListProps {
   conversationId: string | null;
@@ -9,7 +11,7 @@ interface MessageListProps {
 
 export function MessageList({ conversationId }: MessageListProps) {
   const { data: messages, isLoading, error } = useMessages(conversationId);
-  const parentRef = useRef<HTMLDivElement>(null);
+  const parentRef = useMessageScroll(messages?.length, conversationId);
 
   const virtualizer = useVirtualizer({
     count: messages?.length || 0,
@@ -18,40 +20,35 @@ export function MessageList({ conversationId }: MessageListProps) {
     overscan: 5,
   });
 
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (parentRef.current) {
-      parentRef.current.scrollTop = parentRef.current.scrollHeight;
-    }
-  }, [messages?.length]);
-
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-400 text-sm">加载中...</p>
-        </div>
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        <MessageSkeleton isMine={false} />
+        <MessageSkeleton isMine={true} />
+        <MessageSkeleton isMine={false} />
+        <MessageSkeleton isMine={true} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-500 text-sm">加载失败，请稍后重试</p>
-        </div>
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <EmptyState
+          title="加载失败"
+          description="无法加载消息，请稍后重试"
+        />
       </div>
     );
   }
 
   if (!messages || messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-400 text-sm">暂无消息</p>
-          <p className="text-gray-300 text-xs mt-1">发送一条消息开始聊天</p>
-        </div>
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <EmptyState
+          title="暂无消息"
+          description="发送一条消息开始聊天"
+        />
       </div>
     );
   }

@@ -11,6 +11,13 @@ export function MessageInput({ conversationId, disabled = false }: MessageInputP
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { mutate: sendMessage, isPending, error } = useSendMessage();
 
+  // Auto-focus when conversation is selected
+  useEffect(() => {
+    if (conversationId && textareaRef.current && !disabled) {
+      textareaRef.current.focus();
+    }
+  }, [conversationId, disabled]);
+
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
@@ -41,6 +48,13 @@ export function MessageInput({ conversationId, disabled = false }: MessageInputP
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    } else if (e.key === 'Escape') {
+      // Clear input on Esc
+      e.preventDefault();
+      setContent('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
     }
   };
 
@@ -57,7 +71,7 @@ export function MessageInput({ conversationId, disabled = false }: MessageInputP
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+          placeholder="输入消息... (Enter 发送, Shift+Enter 换行, Esc 清空)"
           disabled={disabled || isPending || !conversationId}
           className="flex-1 resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed min-h-[44px] max-h-[200px]"
           rows={1}

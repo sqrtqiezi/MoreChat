@@ -1,6 +1,8 @@
 import { useChatStore } from '../../stores/chatStore';
 import { ConversationItem } from './ConversationItem';
 import { useConversations } from '../../hooks/useConversations';
+import { ConversationSkeleton } from '../common/Skeleton';
+import { EmptyState } from '../common/EmptyState';
 
 export function ConversationList() {
   const { data: conversations, isLoading, error } = useConversations();
@@ -11,8 +13,12 @@ export function ConversationList() {
 
   if (isLoading) {
     return (
-      <div className="overflow-y-auto flex-1 flex items-center justify-center">
-        <p className="text-gray-500 text-sm">加载中...</p>
+      <div className="overflow-y-auto flex-1">
+        <ConversationSkeleton />
+        <ConversationSkeleton />
+        <ConversationSkeleton />
+        <ConversationSkeleton />
+        <ConversationSkeleton />
       </div>
     );
   }
@@ -20,7 +26,10 @@ export function ConversationList() {
   if (error) {
     return (
       <div className="overflow-y-auto flex-1 flex items-center justify-center">
-        <p className="text-red-500 text-sm">加载失败，请稍后重试</p>
+        <EmptyState
+          title="加载失败"
+          description="无法加载会话列表，请稍后重试"
+        />
       </div>
     );
   }
@@ -28,7 +37,10 @@ export function ConversationList() {
   if (!conversations || conversations.length === 0) {
     return (
       <div className="overflow-y-auto flex-1 flex items-center justify-center">
-        <p className="text-gray-500 text-sm">暂无会话</p>
+        <EmptyState
+          title="暂无会话"
+          description="开始一个新的对话吧"
+        />
       </div>
     );
   }

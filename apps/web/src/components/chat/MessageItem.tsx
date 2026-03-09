@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Message } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -6,7 +7,7 @@ interface MessageItemProps {
   message: Message;
 }
 
-export function MessageItem({ message }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ message }: MessageItemProps) {
   const { isMine, senderName, content, timestamp, status } = message;
 
   // Get first letter for avatar
@@ -49,7 +50,7 @@ export function MessageItem({ message }: MessageItemProps) {
   if (isMine) {
     // Right-aligned (my messages)
     return (
-      <div className="flex justify-end items-start gap-3 px-6 py-3">
+      <div className="flex justify-end items-start gap-3 px-6 py-3 animate-fade-in">
         <div className="flex flex-col items-end max-w-[70%]">
           <div className="flex items-center gap-2 mb-1">
             {getStatusDisplay()}
@@ -72,7 +73,7 @@ export function MessageItem({ message }: MessageItemProps) {
 
   // Left-aligned (other's messages)
   return (
-    <div className="flex justify-start items-start gap-3 px-6 py-3">
+    <div className="flex justify-start items-start gap-3 px-6 py-3 animate-fade-in">
       <div
         className={`w-10 h-10 rounded-full bg-gradient-to-br ${getGradient(
           senderName
@@ -91,5 +92,5 @@ export function MessageItem({ message }: MessageItemProps) {
       </div>
     </div>
   );
-}
+});
 
