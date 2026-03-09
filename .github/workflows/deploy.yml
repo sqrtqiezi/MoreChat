@@ -118,10 +118,14 @@ jobs:
             echo "📦 Installing production dependencies..."
             pnpm install --prod --frozen-lockfile
 
+            # 生成 Prisma Client
+            echo "🗄️ Generating Prisma Client..."
+            cd apps/server
+            npx prisma generate
+
             # 数据库迁移
             echo "🗄️ Running database migration..."
-            cd apps/server
-            pnpm prisma migrate deploy
+            npx prisma migrate deploy
             cd ../..
 
             # 重启服务
