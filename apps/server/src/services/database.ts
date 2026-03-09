@@ -4,10 +4,10 @@ import { prisma as globalPrisma, createPrismaClient } from '../lib/prisma'
 export class DatabaseService {
   private prisma: PrismaClient
 
-  constructor(url: string) {
+  constructor(url?: string) {
     // 测试环境：为每个实例创建独立的 Prisma Client
-    // 生产/开发环境：使用全局单例
-    if (process.env.NODE_ENV === 'test') {
+    // 生产/开发环境：使用全局单例（忽略 url 参数）
+    if (process.env.NODE_ENV === 'test' && url) {
       this.prisma = createPrismaClient(url)
     } else {
       this.prisma = globalPrisma

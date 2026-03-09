@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client'
 
 // 全局类型声明
 declare global {
-  var prisma: PrismaClient | undefined
+  var __morechatPrismaClient: PrismaClient | undefined
 }
 
 // 创建 Prisma Client 实例的工厂函数
@@ -17,14 +17,19 @@ export function createPrismaClient(datasourceUrl?: string) {
 export const prisma =
   process.env.NODE_ENV === 'test'
     ? createPrismaClient() // 测试环境不使用全局单例
-    : (global.prisma || createPrismaClient())
+    : (global.__morechatPrismaClient || createPrismaClient())
 
 // 开发模式下缓存实例，避免热重载时创建多个连接
 if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
-  global.prisma = prisma
+  global.__morechatPrismaClient = prisma
 }
 
 // 优雅关闭
 export async function disconnectPrisma() {
-  await prisma.$disconnect()
+  try {
+    await prisma.$disconnect()
+  } catch (error) {
+    console.error('Failed to disconnect Prisma client:', error)
+    throw error
+  }
 }
