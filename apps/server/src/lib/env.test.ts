@@ -22,6 +22,8 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
+    process.env.AUTH_JWT_SECRET = 'test-secret-key'
 
     // 动态导入以重新加载环境变量
     const { env } = await import('./env.js')
@@ -43,6 +45,8 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
+    process.env.AUTH_JWT_SECRET = 'test-secret-key'
     delete process.env.DATABASE_URL
 
     await expect(async () => {
@@ -60,6 +64,8 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
+    process.env.AUTH_JWT_SECRET = 'test-secret-key'
 
     await expect(async () => {
       await import('./env.js')
@@ -76,9 +82,47 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
+    process.env.AUTH_JWT_SECRET = 'test-secret-key'
 
     await expect(async () => {
       await import('./env.js')
     }).rejects.toThrow('NODE_ENV must be one of: development, production, test')
+  })
+
+  it('should throw error when AUTH_PASSWORD_HASH is missing', async () => {
+    process.env.DATABASE_URL = 'file:./test.db'
+    process.env.DATA_LAKE_TYPE = 'filesystem'
+    process.env.DATA_LAKE_PATH = './test-lake'
+    process.env.PORT = '3100'
+    process.env.NODE_ENV = 'test'
+    process.env.JUHEXBOT_API_URL = 'http://test.com'
+    process.env.JUHEXBOT_APP_KEY = 'test-key'
+    process.env.JUHEXBOT_APP_SECRET = 'test-secret'
+    process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.AUTH_JWT_SECRET = 'test-secret-key'
+    delete process.env.AUTH_PASSWORD_HASH
+
+    await expect(async () => {
+      await import('./env.js')
+    }).rejects.toThrow('AUTH_PASSWORD_HASH is required in environment variables')
+  })
+
+  it('should throw error when AUTH_JWT_SECRET is missing', async () => {
+    process.env.DATABASE_URL = 'file:./test.db'
+    process.env.DATA_LAKE_TYPE = 'filesystem'
+    process.env.DATA_LAKE_PATH = './test-lake'
+    process.env.PORT = '3100'
+    process.env.NODE_ENV = 'test'
+    process.env.JUHEXBOT_API_URL = 'http://test.com'
+    process.env.JUHEXBOT_APP_KEY = 'test-key'
+    process.env.JUHEXBOT_APP_SECRET = 'test-secret'
+    process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
+    delete process.env.AUTH_JWT_SECRET
+
+    await expect(async () => {
+      await import('./env.js')
+    }).rejects.toThrow('AUTH_JWT_SECRET is required in environment variables')
   })
 })
