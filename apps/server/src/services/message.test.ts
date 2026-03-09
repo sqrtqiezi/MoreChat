@@ -56,11 +56,22 @@ describe('MessageService', () => {
     expect(client).not.toBeNull()
   })
 
-  it('should process chatroom message', async () => {
+  it('should process chatroom message and create group', async () => {
     const parsed = adapter.parseWebhookPayload(appMessage)
     await messageService.handleIncomingMessage(parsed)
 
-    // 验证消息已处理（不报错即可）
+    // 验证 Group 已创建
+    const group = await db.findGroupByRoomUsername(parsed.message.chatroom!)
+    expect(group).not.toBeNull()
+    expect(group!.roomUsername).toBe(parsed.message.chatroom)
+
+    // 验证会话已创建并关联到 Group
+    const conversationId = adapter.getConversationId(parsed)
+    const client = await db.findClientByGuid('test-guid-123')
+    const conversation = await db.findConversation(client!.id, conversationId)
+    expect(conversation).not.toBeNull()
+    expect(conversation!.type).toBe('group')
+    expect(conversation!.groupId).toBe(group!.id)
   })
 
   it('should handle message recall', async () => {

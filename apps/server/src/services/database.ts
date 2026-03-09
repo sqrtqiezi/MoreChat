@@ -182,6 +182,10 @@ export class DatabaseService {
     return this.prisma.group.findUnique({ where: { id } })
   }
 
+  async findGroupByRoomUsername(roomUsername: string) {
+    return this.prisma.group.findUnique({ where: { roomUsername } })
+  }
+
   // --- Conversation ---
 
   async createConversation(data: { clientId: string; type: string; contactId?: string; groupId?: string }) {

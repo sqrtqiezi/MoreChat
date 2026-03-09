@@ -103,10 +103,28 @@ export class MessageService {
 
     // 创建新会话
     if (isChatroom) {
+      // 确保群组存在
+      let group = await this.db.findGroupByRoomUsername(conversationId)
+      if (!group) {
+        try {
+          group = await this.db.createGroup({
+            roomUsername: conversationId,
+            name: conversationId
+          })
+        } catch (error: any) {
+          // 并发创建时忽略 unique constraint 冲突
+          if (error?.code === 'P2002') {
+            group = await this.db.findGroupByRoomUsername(conversationId)
+          } else {
+            throw error
+          }
+        }
+      }
+
       return this.db.createConversation({
         clientId: client.id,
         type: 'group',
-        groupId: undefined
+        groupId: group!.id
       })
     }
 
