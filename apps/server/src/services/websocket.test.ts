@@ -20,6 +20,7 @@ describe('WebSocketService', () => {
   })
 
   afterEach(async () => {
+    wsService?.close()
     await new Promise<void>((resolve) => {
       server.close(() => resolve())
     })

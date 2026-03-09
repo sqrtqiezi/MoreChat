@@ -1,14 +1,19 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import type { Server } from 'http'
 
-export interface WebSocketMessage {
+export interface WebSocketMessage<T = unknown> {
   event: string
-  data: any
+  data: T
+}
+
+export interface ClientConnectData {
+  guid: string
 }
 
 export class WebSocketService {
   private wss: WebSocketServer
   private clients: Map<string, WebSocket> = new Map()
+  private wsToClientId: Map<WebSocket, string> = new Map()
 
   constructor(server: Server) {
     this.wss = new WebSocketServer({ server })
@@ -29,13 +34,11 @@ export class WebSocketService {
       })
 
       ws.on('close', () => {
-        console.log('WebSocket client disconnected')
-        // 从 clients Map 中移除
-        for (const [clientId, client] of this.clients.entries()) {
-          if (client === ws) {
-            this.clients.delete(clientId)
-            break
-          }
+        const clientId = this.wsToClientId.get(ws)
+        if (clientId) {
+          this.clients.delete(clientId)
+          this.wsToClientId.delete(ws)
+          console.log(`Client disconnected: ${clientId}`)
         }
       })
 
@@ -48,8 +51,22 @@ export class WebSocketService {
   private handleMessage(ws: WebSocket, message: WebSocketMessage) {
     switch (message.event) {
       case 'client:connect':
-        const clientId = message.data.guid
+        const data = message.data as ClientConnectData
+        if (!data?.guid || typeof data.guid !== 'string') {
+          console.error('Invalid client:connect data:', data)
+          return
+        }
+        const clientId = data.guid
+
+        // 处理重复注册
+        const existingWs = this.clients.get(clientId)
+        if (existingWs && existingWs !== ws) {
+          console.warn(`Client ${clientId} already connected, closing old connection`)
+          existingWs.close()
+        }
+
         this.clients.set(clientId, ws)
+        this.wsToClientId.set(ws, clientId)
         this.send(ws, 'connected', { clientId })
         console.log(`Client registered: ${clientId}`)
         break
@@ -64,7 +81,11 @@ export class WebSocketService {
    */
   send(ws: WebSocket, event: string, data: any) {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ event, data }))
+      try {
+        ws.send(JSON.stringify({ event, data }))
+      } catch (error) {
+        console.error('Failed to send message:', error)
+      }
     }
   }
 
@@ -75,7 +96,11 @@ export class WebSocketService {
     const message = JSON.stringify({ event, data })
     this.wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(message)
+        try {
+          client.send(message)
+        } catch (error) {
+          console.error('Failed to broadcast message:', error)
+        }
       }
     })
   }
