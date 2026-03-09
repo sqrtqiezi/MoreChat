@@ -3,18 +3,63 @@ name: Deploy to VPS
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      full_setup:
+        description: '首次部署（安装系统依赖 + 初始化）'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: First-time setup
+        if: github.event.inputs.full_setup == 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            # 克隆仓库（如果不存在）
+            if [ ! -d ~/morechat ]; then
+              git clone ${{ secrets.REPO_URL || format('https://github.com/{0}.git', github.repository) }} ~/morechat
+            fi
+            cd ~/morechat
+            git pull origin main
+            bash deploy/setup.sh
+
+      - name: Generate .env and deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          envs: JUHEXBOT_APP_KEY,JUHEXBOT_APP_SECRET,JUHEXBOT_CLIENT_GUID,AUTH_PASSWORD_HASH,AUTH_JWT_SECRET
           script: |
             cd ~/morechat
+
+            # 生成 .env 文件
+            export JUHEXBOT_APP_KEY="${JUHEXBOT_APP_KEY}"
+            export JUHEXBOT_APP_SECRET="${JUHEXBOT_APP_SECRET}"
+            export JUHEXBOT_CLIENT_GUID="${JUHEXBOT_CLIENT_GUID}"
+            export AUTH_PASSWORD_HASH="${AUTH_PASSWORD_HASH}"
+            export AUTH_JWT_SECRET="${AUTH_JWT_SECRET}"
+            bash deploy/init-env.sh
+
+            # 部署
             bash deploy/update.sh
+
+            # 健康检查
+            sleep 3
+            curl -sf http://localhost:3100/health || echo "⚠️ Health check failed"
+        env:
+          JUHEXBOT_APP_KEY: ${{ secrets.JUHEXBOT_APP_KEY }}
+          JUHEXBOT_APP_SECRET: ${{ secrets.JUHEXBOT_APP_SECRET }}
+          JUHEXBOT_CLIENT_GUID: ${{ secrets.JUHEXBOT_CLIENT_GUID }}
+          AUTH_PASSWORD_HASH: ${{ secrets.AUTH_PASSWORD_HASH }}
+          AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
