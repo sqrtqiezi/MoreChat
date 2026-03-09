@@ -1,12 +1,17 @@
 import { PrismaClient } from '@prisma/client'
+import { prisma as globalPrisma, createPrismaClient } from '../lib/prisma'
 
 export class DatabaseService {
   private prisma: PrismaClient
 
   constructor(url: string) {
-    this.prisma = new PrismaClient({
-      datasources: { db: { url } }
-    })
+    // 测试环境：为每个实例创建独立的 Prisma Client
+    // 生产/开发环境：使用全局单例
+    if (process.env.NODE_ENV === 'test') {
+      this.prisma = createPrismaClient(url)
+    } else {
+      this.prisma = globalPrisma
+    }
   }
 
   async connect() {
