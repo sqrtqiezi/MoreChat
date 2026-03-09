@@ -19,8 +19,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Install dependencies
         run: pnpm install
@@ -84,11 +82,11 @@ jobs:
             set -e
 
             # 创建部署目录
-            mkdir -p ~/morechat/apps/server ~/morechat/apps/web
+            mkdir -p /opt/morechat/apps/server /opt/morechat/apps/web
 
             # 解压部署包
             echo "📦 Extracting deployment package..."
-            cd ~/morechat
+            cd /opt/morechat
             tar xzf /tmp/deploy.tar.gz
             rm /tmp/deploy.tar.gz
 
