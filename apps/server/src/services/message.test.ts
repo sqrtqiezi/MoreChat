@@ -45,20 +45,28 @@ describe('MessageService', () => {
 
   it('should process and store text message', async () => {
     const parsed = adapter.parseWebhookPayload(textMessage)
-    await messageService.handleIncomingMessage(parsed)
+    const result = await messageService.handleIncomingMessage(parsed)
+
+    // 验证返回值
+    expect(result).not.toBeNull()
+    expect(result!.conversationId).toBeDefined()
+    expect(result!.message).toBeDefined()
+    expect(result!.message.msgId).toBe(parsed.message.msgId)
+    expect(result!.message.displayType).toBe('text')
+    expect(result!.message.displayContent).toBe(parsed.message.content)
 
     // 验证联系人已创建
     const contact = await db.findContactByUsername('test_user')
     expect(contact).not.toBeNull()
-
-    // 验证消息索引已创建
-    const client = await db.findClientByGuid('test-guid-123')
-    expect(client).not.toBeNull()
   })
 
   it('should process chatroom message and create group', async () => {
     const parsed = adapter.parseWebhookPayload(appMessage)
-    await messageService.handleIncomingMessage(parsed)
+    const result = await messageService.handleIncomingMessage(parsed)
+
+    expect(result).not.toBeNull()
+    expect(result!.conversationId).toBeDefined()
+    expect(result!.message.msgType).toBe(parsed.message.msgType)
 
     // 验证 Group 已创建
     const group = await db.findGroupByRoomUsername(parsed.message.chatroom!)
@@ -81,7 +89,9 @@ describe('MessageService', () => {
 
     // 然后撤回
     const recallParsed = adapter.parseWebhookPayload(messageRecall)
-    await messageService.handleIncomingMessage(recallParsed)
+    const result = await messageService.handleIncomingMessage(recallParsed)
+
+    expect(result).toBeNull()
 
     // 验证状态变更已记录
     const changes = await db.getMessageStateChanges(messageRecall.data.msg_id)

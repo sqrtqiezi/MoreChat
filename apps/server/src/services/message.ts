@@ -1,6 +1,26 @@
 import type { DatabaseService } from './database.js'
 import type { DataLakeService, ChatMessage } from './dataLake.js'
 import type { JuhexbotAdapter, ParsedWebhookPayload } from './juhexbotAdapter.js'
+import { processMessageContent } from './messageContentProcessor.js'
+
+export interface IncomingMessageResult {
+  conversationId: string
+  message: {
+    msgId: string
+    msgType: number
+    fromUsername: string
+    toUsername: string
+    content: string
+    createTime: number
+    chatroomSender?: string
+    desc?: string
+    isChatroomMsg: number
+    chatroom?: string
+    source?: string
+    displayType: string
+    displayContent: string
+  }
+}
 
 export class MessageService {
   constructor(
@@ -9,13 +29,13 @@ export class MessageService {
     private adapter: JuhexbotAdapter
   ) {}
 
-  async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<void> {
+  async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | null> {
     const { message } = parsed
 
     // 消息撤回特殊处理
     if (message.msgType === 10002) {
       await this.handleRecall(parsed)
-      return
+      return null
     }
 
     // 确保联系人存在
@@ -59,6 +79,27 @@ export class MessageService {
 
     // 更新会话最后消息时间
     await this.db.updateConversationLastMessage(conversation.id, new Date(message.createTime * 1000))
+
+    const { displayType, displayContent } = processMessageContent(message.msgType, message.content)
+
+    return {
+      conversationId: conversation.id,
+      message: {
+        msgId: message.msgId,
+        msgType: message.msgType,
+        fromUsername: message.fromUsername,
+        toUsername: message.toUsername,
+        content: message.content,
+        createTime: message.createTime,
+        chatroomSender: message.chatroomSender,
+        desc: message.desc,
+        isChatroomMsg: message.isChatroomMsg ? 1 : 0,
+        chatroom: message.chatroom,
+        source: message.source,
+        displayType,
+        displayContent,
+      }
+    }
   }
 
   private async handleRecall(parsed: ParsedWebhookPayload): Promise<void> {
