@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { chatApi } from '../api/chat';
 import type { Message } from '../types';
+
+const HIGHLIGHT_DURATION = 2000; // ms
 
 const MAX_MESSAGES = 100;
 const TRIM_TO = 20;
@@ -10,6 +12,7 @@ const PAGE_SIZE = 20;
 export function useMessages(conversationId: string | null) {
   const queryClient = useQueryClient();
   const isLoadingMoreRef = useRef(false);
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
 
   const query = useQuery({
     queryKey: ['messages', conversationId],
@@ -82,6 +85,16 @@ export function useMessages(conversationId: string | null) {
           hasMore: old.hasMore,
         };
       });
+
+      // 高亮 2 秒后清除
+      setHighlightedIds((prev) => new Set(prev).add(message.id));
+      setTimeout(() => {
+        setHighlightedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(message.id);
+          return next;
+        });
+      }, HIGHLIGHT_DURATION);
     },
     [conversationId, queryClient]
   );
@@ -109,5 +122,6 @@ export function useMessages(conversationId: string | null) {
     loadMore,
     appendMessage,
     trimToLatest,
+    highlightedIds,
   };
 }

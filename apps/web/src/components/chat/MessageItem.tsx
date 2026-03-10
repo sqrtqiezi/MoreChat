@@ -5,9 +5,10 @@ import { zhCN } from 'date-fns/locale';
 
 interface MessageItemProps {
   message: Message;
+  isHighlighted?: boolean;
 }
 
-export const MessageItem = memo(function MessageItem({ message }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ message, isHighlighted }: MessageItemProps) {
   const { isMine, senderName, content, timestamp, status } = message;
 
   const renderContent = () => {
@@ -55,10 +56,12 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
     }
   };
 
+  const highlightClass = isHighlighted ? 'bg-yellow-50 transition-colors duration-500' : 'transition-colors duration-500';
+
   if (isMine) {
     // Right-aligned (my messages)
     return (
-      <div className="flex justify-end items-start gap-3 px-6 py-3 animate-fade-in">
+      <div className={`flex justify-end items-start gap-3 px-6 py-3 animate-fade-in ${highlightClass}`}>
         <div className="flex flex-col items-end max-w-[70%]">
           <div className="flex items-center gap-2 mb-1">
             {getStatusDisplay()}
@@ -81,7 +84,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
 
   // Left-aligned (other's messages)
   return (
-    <div className="flex justify-start items-start gap-3 px-6 py-3 animate-fade-in">
+    <div className={`flex justify-start items-start gap-3 px-6 py-3 animate-fade-in ${highlightClass}`}>
       <div
         className={`w-10 h-10 rounded-full bg-gradient-to-br ${getGradient(
           senderName

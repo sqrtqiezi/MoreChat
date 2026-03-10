@@ -10,7 +10,6 @@ export function useMessageScroll(
   const prevConversationIdRef = useRef<string | null>(null);
   const prevMessagesLengthRef = useRef<number>(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  const [hasNewMessage, setHasNewMessage] = useState(false);
 
   // 检测是否在底部
   const checkIsAtBottom = useCallback(() => {
@@ -24,7 +23,6 @@ export function useMessageScroll(
     const el = scrollRef.current;
     if (el) {
       el.scrollTop = el.scrollHeight;
-      setHasNewMessage(false);
     }
   }, []);
 
@@ -34,21 +32,13 @@ export function useMessageScroll(
       messagesLength !== undefined &&
       messagesLength > prevMessagesLengthRef.current;
 
-    if (conversationChanged) {
-      // 切换会话：滚到底部
+    if (conversationChanged || newMessageAdded) {
       setTimeout(scrollToBottom, 0);
-      setHasNewMessage(false);
-    } else if (newMessageAdded) {
-      if (checkIsAtBottom()) {
-        setTimeout(scrollToBottom, 0);
-      } else {
-        setHasNewMessage(true);
-      }
     }
 
     prevConversationIdRef.current = conversationId;
     prevMessagesLengthRef.current = messagesLength || 0;
-  }, [messagesLength, conversationId, checkIsAtBottom, scrollToBottom]);
+  }, [messagesLength, conversationId, scrollToBottom]);
 
-  return { scrollRef, isAtBottom, hasNewMessage, scrollToBottom, checkIsAtBottom, setIsAtBottom };
+  return { scrollRef, isAtBottom, scrollToBottom, checkIsAtBottom, setIsAtBottom };
 }

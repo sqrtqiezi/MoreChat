@@ -13,8 +13,8 @@ interface MessageListProps {
 const SCROLL_TOP_THRESHOLD = 50; // px
 
 export function MessageList({ conversationId }: MessageListProps) {
-  const { messages, hasMore, isLoading, error, loadMore, trimToLatest } = useMessages(conversationId);
-  const { scrollRef, hasNewMessage, scrollToBottom, checkIsAtBottom, setIsAtBottom } = useMessageScroll(messages?.length, conversationId);
+  const { messages, hasMore, isLoading, error, loadMore, trimToLatest, highlightedIds } = useMessages(conversationId);
+  const { scrollRef, checkIsAtBottom, setIsAtBottom } = useMessageScroll(messages?.length, conversationId);
 
   const virtualizer = useVirtualizer({
     count: messages?.length || 0,
@@ -107,21 +107,11 @@ export function MessageList({ conversationId }: MessageListProps) {
                 transform: `translateY(${virtualItem.start}px)`,
               }}
             >
-              <MessageItem message={messages[virtualItem.index]} />
+              <MessageItem message={messages[virtualItem.index]} isHighlighted={highlightedIds.has(messages[virtualItem.index].id)} />
             </div>
           ))}
         </div>
       </div>
-
-      {/* 新消息提示条 */}
-      {hasNewMessage && (
-        <button
-          onClick={scrollToBottom}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg text-sm hover:bg-blue-600 transition-colors"
-        >
-          有新消息
-        </button>
-      )}
     </div>
   );
 }
