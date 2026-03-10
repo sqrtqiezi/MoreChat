@@ -65,9 +65,15 @@ export function createApp(deps: AppDependencies) {
 
         // 异步同步联系人信息（不阻塞 webhook 响应）
         const msg = parsed.message
-        deps.contactSyncService.syncContact(msg.fromUsername).catch(() => {})
         if (msg.isChatroomMsg && msg.chatroom) {
+          // 群聊：同步群信息和实际发送人
           deps.contactSyncService.syncGroup(msg.chatroom).catch(() => {})
+          if (msg.chatroomSender) {
+            deps.contactSyncService.syncContact(msg.chatroomSender).catch(() => {})
+          }
+        } else {
+          // 私聊：同步发送人
+          deps.contactSyncService.syncContact(msg.fromUsername).catch(() => {})
         }
       }
 

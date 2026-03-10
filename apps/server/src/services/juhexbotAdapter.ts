@@ -1,3 +1,5 @@
+import { logger } from '../lib/logger.js'
+
 export interface JuhexbotConfig {
   apiUrl: string
   appKey: string
@@ -110,11 +112,15 @@ export class JuhexbotAdapter {
     })
     const result = await response.json() as any
     // juhexbot API 返回字段不统一，统一为 errcode/errmsg
-    return {
+    const normalized = {
       errcode: result.errcode ?? result.err_code ?? -1,
       errmsg: result.err_msg ?? result.msg ?? '',
       data: result.data
     }
+    if (normalized.errcode !== 0) {
+      logger.debug({ path: fullPath, errcode: normalized.errcode, errmsg: normalized.errmsg }, 'juhexbot API error')
+    }
+    return normalized
   }
 
   async getClientStatus(): Promise<{ online: boolean; guid: string }> {
