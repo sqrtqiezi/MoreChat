@@ -45,6 +45,12 @@ describe('processMessageContent', () => {
       const result = processMessageContent(49, 'not xml at all')
       expect(result).toEqual({ displayType: 'unknown', displayContent: '[不支持的消息类型]' })
     })
+
+    it('should return [链接] when title is empty or missing', () => {
+      const xmlContent = '<?xml version="1.0"?>\n<msg>\n\t<appmsg appid="" sdkver="0">\n\t\t<title></title>\n\t\t<type>5</type>\n\t</appmsg>\n</msg>'
+      const result = processMessageContent(49, xmlContent)
+      expect(result).toEqual({ displayType: 'link', displayContent: '[链接]' })
+    })
   })
 
   describe('Type 51 - Voice/Video Call', () => {
@@ -65,6 +71,11 @@ describe('processMessageContent', () => {
     it('should handle missing replacemsg', () => {
       const xmlContent = '<sysmsg type="revokemsg"><revokemsg><session>user1</session></revokemsg></sysmsg>'
       const result = processMessageContent(10002, xmlContent)
+      expect(result).toEqual({ displayType: 'recall', displayContent: '撤回了一条消息' })
+    })
+
+    it('should handle invalid XML content gracefully', () => {
+      const result = processMessageContent(10002, 'not xml at all')
       expect(result).toEqual({ displayType: 'recall', displayContent: '撤回了一条消息' })
     })
   })

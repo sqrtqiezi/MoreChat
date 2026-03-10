@@ -13,9 +13,13 @@ const xmlParser = new XMLParser({
   textNodeName: '#text',
 })
 
-function parseXml(content: string): any | null {
+function parseXml(content: string): Record<string, unknown> | null {
   try {
-    return xmlParser.parse(content)
+    const result = xmlParser.parse(content)
+    if (!result || typeof result !== 'object' || Object.keys(result).length === 0) {
+      return null
+    }
+    return result
   } catch {
     return null
   }
@@ -59,17 +63,18 @@ function processType10002(content: string): ProcessedContent {
 }
 
 export function processMessageContent(msgType: number, content: string): ProcessedContent {
+  const safeContent = content ?? ''
   switch (msgType) {
     case 1:
-      return { displayType: 'text', displayContent: content }
+      return { displayType: 'text', displayContent: safeContent }
     case 3:
       return { displayType: 'image', displayContent: '[图片]' }
     case 49:
-      return processType49(content)
+      return processType49(safeContent)
     case 51:
       return { displayType: 'call', displayContent: '[语音/视频通话]' }
     case 10002:
-      return processType10002(content)
+      return processType10002(safeContent)
     default:
       return { displayType: 'unknown', displayContent: '[不支持的消息类型]' }
   }
