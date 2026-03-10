@@ -30,6 +30,10 @@ export function ChatPage() {
         // 更新侧边栏会话列表
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
       }
+
+      if (data.event === 'contact:updated' || data.event === 'group:updated') {
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      }
     },
     [selectedConversationId, queryClient, appendMessage]
   );

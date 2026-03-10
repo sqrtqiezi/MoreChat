@@ -3,6 +3,8 @@ export interface Conversation {
   id: string;
   name: string;
   type: 'private' | 'group';
+  avatar?: string;
+  memberCount?: number;
   lastMessage?: string;
   unreadCount: number;
   updatedAt: string;

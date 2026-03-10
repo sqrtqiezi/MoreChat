@@ -58,10 +58,16 @@ function mapConversation(raw: ApiConversation): Conversation {
     ? (raw.group?.name || '未知群组')
     : (raw.contact?.remark || raw.contact?.nickname || '未知联系人');
 
+  const avatar = raw.type === 'group'
+    ? raw.group?.avatar
+    : raw.contact?.avatar;
+
   return {
     id: raw.id,
     name,
     type: raw.type as 'private' | 'group',
+    avatar: avatar || undefined,
+    memberCount: raw.group?.memberCount,
     unreadCount: raw.unreadCount,
     updatedAt: raw.lastMessageAt || raw.updatedAt,
   };
