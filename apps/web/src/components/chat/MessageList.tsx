@@ -18,6 +18,7 @@ export function MessageList({ conversationId }: MessageListProps) {
     getScrollElement: () => parentRef.current,
     estimateSize: () => 80,
     overscan: 5,
+    measureElement: (element) => element.getBoundingClientRect().height,
   });
 
   if (isLoading) {
@@ -65,12 +66,13 @@ export function MessageList({ conversationId }: MessageListProps) {
         {virtualizer.getVirtualItems().map((virtualItem) => (
           <div
             key={virtualItem.key}
+            ref={virtualizer.measureElement}
+            data-index={virtualItem.index}
             style={{
               position: 'absolute',
               top: 0,
               left: 0,
               width: '100%',
-              height: `${virtualItem.size}px`,
               transform: `translateY(${virtualItem.start}px)`,
             }}
           >
