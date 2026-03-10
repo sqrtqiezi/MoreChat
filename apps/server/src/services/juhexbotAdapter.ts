@@ -112,11 +112,11 @@ export class JuhexbotAdapter {
     })
     const result = await response.json() as any
     // juhexbot API 返回字段不统一，统一为 errcode/errmsg
-    const normalized = {
-      errcode: result.errcode ?? result.err_code ?? -1,
-      errmsg: result.err_msg ?? result.msg ?? '',
-      data: result.data
-    }
+    // 有些接口用 errcode/err_code，有些用 baseResponse.ret
+    const errcode = result.errcode ?? result.err_code ?? result.baseResponse?.ret ?? -1
+    const errmsg = result.err_msg ?? result.msg ?? result.baseResponse?.errMsg ?? ''
+    const respData = result.data ?? result
+    const normalized = { errcode, errmsg, data: respData }
     if (normalized.errcode !== 0) {
       logger.warn({ path: fullPath, result, errcode: normalized.errcode, errmsg: normalized.errmsg }, 'juhexbot API error')
     }
@@ -183,20 +183,30 @@ export class JuhexbotAdapter {
   }
 
   async getChatroomDetail(roomUsername: string): Promise<GroupDetailInfo> {
-    const result = await this.sendRequest('/room/get_chatroom_detail', {
+    // 先用 getContact 获取群基本信息（名称、头像）
+    const contactResult = await this.sendRequest('/contact/get_contact', {
+      guid: this.config.clientGuid,
+      username_list: [roomUsername]
+    })
+
+    if (contactResult.errcode !== 0) {
+      throw new Error(contactResult.errmsg || 'Failed to get chatroom detail')
+    }
+
+    const contacts = Array.isArray(contactResult.data) ? contactResult.data : [contactResult.data]
+    const room = contacts[0]
+
+    // 再获取群详情（成员数等）
+    const detailResult = await this.sendRequest('/room/get_chatroom_detail', {
       guid: this.config.clientGuid,
       room_username: roomUsername
     })
 
-    if (result.errcode !== 0) {
-      throw new Error(result.errmsg || 'Failed to get chatroom detail')
-    }
-
     return {
-      roomUsername: result.data.room_username || roomUsername,
-      name: result.data.name || result.data.nickname || roomUsername,
-      avatar: result.data.avatar || result.data.big_head_img || result.data.small_head_img || undefined,
-      memberCount: result.data.member_count || 0,
+      roomUsername: room?.username || roomUsername,
+      name: room?.nickname || room?.name || roomUsername,
+      avatar: room?.avatar || room?.big_head_img || room?.small_head_img || undefined,
+      memberCount: room?.member_count || detailResult.data?.memberCount || 0,
     }
   }
 
