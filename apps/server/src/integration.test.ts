@@ -11,16 +11,21 @@ import { ConversationService } from './services/conversationService.js'
 import { createApp } from './app.js'
 import type { Server } from 'http'
 
+const TEST_PASSWORD = 'test123'
+const TEST_PASSWORD_HASH = '$2b$10$zC.9OzD0p0tx9b/w8pU2K.ijNk2vjHM4YU0.PxJBvKNkUZ85tqTtu'
+const TEST_JWT_SECRET = 'test-jwt-secret'
+
 describe('Integration Tests', () => {
   let server: Server
   let wsService: WebSocketService
   let databaseService: DatabaseService
   let baseUrl: string
   let wsUrl: string
+  let authToken: string
 
   beforeAll(async () => {
     const dataLakeService = new DataLakeService({
-      type: 'local',
+      type: 'filesystem',
       path: './data/test-datalake'
     })
 
@@ -47,7 +52,11 @@ describe('Integration Tests', () => {
       messageService,
       juhexbotAdapter,
       get wsService() { return _wsService },
-      clientGuid: 'test-guid'
+      clientGuid: 'test-guid',
+      auth: {
+        passwordHash: TEST_PASSWORD_HASH,
+        jwtSecret: TEST_JWT_SECRET,
+      },
     } as any)
 
     server = serve({ fetch: app.fetch, port: 0 })
@@ -62,12 +71,21 @@ describe('Integration Tests', () => {
 
     _wsService = new WebSocketService(server)
     wsService = _wsService
+
+    // Login to get auth token
+    const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: TEST_PASSWORD }),
+    })
+    const loginBody = await loginRes.json() as any
+    authToken = loginBody.data.token
   })
 
   afterAll(async () => {
-    wsService.close()
-    await databaseService.disconnect()
-    server.close()
+    wsService?.close()
+    await databaseService?.disconnect()
+    server?.close()
   })
 
   describe('HTTP Health Check', () => {
@@ -125,7 +143,9 @@ describe('Integration Tests', () => {
 
   describe('Phase 2 - API Routes', () => {
     it('GET /api/conversations should return empty list initially', async () => {
-      const res = await fetch(`${baseUrl}/api/conversations`)
+      const res = await fetch(`${baseUrl}/api/conversations`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      })
       const body = await res.json() as any
 
       expect(res.status).toBe(200)
@@ -136,7 +156,10 @@ describe('Integration Tests', () => {
     it('POST /api/messages/send should return 400 when missing params', async () => {
       const res = await fetch(`${baseUrl}/api/messages/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
         body: JSON.stringify({ conversationId: 'conv_1' })
       })
       const body = await res.json() as any

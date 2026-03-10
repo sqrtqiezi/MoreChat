@@ -102,7 +102,7 @@ describe('DatabaseService', () => {
       const conv2 = await db.createConversation({ clientId: client.id, type: 'group' })
       await db.updateConversationLastMessage(conv2.id, new Date('2026-03-09'))
 
-      const result = await db.getConversations(client.id, { limit: 50, offset: 0 })
+      const result = await db.getConversations('conv_test_guid', { limit: 50, offset: 0 })
       expect(result.length).toBe(2)
       // conv2 有更新的 lastMessageAt，应该排在前面
       expect(result[0].id).toBe(conv2.id)
