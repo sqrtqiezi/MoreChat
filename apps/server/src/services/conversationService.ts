@@ -59,6 +59,7 @@ export class ConversationService {
       }
     })
 
-    return { messages, hasMore }
+    // 数据库按 desc 取最新 N 条，反转为升序（旧→新）返回给前端
+    return { messages: messages.reverse(), hasMore }
   }
 }

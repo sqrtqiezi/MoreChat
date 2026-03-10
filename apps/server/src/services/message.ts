@@ -121,19 +121,35 @@ export class MessageService {
         }
       }
 
-      return this.db.createConversation({
-        clientId: client.id,
-        type: 'group',
-        groupId: group!.id
-      })
+      try {
+        return await this.db.createConversation({
+          clientId: client.id,
+          type: 'group',
+          groupId: group!.id
+        })
+      } catch (error: any) {
+        if (error?.code === 'P2002') {
+          const conv = await this.db.findConversation(client.id, conversationId)
+          if (conv) return conv
+        }
+        throw error
+      }
     }
 
     const contact = await this.db.findContactByUsername(conversationId)
-    return this.db.createConversation({
-      clientId: client.id,
-      type: 'private',
-      contactId: contact?.id
-    })
+    try {
+      return await this.db.createConversation({
+        clientId: client.id,
+        type: 'private',
+        contactId: contact?.id
+      })
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const conv = await this.db.findConversation(client.id, conversationId)
+        if (conv) return conv
+      }
+      throw error
+    }
   }
 
   async sendMessage(conversationId: string, content: string): Promise<{ msgId: string }> {

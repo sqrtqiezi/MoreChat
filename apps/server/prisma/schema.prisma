@@ -96,6 +96,8 @@ model Conversation {
   group          Group?         @relation(fields: [groupId], references: [id])
   messageIndexes MessageIndex[]
 
+  @@unique([clientId, groupId])
+  @@unique([clientId, contactId])
   @@index([clientId])
   @@index([contactId])
   @@index([groupId])

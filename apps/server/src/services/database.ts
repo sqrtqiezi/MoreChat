@@ -100,6 +100,9 @@ export class DatabaseService {
       )
     `)
 
+    await this.prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "Conversation_clientId_groupId_key" ON "Conversation"("clientId", "groupId") WHERE "groupId" IS NOT NULL`)
+    await this.prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "Conversation_clientId_contactId_key" ON "Conversation"("clientId", "contactId") WHERE "contactId" IS NOT NULL`)
+
     await this.prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "MessageIndex" (
         "id" TEXT NOT NULL PRIMARY KEY,
