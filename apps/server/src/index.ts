@@ -8,6 +8,7 @@ import { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import { WebSocketService } from './services/websocket.js'
 import { ClientService } from './services/clientService.js'
 import { ConversationService } from './services/conversationService.js'
+import { ContactSyncService } from './services/contactSyncService.js'
 import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
 
@@ -47,6 +48,13 @@ async function main() {
     const conversationService = new ConversationService(databaseService, dataLakeService)
     const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter)
 
+    // ContactSyncService 需要 wsService，使用 getter 延迟访问
+    const contactSyncService = new ContactSyncService(
+      databaseService,
+      juhexbotAdapter,
+      { broadcast: (...args: any[]) => wsService.broadcast(...args) } as any
+    )
+
     // 3. 创建 HTTP 应用
     // 注意：wsService 需要在 HTTP server 创建后才能初始化，用 getter 延迟访问
     let wsService: WebSocketService
@@ -55,6 +63,7 @@ async function main() {
       clientService,
       conversationService,
       messageService,
+      contactSyncService,
       juhexbotAdapter,
       get wsService() { return wsService },
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
@@ -75,6 +84,9 @@ async function main() {
     // 5. 创建 WebSocket 服务
     wsService = new WebSocketService(server as unknown as Server)
     logger.info('WebSocket service initialized')
+
+    // 6. 启动联系人同步后台任务
+    contactSyncService.startBackfillScheduler()
 
     // 6. 检查 juhexbot 状态
     try {
@@ -101,6 +113,7 @@ async function main() {
     async function gracefulShutdown(signal: string) {
       logger.info({ signal }, 'Shutting down gracefully...')
       try {
+        contactSyncService.stopBackfillScheduler()
         wsService.close()
         logger.info('WebSocket connections closed')
         await databaseService.disconnect()

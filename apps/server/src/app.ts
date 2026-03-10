@@ -14,12 +14,14 @@ import type { ConversationService } from './services/conversationService.js'
 import type { MessageService } from './services/message.js'
 import type { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import type { WebSocketService } from './services/websocket.js'
+import type { ContactSyncService } from './services/contactSyncService.js'
 import { logger } from './lib/logger.js'
 
 export interface AppDependencies {
   clientService: ClientService
   conversationService: ConversationService
   messageService: MessageService
+  contactSyncService: ContactSyncService
   juhexbotAdapter: JuhexbotAdapter
   wsService: WebSocketService
   clientGuid: string
@@ -60,6 +62,13 @@ export function createApp(deps: AppDependencies) {
           message: result.message,
         })
         logger.debug({ conversationId: result.conversationId, msgId: result.message.msgId }, 'Message broadcasted via WebSocket')
+
+        // 异步同步联系人信息（不阻塞 webhook 响应）
+        const msg = parsed.message
+        deps.contactSyncService.syncContact(msg.fromUsername).catch(() => {})
+        if (msg.isChatroomMsg && msg.chatroom) {
+          deps.contactSyncService.syncGroup(msg.chatroom).catch(() => {})
+        }
       }
 
       return c.json({ success: true })
