@@ -34,8 +34,16 @@ export function ChatPage() {
     [selectedConversationId, queryClient, appendMessage]
   );
 
+  const handleReconnect = useCallback(() => {
+    if (selectedConversationId) {
+      queryClient.invalidateQueries({ queryKey: ['messages', selectedConversationId] });
+    }
+    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+  }, [selectedConversationId, queryClient]);
+
   const { isConnected } = useWebSocket({
     onMessage: handleWebSocketMessage,
+    onReconnect: handleReconnect,
   });
 
   return (
