@@ -42,8 +42,20 @@ export function ConversationItem({
       }`}
     >
       {/* Avatar */}
+      {conversation.avatar ? (
+        <img
+          src={conversation.avatar}
+          alt={conversation.name}
+          className="w-12 h-12 rounded-full flex-shrink-0 object-cover"
+          onError={(e) => {
+            // fallback to letter avatar on error
+            e.currentTarget.style.display = 'none';
+            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+          }}
+        />
+      ) : null}
       <div
-        className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0 ${gradientClass}`}
+        className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0 ${gradientClass} ${conversation.avatar ? 'hidden' : ''}`}
       >
         {firstLetter}
       </div>
