@@ -74,8 +74,8 @@ describe('ConversationService', () => {
         { msg_id: 'msg2', msg_type: 1, from_username: 'user2', to_username: 'user1', content: 'world', create_time: 900 }
       ]
       const expectedMessages = [
-        { msgId: 'msg1', msgType: 1, fromUsername: 'user1', toUsername: 'user2', content: 'hello', createTime: 1000, chatroomSender: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined },
-        { msgId: 'msg2', msgType: 1, fromUsername: 'user2', toUsername: 'user1', content: 'world', createTime: 900, chatroomSender: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined }
+        { msgId: 'msg1', msgType: 1, fromUsername: 'user1', toUsername: 'user2', content: 'hello', createTime: 1000, chatroomSender: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined, displayType: 'text', displayContent: 'hello' },
+        { msgId: 'msg2', msgType: 1, fromUsername: 'user2', toUsername: 'user1', content: 'world', createTime: 900, chatroomSender: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined, displayType: 'text', displayContent: 'world' }
       ]
 
       vi.mocked(mockDb.getMessageIndexes).mockResolvedValue(mockIndexes)
@@ -93,6 +93,22 @@ describe('ConversationService', () => {
 
       const result = await service.getMessages('conv_1', { limit: 50 })
       expect(result.hasMore).toBe(true)
+    })
+
+    it('should process non-text messages with displayType and displayContent', async () => {
+      const mockIndexes = [
+        { dataLakeKey: 'key1', createTime: 1000 }
+      ]
+      const mockRawMessages = [
+        { msg_id: 'msg1', msg_type: 3, from_username: 'user1', to_username: 'user2', content: '', create_time: 1000 }
+      ]
+
+      vi.mocked(mockDb.getMessageIndexes).mockResolvedValue(mockIndexes)
+      vi.mocked(mockDataLake.getMessages).mockResolvedValue(mockRawMessages)
+
+      const result = await service.getMessages('conv_1', { limit: 50 })
+      expect(result.messages[0].displayType).toBe('image')
+      expect(result.messages[0].displayContent).toBe('[图片]')
     })
   })
 })

@@ -1,5 +1,6 @@
 import type { DatabaseService } from './database.js'
 import type { DataLakeService, ChatMessage } from './dataLake.js'
+import { processMessageContent } from './messageContentProcessor.js'
 
 export class ConversationService {
   constructor(
@@ -39,19 +40,24 @@ export class ConversationService {
     )
 
     // 转换字段名：下划线 -> 驼峰
-    const messages = rawMessages.map((msg: any) => ({
-      msgId: msg.msg_id,
-      msgType: msg.msg_type,
-      fromUsername: msg.from_username,
-      toUsername: msg.to_username,
-      content: msg.content,
-      createTime: msg.create_time,
-      chatroomSender: msg.chatroom_sender,
-      desc: msg.desc,
-      isChatroomMsg: msg.is_chatroom_msg,
-      chatroom: msg.chatroom,
-      source: msg.source
-    }))
+    const messages = rawMessages.map((msg: any) => {
+      const { displayType, displayContent } = processMessageContent(msg.msg_type, msg.content)
+      return {
+        msgId: msg.msg_id,
+        msgType: msg.msg_type,
+        fromUsername: msg.from_username,
+        toUsername: msg.to_username,
+        content: msg.content,
+        createTime: msg.create_time,
+        chatroomSender: msg.chatroom_sender,
+        desc: msg.desc,
+        isChatroomMsg: msg.is_chatroom_msg,
+        chatroom: msg.chatroom,
+        source: msg.source,
+        displayType,
+        displayContent,
+      }
+    })
 
     return { messages, hasMore }
   }
