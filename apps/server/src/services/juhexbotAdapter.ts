@@ -173,17 +173,18 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to get contact')
     }
 
-    const contacts = Array.isArray(result.data) ? result.data : [result.data]
+    // API 返回格式：contactList 数组，字段为嵌套对象 { string: "value" }
+    const contacts = result.data.contactList || result.data.data || []
     return contacts.map((c: any) => ({
-      username: c.username,
-      nickname: c.nickname || '',
-      remark: c.remark || undefined,
-      avatar: c.avatar || c.big_head_img || c.small_head_img || undefined,
+      username: c.userName?.string || c.username || '',
+      nickname: c.nickName?.string || c.nickname || '',
+      remark: c.remark?.string || undefined,
+      avatar: c.bigHeadImgUrl || c.smallHeadImgUrl || c.avatar || undefined,
     }))
   }
 
   async getChatroomDetail(roomUsername: string): Promise<GroupDetailInfo> {
-    // 先用 getContact 获取群基本信息（名称、头像）
+    // 用 getContact 获取群基本信息（名称、头像、成员数）
     const contactResult = await this.sendRequest('/contact/get_contact', {
       guid: this.config.clientGuid,
       username_list: [roomUsername]
@@ -193,20 +194,17 @@ export class JuhexbotAdapter {
       throw new Error(contactResult.errmsg || 'Failed to get chatroom detail')
     }
 
-    const contacts = Array.isArray(contactResult.data) ? contactResult.data : [contactResult.data]
+    const contacts = contactResult.data.contactList || []
     const room = contacts[0]
-
-    // 再获取群详情（成员数等）
-    const detailResult = await this.sendRequest('/room/get_chatroom_detail', {
-      guid: this.config.clientGuid,
-      room_username: roomUsername
-    })
+    if (!room) {
+      throw new Error('Chatroom not found in contact list')
+    }
 
     return {
-      roomUsername: room?.username || roomUsername,
-      name: room?.nickname || room?.name || roomUsername,
-      avatar: room?.avatar || room?.big_head_img || room?.small_head_img || undefined,
-      memberCount: room?.member_count || detailResult.data?.memberCount || 0,
+      roomUsername: room.userName?.string || roomUsername,
+      name: room.nickName?.string || roomUsername,
+      avatar: room.bigHeadImgUrl || room.smallHeadImgUrl || undefined,
+      memberCount: room.newChatroomData?.memberCount || 0,
     }
   }
 

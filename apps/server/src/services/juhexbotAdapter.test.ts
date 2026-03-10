@@ -200,13 +200,13 @@ describe('JuhexbotAdapter', () => {
     it('should return contact info for username list', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          errcode: 0,
-          data: [
+          baseResponse: { ret: 0 },
+          contactList: [
             {
-              username: 'wxid_test1',
-              nickname: '张三',
-              remark: '张三备注',
-              avatar: 'https://wx.qlogo.cn/test1.jpg',
+              userName: { string: 'wxid_test1' },
+              nickName: { string: '张三' },
+              remark: { string: '张三备注' },
+              bigHeadImgUrl: 'https://wx.qlogo.cn/test1.jpg',
             }
           ]
         })
@@ -243,13 +243,15 @@ describe('JuhexbotAdapter', () => {
     it('should return chatroom detail', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
-          errcode: 0,
-          data: {
-            room_username: 'room@chatroom',
-            name: '开发群',
-            avatar: 'https://wx.qlogo.cn/room.jpg',
-            member_count: 42,
-          }
+          baseResponse: { ret: 0 },
+          contactList: [
+            {
+              userName: { string: 'room@chatroom' },
+              nickName: { string: '开发群' },
+              smallHeadImgUrl: 'https://wx.qlogo.cn/room.jpg',
+              newChatroomData: { memberCount: 42 },
+            }
+          ]
         })
       })
 
