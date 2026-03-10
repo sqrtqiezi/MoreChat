@@ -64,7 +64,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             {getStatusDisplay()}
             <span className="text-xs text-gray-500">{formattedTime}</span>
           </div>
-          <div className="bg-blue-500 text-white rounded-2xl px-4 py-2.5 break-words">
+          <div className="bg-blue-500 text-white rounded-2xl px-4 py-2.5 w-fit max-w-full break-words">
             {renderContent()}
           </div>
         </div>
@@ -94,7 +94,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           <span className="text-sm font-medium text-gray-900">{senderName}</span>
           <span className="text-xs text-gray-500">{formattedTime}</span>
         </div>
-        <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-2.5 break-words">
+        <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-2.5 w-fit max-w-full break-words">
           {renderContent()}
         </div>
       </div>
