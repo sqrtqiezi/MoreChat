@@ -118,7 +118,7 @@ export class JuhexbotAdapter {
       data: result.data
     }
     if (normalized.errcode !== 0) {
-      logger.debug({ path: fullPath, errcode: normalized.errcode, errmsg: normalized.errmsg }, 'juhexbot API error')
+      logger.warn({ path: fullPath, result, errcode: normalized.errcode, errmsg: normalized.errmsg }, 'juhexbot API error')
     }
     return normalized
   }
