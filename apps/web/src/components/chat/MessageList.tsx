@@ -85,7 +85,7 @@ export function MessageList({ conversationId }: MessageListProps) {
   }
 
   return (
-    <div className="flex-1 relative">
+    <div className="flex-1 relative overflow-hidden">
       <div ref={scrollRef} className="h-full overflow-y-auto bg-gray-50">
         <div
           style={{

@@ -44,7 +44,7 @@ export function ChatWindow({ selectedConversationId }: ChatWindowProps) {
 
   // Chat window with messages
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white overflow-hidden">
       <ChatHeader conversationName={selectedConversation.name} />
       <MessageList conversationId={selectedConversationId} />
       <MessageInput conversationId={selectedConversationId} />

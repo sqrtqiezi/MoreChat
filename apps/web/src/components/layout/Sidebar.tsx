@@ -3,7 +3,7 @@ import { ClientStatus } from './ClientStatus';
 
 export function Sidebar() {
   return (
-    <div className="w-80 bg-gray-100 border-r border-gray-200 flex flex-col h-full">
+    <div className="w-80 bg-gray-100 border-r border-gray-200 flex flex-col h-full overflow-hidden">
       <ClientStatus isOnline={true} />
       <ConversationList />
     </div>
