@@ -10,6 +10,14 @@ interface MessageItemProps {
 export const MessageItem = memo(function MessageItem({ message }: MessageItemProps) {
   const { isMine, senderName, content, timestamp, status } = message;
 
+  const renderContent = () => {
+    if (!message.displayType || message.displayType === 'text') {
+      return <span>{content}</span>;
+    }
+    // Non-text messages: gray italic style
+    return <span className="text-gray-500 italic">{content}</span>;
+  };
+
   // Get first letter for avatar
   const avatarLetter = senderName.charAt(0).toUpperCase();
 
@@ -57,7 +65,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             <span className="text-xs text-gray-500">{formattedTime}</span>
           </div>
           <div className="bg-blue-500 text-white rounded-2xl px-4 py-2.5 break-words">
-            {content}
+            {renderContent()}
           </div>
         </div>
         <div
@@ -87,7 +95,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           <span className="text-xs text-gray-500">{formattedTime}</span>
         </div>
         <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-2.5 break-words">
-          {content}
+          {renderContent()}
         </div>
       </div>
     </div>

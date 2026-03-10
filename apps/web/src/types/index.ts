@@ -18,6 +18,8 @@ export interface Message {
   timestamp: string;
   status: 'sending' | 'sent' | 'failed';
   isMine: boolean;
+  msgType?: number;
+  displayType?: 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'unknown';
 }
 
 // ClientStatus interface

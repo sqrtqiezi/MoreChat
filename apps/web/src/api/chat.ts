@@ -34,6 +34,8 @@ interface ApiMessage {
   content: string;
   createTime: number;
   chatroomSender?: string;
+  displayType?: string;
+  displayContent?: string;
 }
 
 interface ConversationsResponse {
@@ -73,10 +75,12 @@ function mapMessage(raw: ApiMessage, conversationId: string, contactNameMap: Map
     conversationId,
     senderId: raw.fromUsername,
     senderName: isMine ? '我' : (contactNameMap.get(raw.fromUsername) || raw.fromUsername),
-    content: raw.content,
+    content: raw.displayContent ?? raw.content,
     timestamp: new Date(raw.createTime * 1000).toISOString(),
     status: 'sent',
     isMine,
+    msgType: raw.msgType,
+    displayType: raw.displayType as Message['displayType'],
   };
 }
 
