@@ -26,7 +26,7 @@ interface ApiConversation {
 }
 
 // Raw API message shape (from backend)
-interface ApiMessage {
+export interface ApiMessage {
   msgId: string;
   msgType: number;
   fromUsername: string;
@@ -51,7 +51,7 @@ interface ApiMessagesResponse {
 const CURRENT_USER = 'wxid_test_user';
 
 // Global contact name cache, built from conversations API
-const contactNameCache = new Map<string, string>();
+export const contactNameCache = new Map<string, string>();
 
 function mapConversation(raw: ApiConversation): Conversation {
   const name = raw.type === 'group'
@@ -67,7 +67,7 @@ function mapConversation(raw: ApiConversation): Conversation {
   };
 }
 
-function mapMessage(raw: ApiMessage, conversationId: string, contactNameMap: Map<string, string>): Message {
+export function mapMessage(raw: ApiMessage, conversationId: string, contactNameMap: Map<string, string>): Message {
   const isMine = raw.fromUsername === CURRENT_USER;
 
   return {

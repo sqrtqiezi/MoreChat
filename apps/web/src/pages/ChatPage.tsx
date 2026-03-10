@@ -4,35 +4,36 @@ import { Sidebar } from '../components/layout/Sidebar';
 import { ChatWindow } from '../components/chat/ChatWindow';
 import { useChatStore } from '../stores/chatStore';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useMessages } from '../hooks/useMessages';
+import { mapMessage, contactNameCache } from '../api/chat';
+import type { ApiMessage } from '../api/chat';
 
 export function ChatPage() {
   const selectedConversationId = useChatStore((state) => state.selectedConversationId);
   const queryClient = useQueryClient();
 
-  // Handle WebSocket messages
+  // useMessages for the selected conversation (to get appendMessage)
+  const { appendMessage } = useMessages(selectedConversationId);
+
   const handleWebSocketMessage = useCallback(
     (data: any) => {
-      // Listen for 'message:new' events
-      if (data.type === 'message:new' || data.event === 'message:new') {
-        const message = data.data || data.message;
+      if (data.event === 'message:new') {
+        const { conversationId, message } = data.data || {};
+        if (!conversationId || !message) return;
 
-        if (message) {
-          console.log('[ChatPage] New message received:', message);
-
-          // If it's for the current conversation, invalidate messages query
-          if (message.conversationId === selectedConversationId) {
-            queryClient.invalidateQueries({ queryKey: ['messages', selectedConversationId] });
-          }
-
-          // Always invalidate conversations query to update last message preview
-          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        if (conversationId === selectedConversationId) {
+          // 当前会话：追加消息到缓存
+          const mapped = mapMessage(message as ApiMessage, conversationId, contactNameCache);
+          appendMessage(mapped);
         }
+
+        // 更新侧边栏会话列表
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
       }
     },
-    [selectedConversationId, queryClient]
+    [selectedConversationId, queryClient, appendMessage]
   );
 
-  // Establish WebSocket connection
   const { isConnected } = useWebSocket({
     onMessage: handleWebSocketMessage,
   });
@@ -41,7 +42,6 @@ export function ChatPage() {
     <div className="h-screen flex">
       <Sidebar />
       <ChatWindow selectedConversationId={selectedConversationId} />
-      {/* Optional: Show connection status indicator */}
       {!isConnected && (
         <div className="fixed bottom-4 right-4 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg shadow-lg text-sm">
           正在重新连接...
