@@ -51,7 +51,17 @@ export function createApp(deps: AppDependencies) {
       logger.debug({ payload }, 'Webhook received')
       const parsed = deps.juhexbotAdapter.parseWebhookPayload(payload)
       logger.debug({ notifyType: parsed.notifyType, msgType: parsed.message?.msgType, msgId: parsed.message?.msgId, from: parsed.message?.fromUsername }, 'Webhook parsed')
-      await deps.messageService.handleIncomingMessage(parsed)
+      const result = await deps.messageService.handleIncomingMessage(parsed)
+
+      // 广播新消息给所有 WebSocket 客户端
+      if (result) {
+        deps.wsService.broadcast('message:new', {
+          conversationId: result.conversationId,
+          message: result.message,
+        })
+        logger.debug({ conversationId: result.conversationId, msgId: result.message.msgId }, 'Message broadcasted via WebSocket')
+      }
+
       return c.json({ success: true })
     } catch (error) {
       logger.error({ err: error }, 'Webhook error')
