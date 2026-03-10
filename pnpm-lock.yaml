@@ -35,6 +35,9 @@ importers:
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
+      fast-xml-parser:
+        specifier: ^5.4.2
+        version: 5.4.2
       hono:
         specifier: ^4.4.9
         version: 4.12.5
@@ -1050,6 +1053,13 @@ packages:
   fast-safe-stringify@2.1.1:
     resolution: {integrity: sha512-W+KJc2dmILlPplD/H4K9l9LcAHAfPtP6BY84uVLXQ6Evcz9Lcg33Y2z1IVblT6xdY54PXYVHEv+0Wpq8Io6zkA==}
 
+  fast-xml-builder@1.0.0:
+    resolution: {integrity: sha512-fpZuDogrAgnyt9oDDz+5DBz0zgPdPZz6D4IR7iESxRXElrlGTRkHJ9eEt+SACRJwT0FNFrt71DFQIUFBJfX/uQ==}
+
+  fast-xml-parser@5.4.2:
+    resolution: {integrity: sha512-pw/6pIl4k0CSpElPEJhDppLzaixDEuWui2CUQQBH/ECDf7+y6YwA4Gf7Tyb0Rfe4DIMuZipYj4AEL0nACKglvQ==}
+    hasBin: true
+
   fastq@1.20.1:
     resolution: {integrity: sha512-GGToxJ/w1x32s/D2EKND7kTil4n8OVk/9mycTc4VDza13lOvpUZTGX3mFSCtV9ksdGBVzvsyAVLM6mHFThxXxw==}
 
@@ -1484,6 +1494,9 @@ packages:
   strip-json-comments@5.0.3:
     resolution: {integrity: sha512-1tB5mhVo7U+ETBKNf92xT4hrQa3pm0MZ0PQvuDnWgAAGHDsfp4lPSpiS6psrSiet87wyGPh9ft6wmhOMQ0hDiw==}
     engines: {node: '>=14.16'}
+
+  strnum@2.2.0:
+    resolution: {integrity: sha512-Y7Bj8XyJxnPAORMZj/xltsfo55uOiyHcU2tnAVzHUnSJR/KsEX+9RoDeXEnsXtl/CX4fAcrt64gZ13aGaWPeBg==}
 
   sucrase@3.35.1:
     resolution: {integrity: sha512-DhuTmvZWux4H1UOnWMB3sk0sbaCVOoQZjv8u1rDoTV0HTdGem9hkAZtl4JZy8P2z4Bg0nT+YMeOFyVr4zcG5Tw==}
@@ -2492,6 +2505,13 @@ snapshots:
 
   fast-safe-stringify@2.1.1: {}
 
+  fast-xml-builder@1.0.0: {}
+
+  fast-xml-parser@5.4.2:
+    dependencies:
+      fast-xml-builder: 1.0.0
+      strnum: 2.2.0
+
   fastq@1.20.1:
     dependencies:
       reusify: 1.1.0
@@ -2888,6 +2908,8 @@ snapshots:
   std-env@3.10.0: {}
 
   strip-json-comments@5.0.3: {}
+
+  strnum@2.2.0: {}
 
   sucrase@3.35.1:
     dependencies:
