@@ -25,7 +25,7 @@ export class ConversationService {
   }
 
   async getMessages(conversationId: string, options: { limit?: number; before?: number } = {}) {
-    const limit = options.limit || 50
+    const limit = options.limit || 20
     // 多取一条用于判断 hasMore
     const indexes = await this.db.getMessageIndexes(conversationId, {
       limit: limit + 1,

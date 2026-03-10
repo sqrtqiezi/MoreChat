@@ -81,17 +81,17 @@ describe('ConversationService', () => {
       vi.mocked(mockDb.getMessageIndexes).mockResolvedValue(mockIndexes)
       vi.mocked(mockDataLake.getMessages).mockResolvedValue(mockRawMessages)
 
-      const result = await service.getMessages('conv_1', { limit: 50 })
+      const result = await service.getMessages('conv_1', { limit: 20 })
       expect(result.messages).toEqual(expectedMessages)
       expect(result.hasMore).toBe(false)
     })
 
     it('should indicate hasMore when limit is reached', async () => {
-      const mockIndexes = Array(51).fill({ dataLakeKey: 'key', createTime: 1000 })
+      const mockIndexes = Array(21).fill({ dataLakeKey: 'key', createTime: 1000 })
       vi.mocked(mockDb.getMessageIndexes).mockResolvedValue(mockIndexes)
       vi.mocked(mockDataLake.getMessages).mockResolvedValue([])
 
-      const result = await service.getMessages('conv_1', { limit: 50 })
+      const result = await service.getMessages('conv_1', { limit: 20 })
       expect(result.hasMore).toBe(true)
     })
 
@@ -106,7 +106,7 @@ describe('ConversationService', () => {
       vi.mocked(mockDb.getMessageIndexes).mockResolvedValue(mockIndexes)
       vi.mocked(mockDataLake.getMessages).mockResolvedValue(mockRawMessages)
 
-      const result = await service.getMessages('conv_1', { limit: 50 })
+      const result = await service.getMessages('conv_1', { limit: 20 })
       expect(result.messages[0].displayType).toBe('image')
       expect(result.messages[0].displayContent).toBe('[图片]')
     })
