@@ -130,7 +130,7 @@ export const chatApi = {
       `/conversations/${conversationId}/messages`,
       {
         params: {
-          limit: params?.limit || 50,
+          limit: params?.limit || 20,
           before: params?.before,
         },
       }
