@@ -1,9 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
-/**
- * Custom hook to handle auto-scrolling to bottom of message list
- * Scrolls when new messages arrive or conversation changes
- */
+const BOTTOM_THRESHOLD = 50; // px
+
 export function useMessageScroll(
   messagesLength: number | undefined,
   conversationId: string | null
@@ -11,6 +9,24 @@ export function useMessageScroll(
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevConversationIdRef = useRef<string | null>(null);
   const prevMessagesLengthRef = useRef<number>(0);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasNewMessage, setHasNewMessage] = useState(false);
+
+  // 检测是否在底部
+  const checkIsAtBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD;
+  }, []);
+
+  // 滚动到底部
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+      setHasNewMessage(false);
+    }
+  }, []);
 
   useEffect(() => {
     const conversationChanged = prevConversationIdRef.current !== conversationId;
@@ -18,15 +34,21 @@ export function useMessageScroll(
       messagesLength !== undefined &&
       messagesLength > prevMessagesLengthRef.current;
 
-    // Scroll to bottom when conversation changes or new message arrives
-    if (scrollRef.current && (conversationChanged || newMessageAdded)) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (conversationChanged) {
+      // 切换会话：滚到底部
+      setTimeout(scrollToBottom, 0);
+      setHasNewMessage(false);
+    } else if (newMessageAdded) {
+      if (checkIsAtBottom()) {
+        setTimeout(scrollToBottom, 0);
+      } else {
+        setHasNewMessage(true);
+      }
     }
 
-    // Update refs
     prevConversationIdRef.current = conversationId;
     prevMessagesLengthRef.current = messagesLength || 0;
-  }, [messagesLength, conversationId]);
+  }, [messagesLength, conversationId, checkIsAtBottom, scrollToBottom]);
 
-  return scrollRef;
+  return { scrollRef, isAtBottom, hasNewMessage, scrollToBottom, checkIsAtBottom, setIsAtBottom };
 }
