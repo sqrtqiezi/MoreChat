@@ -13,7 +13,7 @@ const xmlParser = new XMLParser({
   textNodeName: '#text',
 })
 
-function parseXml(content: string): Record<string, unknown> | null {
+function parseXml(content: string): any | null {
   try {
     const result = xmlParser.parse(content)
     if (!result || typeof result !== 'object' || Object.keys(result).length === 0) {
