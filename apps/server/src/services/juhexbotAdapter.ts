@@ -5,6 +5,25 @@ export interface JuhexbotConfig {
   clientGuid: string
 }
 
+export interface ContactInfo {
+  username: string
+  nickname: string
+  remark?: string
+  avatar?: string
+}
+
+export interface GroupDetailInfo {
+  roomUsername: string
+  name: string
+  avatar?: string
+  memberCount: number
+}
+
+export interface ChatroomMemberInfo {
+  version: number
+  members: Array<{ username: string; nickname: string }>
+}
+
 export interface ParsedWebhookPayload {
   guid: string
   notifyType: number
@@ -135,6 +154,63 @@ export class JuhexbotAdapter {
 
     if (result.errcode !== 0) {
       throw new Error(result.errmsg || 'Failed to set notify URL')
+    }
+  }
+
+  async getContact(usernameList: string[]): Promise<ContactInfo[]> {
+    const result = await this.sendRequest('/contact/get_contact', {
+      guid: this.config.clientGuid,
+      username_list: usernameList
+    })
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || 'Failed to get contact')
+    }
+
+    const contacts = Array.isArray(result.data) ? result.data : [result.data]
+    return contacts.map((c: any) => ({
+      username: c.username,
+      nickname: c.nickname || '',
+      remark: c.remark || undefined,
+      avatar: c.avatar || c.big_head_img || c.small_head_img || undefined,
+    }))
+  }
+
+  async getChatroomDetail(roomUsername: string): Promise<GroupDetailInfo> {
+    const result = await this.sendRequest('/room/get_chatroom_detail', {
+      guid: this.config.clientGuid,
+      room_username: roomUsername
+    })
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || 'Failed to get chatroom detail')
+    }
+
+    return {
+      roomUsername: result.data.room_username || roomUsername,
+      name: result.data.name || result.data.nickname || roomUsername,
+      avatar: result.data.avatar || result.data.big_head_img || result.data.small_head_img || undefined,
+      memberCount: result.data.member_count || 0,
+    }
+  }
+
+  async getChatroomMemberDetail(roomUsername: string, version?: number): Promise<ChatroomMemberInfo> {
+    const result = await this.sendRequest('/room/get_chatroom_member_detail', {
+      guid: this.config.clientGuid,
+      room_username: roomUsername,
+      version: version || 0
+    })
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || 'Failed to get chatroom members')
+    }
+
+    return {
+      version: result.data.version || 0,
+      members: (result.data.members || []).map((m: any) => ({
+        username: m.username,
+        nickname: m.nickname || m.display_name || '',
+      }))
     }
   }
 }

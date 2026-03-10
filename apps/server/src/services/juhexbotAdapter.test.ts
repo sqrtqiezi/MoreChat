@@ -191,4 +191,127 @@ describe('JuhexbotAdapter', () => {
       await expect(adapter.setNotifyUrl('invalid-url')).rejects.toThrow('Invalid URL format')
     })
   })
+
+  describe('getContact', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should return contact info for username list', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: [
+            {
+              username: 'wxid_test1',
+              nickname: '张三',
+              remark: '张三备注',
+              avatar: 'https://wx.qlogo.cn/test1.jpg',
+            }
+          ]
+        })
+      })
+
+      const result = await adapter.getContact(['wxid_test1'])
+      expect(result).toEqual([
+        {
+          username: 'wxid_test1',
+          nickname: '张三',
+          remark: '张三备注',
+          avatar: 'https://wx.qlogo.cn/test1.jpg',
+        }
+      ])
+    })
+
+    it('should throw error when API fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 1001,
+          err_msg: 'Request failed'
+        })
+      })
+
+      await expect(adapter.getContact(['wxid_test1'])).rejects.toThrow('Request failed')
+    })
+  })
+
+  describe('getChatroomDetail', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should return chatroom detail', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            room_username: 'room@chatroom',
+            name: '开发群',
+            avatar: 'https://wx.qlogo.cn/room.jpg',
+            member_count: 42,
+          }
+        })
+      })
+
+      const result = await adapter.getChatroomDetail('room@chatroom')
+      expect(result).toEqual({
+        roomUsername: 'room@chatroom',
+        name: '开发群',
+        avatar: 'https://wx.qlogo.cn/room.jpg',
+        memberCount: 42,
+      })
+    })
+
+    it('should throw error when API fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 1001,
+          err_msg: 'Room not found'
+        })
+      })
+
+      await expect(adapter.getChatroomDetail('room@chatroom')).rejects.toThrow('Room not found')
+    })
+  })
+
+  describe('getChatroomMemberDetail', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should return chatroom member list', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            version: 5,
+            members: [
+              { username: 'wxid_a', nickname: '成员A' },
+              { username: 'wxid_b', nickname: '成员B' },
+            ]
+          }
+        })
+      })
+
+      const result = await adapter.getChatroomMemberDetail('room@chatroom', 0)
+      expect(result).toEqual({
+        version: 5,
+        members: [
+          { username: 'wxid_a', nickname: '成员A' },
+          { username: 'wxid_b', nickname: '成员B' },
+        ]
+      })
+    })
+
+    it('should throw error when API fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 1001,
+          err_msg: 'Failed to get members'
+        })
+      })
+
+      await expect(adapter.getChatroomMemberDetail('room@chatroom')).rejects.toThrow('Failed to get members')
+    })
+  })
 })
