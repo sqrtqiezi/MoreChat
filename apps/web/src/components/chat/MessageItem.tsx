@@ -56,7 +56,7 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
     }
   };
 
-  const highlightClass = isHighlighted ? 'bg-yellow-50 transition-colors duration-500' : 'transition-colors duration-500';
+  const highlightClass = isHighlighted ? 'bg-yellow-100 transition-colors duration-1000' : 'transition-colors duration-1000';
 
   if (isMine) {
     // Right-aligned (my messages)

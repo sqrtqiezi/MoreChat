@@ -107,7 +107,7 @@ export function MessageList({ conversationId }: MessageListProps) {
                 transform: `translateY(${virtualItem.start}px)`,
               }}
             >
-              <MessageItem message={messages[virtualItem.index]} isHighlighted={highlightedIds.has(messages[virtualItem.index].id)} />
+              <MessageItem message={messages[virtualItem.index]} isHighlighted={highlightedIds.includes(messages[virtualItem.index].id)} />
             </div>
           ))}
         </div>
