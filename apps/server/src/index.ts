@@ -52,7 +52,7 @@ async function main() {
     const contactSyncService = new ContactSyncService(
       databaseService,
       juhexbotAdapter,
-      { broadcast: (...args: any[]) => wsService.broadcast(...args) } as any
+      { broadcast: (event: string, data: unknown) => wsService.broadcast(event, data) } as any
     )
 
     // 3. 创建 HTTP 应用
