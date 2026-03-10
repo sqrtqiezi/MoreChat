@@ -10,7 +10,7 @@ interface MessageListProps {
 }
 
 export function MessageList({ conversationId }: MessageListProps) {
-  const { data: messages, isLoading, error } = useMessages(conversationId);
+  const { messages, isLoading, error } = useMessages(conversationId);
   const parentRef = useMessageScroll(messages?.length, conversationId);
 
   const virtualizer = useVirtualizer({
