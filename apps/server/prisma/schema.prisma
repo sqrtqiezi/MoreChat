@@ -33,9 +33,10 @@ model Contact {
   nickname  String
   remark    String?
   avatar    String?
-  type      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  type       String
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   conversations Conversation[]
   groupMembers  GroupMember[]
@@ -51,8 +52,9 @@ model Group {
   avatar       String?
   memberCount  Int      @default(0)
   version      Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   conversations Conversation[]
   members       GroupMember[]

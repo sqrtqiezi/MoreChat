@@ -47,6 +47,7 @@ export class DatabaseService {
         "remark" TEXT,
         "avatar" TEXT,
         "type" TEXT NOT NULL,
+        "lastSyncAt" DATETIME,
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" DATETIME NOT NULL
       )
@@ -61,6 +62,7 @@ export class DatabaseService {
         "avatar" TEXT,
         "memberCount" INTEGER NOT NULL DEFAULT 0,
         "version" INTEGER,
+        "lastSyncAt" DATETIME,
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" DATETIME NOT NULL
       )
@@ -170,6 +172,24 @@ export class DatabaseService {
     return this.prisma.contact.findUnique({ where: { id } })
   }
 
+  async updateContact(username: string, data: { nickname?: string; remark?: string; avatar?: string; lastSyncAt?: Date }) {
+    return this.prisma.contact.update({
+      where: { username },
+      data: { ...data, updatedAt: new Date() }
+    })
+  }
+
+  async findStaleContacts(limit: number) {
+    return this.prisma.contact.findMany({
+      where: {
+        type: 'friend',
+        lastSyncAt: null,
+      },
+      take: limit,
+      orderBy: { createdAt: 'asc' }
+    })
+  }
+
   // --- Group ---
 
   async createGroup(data: { roomUsername: string; name: string; avatar?: string }) {
@@ -187,6 +207,33 @@ export class DatabaseService {
 
   async findGroupByRoomUsername(roomUsername: string) {
     return this.prisma.group.findUnique({ where: { roomUsername } })
+  }
+
+  async updateGroup(roomUsername: string, data: { name?: string; avatar?: string; memberCount?: number; version?: number; lastSyncAt?: Date }) {
+    return this.prisma.group.update({
+      where: { roomUsername },
+      data: { ...data, updatedAt: new Date() }
+    })
+  }
+
+  async findStaleGroups(limit: number) {
+    return this.prisma.group.findMany({
+      where: {
+        lastSyncAt: null,
+      },
+      take: limit,
+      orderBy: { createdAt: 'asc' }
+    })
+  }
+
+  async upsertGroupMember(data: { groupId: string; username: string; nickname?: string; role?: string }) {
+    return this.prisma.groupMember.upsert({
+      where: {
+        groupId_username: { groupId: data.groupId, username: data.username }
+      },
+      update: { nickname: data.nickname, role: data.role, updatedAt: new Date() },
+      create: { ...data, updatedAt: new Date() }
+    })
   }
 
   // --- Conversation ---
