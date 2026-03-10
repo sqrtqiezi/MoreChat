@@ -132,6 +132,10 @@ export class DatabaseService {
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `)
+
+    // Migrations: add lastSyncAt columns if not exist
+    await this.prisma.$executeRawUnsafe(`ALTER TABLE "Contact" ADD COLUMN "lastSyncAt" DATETIME`).catch(() => {})
+    await this.prisma.$executeRawUnsafe(`ALTER TABLE "Group" ADD COLUMN "lastSyncAt" DATETIME`).catch(() => {})
   }
 
   async disconnect() {
