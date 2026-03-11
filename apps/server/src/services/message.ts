@@ -203,7 +203,17 @@ export class MessageService {
     }
   }
 
-  async sendMessage(conversationId: string, content: string): Promise<{ msgId: string }> {
+  async sendMessage(conversationId: string, content: string): Promise<{
+    msgId: string
+    msgType: number
+    fromUsername: string
+    toUsername: string
+    content: string
+    createTime: number
+    chatroomSender?: string
+    displayType: string
+    displayContent: string
+  }> {
     // 1. 获取会话信息
     const conversation = await this.db.findConversationById(conversationId)
     if (!conversation) {
@@ -257,6 +267,16 @@ export class MessageService {
     // 6. 更新会话最后消息时间
     await this.db.updateConversationLastMessage(conversationId, new Date(createTime * 1000))
 
-    return { msgId }
+    return {
+      msgId,
+      msgType: 1,
+      fromUsername: this.clientUsername,
+      toUsername,
+      content,
+      createTime,
+      chatroomSender: conversation.type === 'group' ? this.clientUsername : undefined,
+      displayType: 'text',
+      displayContent: content,
+    }
   }
 }
