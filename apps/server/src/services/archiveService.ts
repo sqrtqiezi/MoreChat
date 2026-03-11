@@ -11,7 +11,8 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { existsSync } from 'fs'
-import { ParquetSchema, ParquetWriter, ParquetReader } from '@dsnp/parquetjs'
+import { parquetWriteFile } from 'hyparquet-writer'
+import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet'
 import { logger } from '../lib/logger.js'
 
 export interface ArchiveConfig {
@@ -19,19 +20,10 @@ export interface ArchiveConfig {
   hotRetentionDays?: number  // hot/ 保留天数，默认 3
 }
 
-const MESSAGE_SCHEMA = new ParquetSchema({
-  msg_id: { type: 'UTF8' },
-  from_username: { type: 'UTF8' },
-  to_username: { type: 'UTF8' },
-  content: { type: 'UTF8' },
-  create_time: { type: 'INT64' },
-  msg_type: { type: 'INT64' },
-  chatroom_sender: { type: 'UTF8' },
-  desc: { type: 'UTF8' },
-  is_chatroom_msg: { type: 'INT64' },
-  chatroom: { type: 'UTF8' },
-  source: { type: 'UTF8' },
-})
+const MESSAGE_COLUMNS = [
+  'msg_id', 'from_username', 'to_username', 'content', 'create_time',
+  'msg_type', 'chatroom_sender', 'desc', 'is_chatroom_msg', 'chatroom', 'source',
+] as const
 
 export class ArchiveService {
   private config: ArchiveConfig
@@ -260,46 +252,27 @@ export class ArchiveService {
   }
 
   /**
-   * 写入 Parquet 文件
+   * 写入 Parquet 文件（列式）
    */
   private async writeParquet(filePath: string, messages: Record<string, unknown>[]) {
-    const writer = await ParquetWriter.openFile(MESSAGE_SCHEMA, filePath)
+    const columnData = MESSAGE_COLUMNS.map(col => {
+      const isNumeric = col === 'create_time' || col === 'msg_type' || col === 'is_chatroom_msg'
+      return {
+        name: col,
+        data: messages.map(m => isNumeric ? BigInt(Number(m[col] ?? 0)) : String(m[col] ?? '')),
+        type: isNumeric ? 'INT64' as const : 'STRING' as const,
+      }
+    })
 
-    for (const msg of messages) {
-      await writer.appendRow({
-        msg_id: String(msg.msg_id ?? ''),
-        from_username: String(msg.from_username ?? ''),
-        to_username: String(msg.to_username ?? ''),
-        content: String(msg.content ?? ''),
-        create_time: Number(msg.create_time ?? 0),
-        msg_type: Number(msg.msg_type ?? 0),
-        chatroom_sender: String(msg.chatroom_sender ?? ''),
-        desc: String(msg.desc ?? ''),
-        is_chatroom_msg: Number(msg.is_chatroom_msg ?? 0),
-        chatroom: String(msg.chatroom ?? ''),
-        source: String(msg.source ?? ''),
-      })
-    }
-
-    await writer.close()
+    await parquetWriteFile({ filename: filePath, columnData })
   }
 
   /**
    * 读取 Parquet 文件
    */
   private async readParquet(filePath: string): Promise<Record<string, unknown>[]> {
-    const reader = await ParquetReader.openFile(filePath)
-    const cursor = reader.getCursor()
-    const records: Record<string, unknown>[] = []
-
-    let record = await cursor.next()
-    while (record !== null) {
-      records.push(record as Record<string, unknown>)
-      record = await cursor.next()
-    }
-
-    await reader.close()
-    return records
+    const file = await asyncBufferFromFile(filePath)
+    return await parquetReadObjects({ file }) as Record<string, unknown>[]
   }
 
   /**

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ArchiveService } from './archiveService.js'
-import { ParquetReader } from '@dsnp/parquetjs'
+import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet'
 import fs from 'fs/promises'
 import path from 'path'
 import { existsSync } from 'fs'
@@ -53,15 +53,8 @@ describe('ArchiveService', () => {
       expect(existsSync(parquetFile)).toBe(true)
 
       // 验证 Parquet 内容
-      const reader = await ParquetReader.openFile(parquetFile)
-      const cursor = reader.getCursor()
-      const rows: any[] = []
-      let row = await cursor.next()
-      while (row !== null) {
-        rows.push(row)
-        row = await cursor.next()
-      }
-      await reader.close()
+      const file = await asyncBufferFromFile(parquetFile)
+      const rows = await parquetReadObjects({ file }) as any[]
 
       expect(rows).toHaveLength(2)
       expect(rows[0].msg_id).toBe('msg_1')
@@ -104,15 +97,8 @@ describe('ArchiveService', () => {
       expect(existsSync(path.join(testLakePath, 'daily', 'conv_a', '2026-02-02.parquet'))).toBe(false)
 
       // 验证月归档内容
-      const reader = await ParquetReader.openFile(monthlyFile)
-      const cursor = reader.getCursor()
-      const rows: any[] = []
-      let row = await cursor.next()
-      while (row !== null) {
-        rows.push(row)
-        row = await cursor.next()
-      }
-      await reader.close()
+      const file = await asyncBufferFromFile(monthlyFile)
+      const rows = await parquetReadObjects({ file }) as any[]
 
       expect(rows).toHaveLength(2)
     })
