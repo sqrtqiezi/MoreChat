@@ -99,6 +99,51 @@ describe('MessageService', () => {
     expect(changes[0].changeType).toBe('recall')
   })
 
+  it('should skip duplicate message when msgId already exists', async () => {
+    vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'dup_123' })
+
+    const contact = await db.createContact({
+      username: 'wxid_target',
+      nickname: 'Target',
+      type: 'friend'
+    })
+    const client = await db.findClientByGuid('test-guid-123')
+    const conversation = await db.createConversation({
+      clientId: client!.id,
+      type: 'private',
+      contactId: contact.id
+    })
+
+    await messageService.sendMessage(conversation.id, '测试')
+
+    // 模拟 webhook 回传相同 msgId 的消息
+    const webhookPayload = {
+      guid: 'test-guid-123',
+      notify_type: 1,
+      data: {
+        msg_id: 'dup_123',
+        msg_type: 1,
+        from_username: 'test-guid-123',
+        to_username: 'wxid_target',
+        content: '测试',
+        create_time: Math.floor(Date.now() / 1000),
+        chatroom_sender: '',
+        chatroom: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        source: ''
+      }
+    }
+
+    const parsed = adapter.parseWebhookPayload(webhookPayload)
+    const result = await messageService.handleIncomingMessage(parsed)
+
+    expect(result).toBeNull()
+
+    const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
+    expect(indexes.length).toBe(1)
+  })
+
   describe('sendMessage', () => {
     it('should send text message via adapter and save to DataLake', async () => {
       // Mock adapter.sendTextMessage

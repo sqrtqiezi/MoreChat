@@ -33,6 +33,12 @@ export class MessageService {
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | null> {
     const { message } = parsed
 
+    // 去重：检查 msgId 是否已存在
+    const existing = await this.db.findMessageIndexByMsgId(message.msgId)
+    if (existing) {
+      return null
+    }
+
     // 消息撤回特殊处理
     if (message.msgType === 10002) {
       await this.handleRecall(parsed)
