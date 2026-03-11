@@ -75,6 +75,11 @@ async function main() {
       juhexbotAdapter,
       get wsService() { return wsService },
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
+      userProfile: {  // 新增
+        username: userProfile.username,
+        nickname: userProfile.nickname,
+        avatar: userProfile.avatar
+      },
       auth: {
         passwordHash: env.AUTH_PASSWORD_HASH,
         jwtSecret: env.AUTH_JWT_SECRET,

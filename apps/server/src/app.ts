@@ -9,6 +9,7 @@ import { authMiddleware } from './middleware/auth.js'
 import { clientRoutes } from './routes/client.js'
 import { conversationRoutes } from './routes/conversations.js'
 import { messageRoutes } from './routes/messages.js'
+import { meRoutes } from './routes/me.js'
 import type { ClientService } from './services/clientService.js'
 import type { ConversationService } from './services/conversationService.js'
 import type { MessageService } from './services/message.js'
@@ -25,6 +26,11 @@ export interface AppDependencies {
   juhexbotAdapter: JuhexbotAdapter
   wsService: WebSocketService
   clientGuid: string
+  userProfile: {  // 新增
+    username: string
+    nickname: string
+    avatar?: string
+  }
   auth: {
     passwordHash: string
     jwtSecret: string
@@ -100,6 +106,7 @@ export function createApp(deps: AppDependencies) {
     clientGuid: deps.clientGuid
   }))
   app.route('/api/messages', messageRoutes({ messageService: deps.messageService }))
+  app.route('/api/me', meRoutes(deps.userProfile))  // 新增
 
   // 生产环境：serve 前端静态文件
   if (deps.nodeEnv === 'production') {
