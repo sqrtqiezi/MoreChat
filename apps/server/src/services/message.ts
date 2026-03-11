@@ -26,7 +26,8 @@ export class MessageService {
   constructor(
     private db: DatabaseService,
     private dataLake: DataLakeService,
-    private adapter: JuhexbotAdapter
+    private adapter: JuhexbotAdapter,
+    private clientUsername: string
   ) {}
 
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | null> {
@@ -219,7 +220,7 @@ export class MessageService {
     const createTime = Math.floor(Date.now() / 1000)
     const chatMessage: ChatMessage = {
       msg_id: msgId,
-      from_username: '',
+      from_username: this.clientUsername,  // 修改：使用真实用户名
       to_username: toUsername,
       content,
       create_time: createTime,
@@ -238,7 +239,7 @@ export class MessageService {
       conversationId,
       msgId,
       msgType: 1,
-      fromUsername: '',
+      fromUsername: this.clientUsername,  // 修改：使用真实用户名
       toUsername,
       createTime,
       dataLakeKey

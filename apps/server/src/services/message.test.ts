@@ -35,7 +35,7 @@ describe('MessageService', () => {
     // 创建测试 client
     await db.createClient({ guid: 'test-guid-123' })
 
-    messageService = new MessageService(db, dataLake, adapter)
+    messageService = new MessageService(db, dataLake, adapter, 'test-guid-123')
   })
 
   afterEach(async () => {
