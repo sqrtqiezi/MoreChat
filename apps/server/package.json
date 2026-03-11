@@ -20,6 +20,8 @@
     "hash-password": "tsx scripts/hash-password.ts"
   },
   "dependencies": {
+    "@dsnp/parquetjs": "^1.8.7",
+    "@duckdb/node-api": "1.4.4-r.3",
     "@hono/node-server": "^1.11.4",
     "@morechat/types": "workspace:*",
     "@prisma/client": "^5.0.0",

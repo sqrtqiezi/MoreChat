@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { DataLakeService } from './dataLake.js'
 import fs from 'fs/promises'
+import path from 'path'
+import { existsSync } from 'fs'
 
 describe('DataLakeService', () => {
   const testLakePath = './test-data-lake'
@@ -17,63 +19,254 @@ describe('DataLakeService', () => {
     await fs.rm(testLakePath, { recursive: true, force: true })
   })
 
-  it('should save and retrieve message', async () => {
-    const message = {
-      msg_id: 'test_123',
-      from_username: 'user1',
-      to_username: 'user2',
-      content: 'Hello',
-      create_time: 1234567890,
-      msg_type: 1,
-      chatroom_sender: '',
-      desc: '',
-      is_chatroom_msg: 0,
-      chatroom: '',
-      source: ''
-    }
+  describe('JSONL 格式（新）', () => {
+    it('should save message to both raw/ and hot/', async () => {
+      const message = {
+        msg_id: 'test_123',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Hello',
+        create_time: 1710115200, // 2024-03-11 00:00:00 UTC
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
 
-    const key = await dataLake.saveMessage('conv_123', message)
-    const retrieved = await dataLake.getMessage(key)
+      const key = await dataLake.saveMessage('conv_123', message)
 
-    expect(retrieved).toEqual(message)
+      // 验证返回的 key 格式
+      expect(key).toMatch(/^hot\/conv_123\/\d{4}-\d{2}-\d{2}\.jsonl:test_123$/)
+
+      // 验证 raw/ 文件存在
+      const date = new Date(message.create_time * 1000).toISOString().slice(0, 10)
+      const rawFile = path.join(testLakePath, 'raw', `${date}.jsonl`)
+      expect(existsSync(rawFile)).toBe(true)
+
+      // 验证 hot/ 文件存在
+      const hotFile = path.join(testLakePath, 'hot', 'conv_123', `${date}.jsonl`)
+      expect(existsSync(hotFile)).toBe(true)
+
+      // 验证文件内容
+      const rawContent = await fs.readFile(rawFile, 'utf-8')
+      expect(rawContent).toContain('"msg_id":"test_123"')
+
+      const hotContent = await fs.readFile(hotFile, 'utf-8')
+      expect(hotContent).toContain('"msg_id":"test_123"')
+    })
+
+    it('should retrieve message from JSONL', async () => {
+      const message = {
+        msg_id: 'test_123',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Hello',
+        create_time: 1710115200,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+
+      const key = await dataLake.saveMessage('conv_123', message)
+      const retrieved = await dataLake.getMessage(key)
+
+      expect(retrieved).toEqual(message)
+    })
+
+    it('should append multiple messages to same JSONL file', async () => {
+      const message1 = {
+        msg_id: 'test_1',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Hello 1',
+        create_time: 1710115200,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+
+      const message2 = {
+        msg_id: 'test_2',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Hello 2',
+        create_time: 1710115201,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+
+      await dataLake.saveMessage('conv_123', message1)
+      await dataLake.saveMessage('conv_123', message2)
+
+      // 验证同一天的消息在同一个文件中
+      const date = new Date(message1.create_time * 1000).toISOString().slice(0, 10)
+      const hotFile = path.join(testLakePath, 'hot', 'conv_123', `${date}.jsonl`)
+      const content = await fs.readFile(hotFile, 'utf-8')
+      const lines = content.split('\n').filter(Boolean)
+
+      expect(lines).toHaveLength(2)
+      expect(lines[0]).toContain('"msg_id":"test_1"')
+      expect(lines[1]).toContain('"msg_id":"test_2"')
+    })
+
+    it('should retrieve multiple messages efficiently', async () => {
+      const message1 = {
+        msg_id: 'test_1',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Hello 1',
+        create_time: 1710115200,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+
+      const message2 = {
+        msg_id: 'test_2',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Hello 2',
+        create_time: 1710115201,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+
+      const key1 = await dataLake.saveMessage('conv_123', message1)
+      const key2 = await dataLake.saveMessage('conv_123', message2)
+
+      // 批量获取（应该只读取一次文件）
+      const messages = await dataLake.getMessages([key1, key2])
+
+      expect(messages).toHaveLength(2)
+      expect(messages[0]).toEqual(message1)
+      expect(messages[1]).toEqual(message2)
+    })
+
+    it('should skip corrupted lines in JSONL', async () => {
+      const date = '2024-03-11'
+      const hotFile = path.join(testLakePath, 'hot', 'conv_123', `${date}.jsonl`)
+      await fs.mkdir(path.dirname(hotFile), { recursive: true })
+
+      // 写入一个正常消息和一个损坏的行
+      const validMessage = {
+        msg_id: 'test_valid',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Valid',
+        create_time: 1710115200,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+
+      await fs.writeFile(
+        hotFile,
+        JSON.stringify(validMessage) + '\n' +
+        '{invalid json\n' +
+        JSON.stringify({ ...validMessage, msg_id: 'test_valid2' }) + '\n',
+        'utf-8'
+      )
+
+      // 应该能读取有效消息，跳过损坏行
+      const retrieved = await dataLake.getMessage(`hot/conv_123/${date}.jsonl:test_valid`)
+      expect(retrieved.msg_id).toBe('test_valid')
+    })
   })
 
-  it('should retrieve multiple messages', async () => {
-    const message1 = {
-      msg_id: 'test_1',
-      from_username: 'user1',
-      to_username: 'user2',
-      content: 'Hello 1',
-      create_time: 1234567890,
-      msg_type: 1,
-      chatroom_sender: '',
-      desc: '',
-      is_chatroom_msg: 0,
-      chatroom: '',
-      source: ''
-    }
+  describe('旧格式兼容性', () => {
+    it('should read old JSON format', async () => {
+      const message = {
+        msg_id: 'test_old',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Old format',
+        create_time: 1710115200,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
 
-    const message2 = {
-      msg_id: 'test_2',
-      from_username: 'user1',
-      to_username: 'user2',
-      content: 'Hello 2',
-      create_time: 1234567891,
-      msg_type: 1,
-      chatroom_sender: '',
-      desc: '',
-      is_chatroom_msg: 0,
-      chatroom: '',
-      source: ''
-    }
+      // 手动创建旧格式文件
+      const oldKey = `conversations/conv_123/messages/${message.create_time}_${message.msg_id}.json`
+      const oldPath = path.join(testLakePath, oldKey)
+      await fs.mkdir(path.dirname(oldPath), { recursive: true })
+      await fs.writeFile(oldPath, JSON.stringify(message, null, 2), 'utf-8')
 
-    const key1 = await dataLake.saveMessage('conv_123', message1)
-    const key2 = await dataLake.saveMessage('conv_123', message2)
+      // 应该能读取旧格式
+      const retrieved = await dataLake.getMessage(oldKey)
+      expect(retrieved).toEqual(message)
+    })
 
-    const messages = await dataLake.getMessages([key1, key2])
+    it('should retrieve mixed format messages', async () => {
+      // 创建旧格式消息
+      const oldMessage = {
+        msg_id: 'test_old',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Old',
+        create_time: 1710115200,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
 
-    expect(messages).toHaveLength(2)
-    expect(messages[0]).toEqual(message1)
-    expect(messages[1]).toEqual(message2)
+      const oldKey = `conversations/conv_123/messages/${oldMessage.create_time}_${oldMessage.msg_id}.json`
+      const oldPath = path.join(testLakePath, oldKey)
+      await fs.mkdir(path.dirname(oldPath), { recursive: true })
+      await fs.writeFile(oldPath, JSON.stringify(oldMessage, null, 2), 'utf-8')
+
+      // 创建新格式消息
+      const newMessage = {
+        msg_id: 'test_new',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'New',
+        create_time: 1710115201,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+
+      const newKey = await dataLake.saveMessage('conv_123', newMessage)
+
+      // 批量获取混合格式
+      const messages = await dataLake.getMessages([oldKey, newKey])
+
+      expect(messages).toHaveLength(2)
+      expect(messages[0]).toEqual(oldMessage)
+      expect(messages[1]).toEqual(newMessage)
+    })
   })
 })
+

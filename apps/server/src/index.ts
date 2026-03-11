@@ -9,6 +9,7 @@ import { WebSocketService } from './services/websocket.js'
 import { ClientService } from './services/clientService.js'
 import { ConversationService } from './services/conversationService.js'
 import { ContactSyncService } from './services/contactSyncService.js'
+import { ArchiveService } from './services/archiveService.js'
 import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
 
@@ -63,6 +64,12 @@ async function main() {
       { broadcast: (event: string, data: unknown) => wsService.broadcast(event, data) } as any
     )
 
+    // ArchiveService 负责 hot/ 数据清理
+    const archiveService = new ArchiveService({
+      lakePath: env.DATA_LAKE_PATH,
+      hotRetentionDays: 3
+    })
+
     // 3. 创建 HTTP 应用
     // 注意：wsService 需要在 HTTP server 创建后才能初始化，用 getter 延迟访问
     let wsService: WebSocketService
@@ -101,7 +108,11 @@ async function main() {
     // 6. 启动联系人同步后台任务
     contactSyncService.startBackfillScheduler()
 
-    // 6. 检查 juhexbot 状态
+    // 7. 启动归档定时任务
+    archiveService.start()
+    logger.info('Archive service started')
+
+    // 8. 检查 juhexbot 状态
     try {
       const status = await clientService.getStatus()
       logger.info({ online: status.online }, 'juhexbot client status')
@@ -109,7 +120,7 @@ async function main() {
       logger.warn({ err: error }, 'Could not check juhexbot status')
     }
 
-    // 7. 注册 webhook 到 juhexbot
+    // 9. 注册 webhook 到 juhexbot
     if (env.WEBHOOK_URL) {
       try {
         logger.info({ webhookUrl: env.WEBHOOK_URL }, 'Registering webhook')
@@ -122,10 +133,11 @@ async function main() {
       logger.warn('WEBHOOK_URL not configured, skipping webhook registration')
     }
 
-    // 8. 优雅关闭
+    // 10. 优雅关闭
     async function gracefulShutdown(signal: string) {
       logger.info({ signal }, 'Shutting down gracefully...')
       try {
+        archiveService.stop()
         contactSyncService.stopBackfillScheduler()
         wsService.close()
         logger.info('WebSocket connections closed')
