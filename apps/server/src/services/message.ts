@@ -44,6 +44,9 @@ export class MessageService {
     if (message.toUsername) {
       await this.ensureContact(message.toUsername)
     }
+    if (message.chatroomSender) {
+      await this.ensureContact(message.chatroomSender)
+    }
 
     // 获取或创建会话
     const conversationId = this.adapter.getConversationId(parsed)
