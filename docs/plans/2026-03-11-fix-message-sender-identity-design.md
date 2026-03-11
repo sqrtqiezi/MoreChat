@@ -73,3 +73,14 @@ from_username: this.clientUsername,
 | `apps/server/src/index.ts` | 启动时调用 `getProfile()` |
 | `apps/server/src/routes/` | 新增 me route |
 | `apps/web/src/api/chat.ts` | 动态获取 username，修复 `isMine` |
+
+## 实现完成
+
+- ✅ JuhexbotAdapter.getProfile() 方法
+- ✅ JuhexbotConfig.clientUsername 字段
+- ✅ MessageService 使用 clientUsername
+- ✅ 服务启动时获取用户信息
+- ✅ /api/me 接口
+- ✅ 前端动态获取用户标识
+- ✅ 所有测试通过
+
