@@ -114,12 +114,14 @@ export class JuhexbotAdapter {
   async sendRequest<T>(path: string, data: T): Promise<{ errcode: number; errmsg: string; data: any }> {
     const fullPath = path.startsWith('/') ? path : `/${path}`
     const request = this.buildGatewayRequest(fullPath, data)
+    logger.info({ path: fullPath, apiUrl: this.config.apiUrl, requestBody: request }, 'juhexbot API request')
     const response = await fetch(this.config.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request)
     })
     const result = await response.json() as any
+    logger.info({ path: fullPath, httpStatus: response.status, rawResponse: result }, 'juhexbot API response')
     // juhexbot API 返回字段不统一，统一为 errcode/errmsg
     // 有些接口用 errcode/err_code，有些用 baseResponse.ret
     const errcode = result.errcode ?? result.err_code ?? result.baseResponse?.ret ?? -1
@@ -148,7 +150,7 @@ export class JuhexbotAdapter {
   }
 
   async sendTextMessage(toUsername: string, content: string): Promise<{ msgId: string }> {
-    const result = await this.sendRequest('/message/send_text', {
+    const result = await this.sendRequest('/msg/send_text', {
       guid: this.config.clientGuid,
       to_username: toUsername,
       content
