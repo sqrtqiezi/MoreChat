@@ -228,6 +228,8 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to get chatroom members')
     }
 
+    logger.info({ roomUsername, dataKeys: Object.keys(result.data || {}), rawSample: JSON.stringify(result.data).slice(0, 500) }, 'getChatroomMemberDetail raw response')
+
     return {
       version: result.data.version || 0,
       members: (result.data.members || []).map((m: any) => ({
