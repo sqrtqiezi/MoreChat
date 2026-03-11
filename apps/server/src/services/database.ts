@@ -328,6 +328,12 @@ export class DatabaseService {
     return this.prisma.messageIndex.create({ data })
   }
 
+  async findMessageIndexByMsgId(msgId: string) {
+    return this.prisma.messageIndex.findUnique({
+      where: { msgId }
+    })
+  }
+
   async getMessageIndexes(conversationId: string, options: { limit?: number; before?: number } = {}) {
     const { limit = 50, before } = options
     return this.prisma.messageIndex.findMany({

@@ -92,6 +92,37 @@ describe('DatabaseService', () => {
       expect(indexes[0].msgId).toBe('msg_002')
       expect(indexes[1].msgId).toBe('msg_001')
     })
+
+    it('should find message index by msgId', async () => {
+      const client = await db.createClient({ guid: 'test-guid' })
+      const contact = await db.createContact({
+        username: 'wxid_test',
+        nickname: 'Test',
+        type: 'friend'
+      })
+      const conversation = await db.createConversation({
+        clientId: client.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      await db.createMessageIndex({
+        conversationId: conversation.id,
+        msgId: 'msg_123',
+        msgType: 1,
+        fromUsername: 'wxid_test',
+        toUsername: 'wxid_me',
+        createTime: 1234567890,
+        dataLakeKey: 'test/key'
+      })
+
+      const found = await db.findMessageIndexByMsgId('msg_123')
+      expect(found).not.toBeNull()
+      expect(found!.msgId).toBe('msg_123')
+
+      const notFound = await db.findMessageIndexByMsgId('not_exist')
+      expect(notFound).toBeNull()
+    })
   })
 
   describe('getConversations', () => {

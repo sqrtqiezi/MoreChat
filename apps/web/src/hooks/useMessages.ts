@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef } from 'react';
 import { chatApi } from '../api/chat';
 import type { Message } from '../types';
+import { hasPendingMsgId } from '../utils/pendingMessages';
 
 const HIGHLIGHT_DURATION = 2000; // ms
 
@@ -79,7 +80,7 @@ export function useMessages(conversationId: string | null) {
         ['messages', conversationId], (old) => {
         if (!old) return { messages: [message], hasMore: false, highlightedIds: [message.id] };
         // 按 msgId 去重
-        if (old.messages.some((m) => m.id === message.id)) return old;
+        if (old.messages.some((m) => m.id === message.id) || hasPendingMsgId(message.id)) return old;
         return {
           messages: [...old.messages, message],
           hasMore: old.hasMore,

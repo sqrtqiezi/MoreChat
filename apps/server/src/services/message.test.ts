@@ -99,6 +99,51 @@ describe('MessageService', () => {
     expect(changes[0].changeType).toBe('recall')
   })
 
+  it('should skip duplicate message when msgId already exists', async () => {
+    vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'dup_123' })
+
+    const contact = await db.createContact({
+      username: 'wxid_target',
+      nickname: 'Target',
+      type: 'friend'
+    })
+    const client = await db.findClientByGuid('test-guid-123')
+    const conversation = await db.createConversation({
+      clientId: client!.id,
+      type: 'private',
+      contactId: contact.id
+    })
+
+    await messageService.sendMessage(conversation.id, '测试')
+
+    // 模拟 webhook 回传相同 msgId 的消息
+    const webhookPayload = {
+      guid: 'test-guid-123',
+      notify_type: 1,
+      data: {
+        msg_id: 'dup_123',
+        msg_type: 1,
+        from_username: 'test-guid-123',
+        to_username: 'wxid_target',
+        content: '测试',
+        create_time: Math.floor(Date.now() / 1000),
+        chatroom_sender: '',
+        chatroom: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        source: ''
+      }
+    }
+
+    const parsed = adapter.parseWebhookPayload(webhookPayload)
+    const result = await messageService.handleIncomingMessage(parsed)
+
+    expect(result).toBeNull()
+
+    const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
+    expect(indexes.length).toBe(1)
+  })
+
   describe('sendMessage', () => {
     it('should send text message via adapter and save to DataLake', async () => {
       // Mock adapter.sendTextMessage
@@ -119,7 +164,17 @@ describe('MessageService', () => {
 
       const result = await messageService.sendMessage(conversation.id, '你好')
 
+      // 验证返回完整消息对象
       expect(result.msgId).toBe('sent_123')
+      expect(result.msgType).toBe(1)
+      expect(result.fromUsername).toBe('test-guid-123')
+      expect(result.toUsername).toBe('wxid_target')
+      expect(result.content).toBe('你好')
+      expect(result.createTime).toBeGreaterThan(0)
+      expect(result.displayType).toBe('text')
+      expect(result.displayContent).toBe('你好')
+      expect(result.chatroomSender).toBeUndefined()
+
       expect(adapter.sendTextMessage).toHaveBeenCalledWith('wxid_target', '你好')
 
       // 验证消息索引已创建
@@ -129,6 +184,27 @@ describe('MessageService', () => {
 
     it('should throw error when conversation not found', async () => {
       await expect(messageService.sendMessage('not_exist', '你好')).rejects.toThrow('Conversation not found')
+    })
+
+    it('should include chatroomSender for group messages', async () => {
+      vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'group_msg_123' })
+
+      const group = await db.createGroup({
+        roomUsername: '12345@chatroom',
+        name: 'Test Group'
+      })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'group',
+        groupId: group.id
+      })
+
+      const result = await messageService.sendMessage(conversation.id, '群消息')
+
+      expect(result.msgId).toBe('group_msg_123')
+      expect(result.chatroomSender).toBe('test-guid-123')
+      expect(adapter.sendTextMessage).toHaveBeenCalledWith('12345@chatroom', '群消息')
     })
   })
 })

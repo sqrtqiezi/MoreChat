@@ -18,7 +18,16 @@ describe('message routes', () => {
 
   describe('POST /api/messages/send', () => {
     it('should send message successfully', async () => {
-      vi.mocked(mockMessageService.sendMessage).mockResolvedValue({ msgId: 'sent_123' })
+      vi.mocked(mockMessageService.sendMessage).mockResolvedValue({
+        msgId: 'sent_123',
+        msgType: 1,
+        fromUsername: 'wxid_me',
+        toUsername: 'wxid_target',
+        content: '你好',
+        createTime: 1234567890,
+        displayType: 'text',
+        displayContent: '你好'
+      })
 
       const res = await app.request('/api/messages/send', {
         method: 'POST',
@@ -29,7 +38,9 @@ describe('message routes', () => {
 
       expect(res.status).toBe(200)
       expect(body.success).toBe(true)
-      expect(body.data.msgId).toBe('sent_123')
+      expect(body.data.message).toBeDefined()
+      expect(body.data.message.msgId).toBe('sent_123')
+      expect(body.data.message.msgType).toBe(1)
       expect(mockMessageService.sendMessage).toHaveBeenCalledWith('conv_1', '你好')
     })
 
