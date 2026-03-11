@@ -47,8 +47,29 @@ interface ApiMessagesResponse {
   hasMore: boolean;
 }
 
-// Current user identifier (used to determine isMine)
-const CURRENT_USER = 'wxid_test_user';
+interface CurrentUserResponse {
+  username: string
+  nickname: string
+  avatar?: string
+}
+
+// 全局存储当前用户信息
+let currentUser: CurrentUserResponse | null = null
+
+// 获取当前用户信息
+export async function getCurrentUser(): Promise<CurrentUserResponse> {
+  if (currentUser) {
+    return currentUser
+  }
+
+  const response = await client.get<ApiResponse<CurrentUserResponse>>('/me')
+  if (!response.data.success || !response.data.data) {
+    throw new Error('Failed to get current user')
+  }
+
+  currentUser = response.data.data
+  return currentUser
+}
 
 // Global contact name cache, built from conversations API
 export const contactNameCache = new Map<string, string>();
@@ -74,7 +95,8 @@ function mapConversation(raw: ApiConversation): Conversation {
 }
 
 export function mapMessage(raw: ApiMessage, conversationId: string, contactNameMap: Map<string, string>): Message {
-  const isMine = raw.fromUsername === CURRENT_USER;
+  // 使用全局 currentUser，如果未初始化则 isMine 为 false
+  const isMine = currentUser ? raw.fromUsername === currentUser.username : false
 
   return {
     id: raw.msgId,
