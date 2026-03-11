@@ -5,6 +5,7 @@ export interface JuhexbotConfig {
   appKey: string
   appSecret: string
   clientGuid: string
+  clientUsername?: string  // 新增：登录用户的微信用户名
 }
 
 export interface UserProfile {
@@ -93,7 +94,9 @@ export class JuhexbotAdapter {
       return parsed.message.chatroom
     }
     // 私聊：取对方的 username
-    if (parsed.message.fromUsername === this.config.clientGuid) {
+    // 优先用 clientUsername，fallback 到 clientGuid（向后兼容）
+    const selfIdentifier = this.config.clientUsername || this.config.clientGuid
+    if (parsed.message.fromUsername === selfIdentifier) {
       return parsed.message.toUsername
     }
     return parsed.message.fromUsername
