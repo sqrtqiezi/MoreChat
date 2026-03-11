@@ -69,12 +69,12 @@ export class ContactSyncService {
         name: detail.name || group.name,
         avatar: detail.avatar,
         memberCount: detail.memberCount,
-        lastSyncAt: new Date()
       })
 
       // Sync group members
       await this.rateLimiter.acquire()
       const memberResult = await this.adapter.getChatroomMemberDetail(roomUsername, group.version || 0)
+      logger.info({ roomUsername, memberCount: memberResult.members.length, version: memberResult.version }, 'syncGroup member result')
 
       if (memberResult.members.length > 0) {
         for (const member of memberResult.members) {
@@ -104,6 +104,11 @@ export class ContactSyncService {
           version: memberResult.version
         })
       }
+
+      // lastSyncAt 放在最后，确保成员同步成功后才标记
+      await this.db.updateGroup(roomUsername, {
+        lastSyncAt: new Date()
+      })
 
       this.wsService.broadcast('group:updated', {
         roomUsername,

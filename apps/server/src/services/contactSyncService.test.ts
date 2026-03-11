@@ -119,6 +119,9 @@ describe('ContactSyncService', () => {
         name: '开发群',
         avatar: 'https://group.jpg',
         memberCount: 2,
+      }))
+      // lastSyncAt 在成员同步完成后单独更新
+      expect(deps.db.updateGroup).toHaveBeenCalledWith('room@chatroom', expect.objectContaining({
         lastSyncAt: expect.any(Date)
       }))
       expect(deps.wsService.broadcast).toHaveBeenCalledWith('group:updated', expect.objectContaining({
