@@ -160,7 +160,20 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to send message')
     }
 
-    return { msgId: result.data.msg_id }
+    // API schema is inconsistent across versions; normalize message id from known fields.
+    const msgId =
+      result.data?.msg_id ??
+      result.data?.msgId ??
+      result.data?.newMsgId ??
+      result.data?.list?.[0]?.newMsgId ??
+      result.data?.list?.[0]?.msgId ??
+      result.data?.list?.[0]?.msg_id
+
+    if (!msgId) {
+      throw new Error('Message sent but response missing msgId')
+    }
+
+    return { msgId: String(msgId) }
   }
 
   async setNotifyUrl(notifyUrl: string): Promise<void> {

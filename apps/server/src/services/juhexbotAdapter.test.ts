@@ -157,6 +157,24 @@ describe('JuhexbotAdapter', () => {
 
       await expect(adapter.sendTextMessage('wxid_target', '你好')).rejects.toThrow('Client offline')
     })
+
+    it('should parse msg id from list[0].newMsgId response', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          baseResponse: { ret: 0, errMsg: {} },
+          count: 1,
+          list: [
+            {
+              ret: 0,
+              newMsgId: '9116989704999965051'
+            }
+          ]
+        })
+      })
+
+      const result = await adapter.sendTextMessage('wxid_target', 'test')
+      expect(result).toEqual({ msgId: '9116989704999965051' })
+    })
   })
 
   describe('setNotifyUrl', () => {
