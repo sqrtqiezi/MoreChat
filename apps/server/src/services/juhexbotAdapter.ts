@@ -7,6 +7,12 @@ export interface JuhexbotConfig {
   clientGuid: string
 }
 
+export interface UserProfile {
+  username: string
+  nickname: string
+  avatar?: string
+}
+
 export interface ContactInfo {
   username: string
   nickname: string
@@ -225,6 +231,23 @@ export class JuhexbotAdapter {
         username: m.username,
         nickname: m.nickname || m.display_name || '',
       }))
+    }
+  }
+
+  async getProfile(): Promise<UserProfile> {
+    const result = await this.sendRequest('/user/get_profile', {
+      guid: this.config.clientGuid
+    })
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || 'Failed to get profile')
+    }
+
+    const userInfo = result.data.userInfo || result.data
+    return {
+      username: userInfo.userName?.string || userInfo.username || '',
+      nickname: userInfo.nickName?.string || userInfo.nickname || '',
+      avatar: userInfo.smallHeadImgUrl || userInfo.bigHeadImgUrl || userInfo.avatar || undefined,
     }
   }
 }

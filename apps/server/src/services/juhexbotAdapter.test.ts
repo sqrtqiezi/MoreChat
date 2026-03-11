@@ -316,4 +316,41 @@ describe('JuhexbotAdapter', () => {
       await expect(adapter.getChatroomMemberDetail('room@chatroom')).rejects.toThrow('Failed to get members')
     })
   })
+
+  describe('getProfile', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should return user profile with username and nickname', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          baseResponse: { ret: 0 },
+          userInfo: {
+            userName: { string: 'njin_cool' },
+            nickName: { string: '牛晋' },
+            smallHeadImgUrl: 'https://wx.qlogo.cn/test.jpg',
+          }
+        })
+      })
+
+      const result = await adapter.getProfile()
+      expect(result).toEqual({
+        username: 'njin_cool',
+        nickname: '牛晋',
+        avatar: 'https://wx.qlogo.cn/test.jpg',
+      })
+    })
+
+    it('should throw error when API fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          baseResponse: { ret: 1001 },
+          errMsg: 'Failed to get profile'
+        })
+      })
+
+      await expect(adapter.getProfile()).rejects.toThrow('Failed to get profile')
+    })
+  })
 })
