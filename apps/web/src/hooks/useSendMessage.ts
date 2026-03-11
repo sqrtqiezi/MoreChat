@@ -85,7 +85,7 @@ export function useSendMessage() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
 
-    onError: (error, variables, context) => {
+    onError: (_error, variables, context) => {
       if (!context) return;
 
       // 标记消息为失败
