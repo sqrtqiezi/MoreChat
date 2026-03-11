@@ -163,13 +163,14 @@ async function main() {
   console.log(`Data Lake 路径: ${lakePath}`)
 
   // 获取 clientUsername：从 MessageIndex 推断
-  const fromUsers = await prisma.messageIndex.findMany({ select: { fromUsername: true }, distinct: ['fromUsername'] })
-  const toUsers = await prisma.messageIndex.findMany({ select: { toUsername: true }, distinct: ['toUsername'] })
-  const fromSet = new Set(fromUsers.map((u: { fromUsername: string }) => u.fromUsername))
-  const toSet = new Set(toUsers.map((u: { toUsername: string }) => u.toUsername))
+  const allMessages: Array<{ fromUsername: string; toUsername: string }> = await prisma.messageIndex.findMany({
+    select: { fromUsername: true, toUsername: true }
+  })
+  const fromSet = new Set(allMessages.map(m => m.fromUsername))
+  const toSet = new Set(allMessages.map(m => m.toUsername))
 
   // clientUsername 是既发过消息又收过消息、且不是群聊地址的用户
-  const candidates = [...fromSet].filter((u: string) => toSet.has(u) && !u.endsWith('@chatroom'))
+  const candidates = [...fromSet].filter(u => toSet.has(u) && !u.endsWith('@chatroom'))
   if (candidates.length === 0) {
     console.error('无法推断 clientUsername')
     process.exit(1)
