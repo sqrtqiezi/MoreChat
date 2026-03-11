@@ -43,10 +43,18 @@ async function main() {
       clientGuid: env.JUHEXBOT_CLIENT_GUID
     })
 
+    // 获取登录用户信息
+    logger.info('Fetching user profile...')
+    const userProfile = await juhexbotAdapter.getProfile()
+    logger.info({ username: userProfile.username, nickname: userProfile.nickname }, 'User profile fetched')
+
+    // 更新 adapter config
+    juhexbotAdapter['config'].clientUsername = userProfile.username
+
     // 2. 业务服务层
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
-    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter)
+    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, userProfile.username)
 
     // ContactSyncService 需要 wsService，使用 getter 延迟访问
     const contactSyncService = new ContactSyncService(
