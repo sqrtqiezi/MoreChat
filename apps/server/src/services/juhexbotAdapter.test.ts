@@ -7,7 +7,8 @@ describe('JuhexbotAdapter', () => {
     apiUrl: 'http://chat-api.juhebot.com/open/GuidRequest',
     appKey: 'test_key',
     appSecret: 'test_secret',
-    clientGuid: 'test-guid-123'
+    clientGuid: 'test-guid-123',
+    clientUsername: 'test_user'  // 新增：匹配 fixture 中的 from_username
   })
 
   describe('parseWebhookPayload', () => {
@@ -58,7 +59,7 @@ describe('JuhexbotAdapter', () => {
       const parsed = adapter.parseWebhookPayload(textMessage)
       const convId = adapter.getConversationId(parsed)
 
-      expect(convId).toBe('test_user')
+      expect(convId).toBe('filehelper')  // 修正：应该返回对方的 username
     })
 
     it('should return chatroom id for group message', () => {
