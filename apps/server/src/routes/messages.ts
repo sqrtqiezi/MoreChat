@@ -20,7 +20,7 @@ export function messageRoutes(deps: MessageRouteDeps) {
       }
 
       const result = await deps.messageService.sendMessage(conversationId, content)
-      return c.json({ success: true, data: result })
+      return c.json({ success: true, data: { message: result } })
     } catch (error) {
       logger.error({ err: error }, 'Failed to send message')
       return c.json({ success: false, error: { message: 'Failed to send message' } }, 500)
