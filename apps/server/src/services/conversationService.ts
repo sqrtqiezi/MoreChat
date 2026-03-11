@@ -39,6 +39,18 @@ export class ConversationService {
       actualIndexes.map((idx: { dataLakeKey: string }) => idx.dataLakeKey)
     )
 
+    // 批量解析群聊发送者昵称
+    const senderUsernames = [...new Set(
+      rawMessages.map((msg: any) => msg.chatroom_sender).filter(Boolean) as string[]
+    )]
+    const senderNicknameMap = new Map<string, string>()
+    if (senderUsernames.length > 0) {
+      const contacts = await this.db.findContactsByUsernames(senderUsernames)
+      for (const c of contacts) {
+        senderNicknameMap.set(c.username, c.remark || c.nickname)
+      }
+    }
+
     // 转换字段名：下划线 -> 驼峰
     const messages = rawMessages.map((msg: any) => {
       const { displayType, displayContent } = processMessageContent(msg.msg_type, msg.content)
@@ -50,6 +62,9 @@ export class ConversationService {
         content: msg.content,
         createTime: msg.create_time,
         chatroomSender: msg.chatroom_sender,
+        senderNickname: msg.chatroom_sender
+          ? senderNicknameMap.get(msg.chatroom_sender)
+          : undefined,
         desc: msg.desc,
         isChatroomMsg: msg.is_chatroom_msg,
         chatroom: msg.chatroom,

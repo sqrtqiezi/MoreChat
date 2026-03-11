@@ -176,6 +176,14 @@ export class DatabaseService {
     return this.prisma.contact.findUnique({ where: { id } })
   }
 
+  async findContactsByUsernames(usernames: string[]) {
+    if (usernames.length === 0) return []
+    return this.prisma.contact.findMany({
+      where: { username: { in: usernames } },
+      select: { username: true, nickname: true, remark: true }
+    })
+  }
+
   async updateContact(username: string, data: { nickname?: string; remark?: string; avatar?: string; lastSyncAt?: Date }) {
     return this.prisma.contact.update({
       where: { username },

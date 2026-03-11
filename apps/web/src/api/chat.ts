@@ -34,6 +34,7 @@ export interface ApiMessage {
   content: string;
   createTime: number;
   chatroomSender?: string;
+  senderNickname?: string;
   displayType?: string;
   displayContent?: string;
 }
@@ -97,16 +98,20 @@ function mapConversation(raw: ApiConversation): Conversation {
 export function mapMessage(raw: ApiMessage, conversationId: string, contactNameMap: Map<string, string>): Message {
   // 使用全局 currentUser，如果未初始化则 isMine 为 false
   const isMine = currentUser ? raw.fromUsername === currentUser.username : false
+  // 群聊用 chatroomSender 作为实际发送者
+  const effectiveSender = raw.chatroomSender || raw.fromUsername
+  const isMineGroup = currentUser ? effectiveSender === currentUser.username : false
+  const isMineFinal = isMine || isMineGroup
 
   return {
     id: raw.msgId,
     conversationId,
-    senderId: raw.fromUsername,
-    senderName: isMine ? '我' : (contactNameMap.get(raw.fromUsername) || raw.fromUsername),
+    senderId: effectiveSender,
+    senderName: isMineFinal ? '我' : (raw.senderNickname || contactNameMap.get(effectiveSender) || effectiveSender),
     content: raw.displayContent ?? raw.content,
     timestamp: new Date(raw.createTime * 1000).toISOString(),
     status: 'sent',
-    isMine,
+    isMine: isMineFinal,
     msgType: raw.msgType,
     displayType: raw.displayType as Message['displayType'],
   };
