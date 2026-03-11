@@ -228,13 +228,14 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to get chatroom members')
     }
 
-    logger.info({ roomUsername, dataKeys: Object.keys(result.data || {}), rawSample: JSON.stringify(result.data).slice(0, 500) }, 'getChatroomMemberDetail raw response')
+    const chatroomData = result.data.newChatroomData || {}
+    const rawMembers = chatroomData.chatRoomMember || []
 
     return {
-      version: result.data.version || 0,
-      members: (result.data.members || []).map((m: any) => ({
-        username: m.username,
-        nickname: m.nickname || m.display_name || '',
+      version: result.data.serverVersion || 0,
+      members: rawMembers.map((m: any) => ({
+        username: m.userName || m.username,
+        nickname: m.displayName || m.nickName || m.nickname || '',
       }))
     }
   }

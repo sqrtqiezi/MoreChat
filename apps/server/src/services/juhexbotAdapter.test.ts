@@ -287,11 +287,13 @@ describe('JuhexbotAdapter', () => {
         json: () => Promise.resolve({
           errcode: 0,
           data: {
-            version: 5,
-            members: [
-              { username: 'wxid_a', nickname: '成员A' },
-              { username: 'wxid_b', nickname: '成员B' },
-            ]
+            serverVersion: 5,
+            newChatroomData: {
+              chatRoomMember: [
+                { userName: 'wxid_a', nickName: '成员A', displayName: '' },
+                { userName: 'wxid_b', nickName: '成员B', displayName: '群昵称B' },
+              ]
+            }
           }
         })
       })
@@ -301,7 +303,7 @@ describe('JuhexbotAdapter', () => {
         version: 5,
         members: [
           { username: 'wxid_a', nickname: '成员A' },
-          { username: 'wxid_b', nickname: '成员B' },
+          { username: 'wxid_b', nickname: '群昵称B' },
         ]
       })
     })
