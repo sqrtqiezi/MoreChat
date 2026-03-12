@@ -83,6 +83,20 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
       }
     }
 
+    if (displayType === 'quote') {
+      return (
+        <div>
+          {message.referMsg && (
+            <div className="border-l-2 border-gray-300 pl-2 mb-1">
+              <span className="text-xs text-gray-500">{message.referMsg.senderName}</span>
+              <p className="text-sm text-gray-500 line-clamp-2">{message.referMsg.content}</p>
+            </div>
+          )}
+          <span>{content}</span>
+        </div>
+      );
+    }
+
     // Non-text messages: gray italic style
     return <span className="text-gray-500 italic">{content}</span>;
   };
