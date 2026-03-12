@@ -169,8 +169,8 @@ export class ArchiveService {
         }
       })
 
-      const imageUrlMap = new Map(
-        imageCaches.map(c => [c.msgId, c.downloadUrl!])
+      const imageUrlMap = new Map<string, string>(
+        imageCaches.map((c: { msgId: string; downloadUrl: string | null }) => [c.msgId, c.downloadUrl!])
       )
 
       const messagesWithImageUrl = messages.map(m => ({
