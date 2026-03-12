@@ -203,4 +203,15 @@ export const chatApi = {
       throw new Error(response.data.error?.message || 'Failed to mark as read');
     }
   },
+
+  // GET /api/messages/:msgId/image - 获取图片消息 URL
+  async getImageUrl(msgId: string): Promise<string> {
+    const response = await client.get<ApiResponse<{ imageUrl: string }>>(`/messages/${msgId}/image`);
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error?.message || 'Failed to get image URL');
+    }
+
+    return response.data.data.imageUrl;
+  },
 };
