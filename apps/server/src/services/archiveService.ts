@@ -14,6 +14,7 @@ import { existsSync } from 'fs'
 import { parquetWriteFile } from 'hyparquet-writer'
 import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet'
 import { logger } from '../lib/logger.js'
+import { formatLocalDate, formatLocalMonth } from '../lib/date.js'
 
 export interface ArchiveConfig {
   lakePath: string
@@ -102,13 +103,13 @@ export class ArchiveService {
 
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
-    const dateStr = yesterday.toISOString().slice(0, 10)
+    const dateStr = formatLocalDate(yesterday)
 
     await this.archiveHotToDaily(dateStr)
 
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - this.config.hotRetentionDays!)
-    await this.cleanupHotFiles(cutoff.toISOString().slice(0, 10))
+    await this.cleanupHotFiles(formatLocalDate(cutoff))
 
     logger.info({ date: dateStr }, 'Daily archive completed')
   }
@@ -121,7 +122,7 @@ export class ArchiveService {
 
     const lastMonth = new Date()
     lastMonth.setMonth(lastMonth.getMonth() - 1)
-    const monthStr = lastMonth.toISOString().slice(0, 7)
+    const monthStr = formatLocalMonth(lastMonth)
 
     await this.archiveDailyToMonthly(monthStr)
 
@@ -279,12 +280,12 @@ export class ArchiveService {
    * 手动触发归档（用于测试和脚本）
    */
   async manualArchive(date?: string) {
-    const targetDate = date || new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+    const targetDate = date || formatLocalDate(new Date(Date.now() - 86400000))
     await this.archiveHotToDaily(targetDate)
   }
 
   async manualCleanup(cutoffDate?: string) {
-    const targetDate = cutoffDate || new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10)
+    const targetDate = cutoffDate || formatLocalDate(new Date(Date.now() - 3 * 86400000))
     await this.cleanupHotFiles(targetDate)
   }
 }

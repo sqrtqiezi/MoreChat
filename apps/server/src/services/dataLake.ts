@@ -1,5 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
+import { formatLocalDate } from '../lib/date.js'
 
 export interface ChatMessage {
   msg_id: string
@@ -35,7 +36,7 @@ export class DataLakeService {
    */
   async saveMessage(conversationId: string, message: ChatMessage): Promise<string> {
     const timestamp = message.create_time
-    const date = new Date(timestamp * 1000).toISOString().slice(0, 10) // YYYY-MM-DD
+    const date = formatLocalDate(new Date(timestamp * 1000))
 
     // 1. 追加原始数据到 raw/{date}.jsonl（永久保留）
     const rawFile = path.join(this.config.path, 'raw', `${date}.jsonl`)

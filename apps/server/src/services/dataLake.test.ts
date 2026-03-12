@@ -57,6 +57,37 @@ describe('DataLakeService', () => {
       expect(hotContent).toContain('"msg_id":"test_123"')
     })
 
+    it('should use Asia/Shanghai date for hot file path', async () => {
+      // 2024-03-11 17:00:00 UTC = 2024-03-12 01:00:00 CST
+      // UTC 日期是 03-11，但 Asia/Shanghai 日期是 03-12
+      const message = {
+        msg_id: 'tz_test',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Timezone test',
+        create_time: 1710176400, // 2024-03-11T17:00:00Z
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+
+      const key = await dataLake.saveMessage('conv_tz', message)
+
+      // key 中的日期应该是 Asia/Shanghai 的 2024-03-12
+      expect(key).toBe('hot/conv_tz/2024-03-12.jsonl:tz_test')
+
+      // hot 文件应该以 CST 日期命名
+      const hotFile = path.join(testLakePath, 'hot', 'conv_tz', '2024-03-12.jsonl')
+      expect(existsSync(hotFile)).toBe(true)
+
+      // raw 文件同理
+      const rawFile = path.join(testLakePath, 'raw', '2024-03-12.jsonl')
+      expect(existsSync(rawFile)).toBe(true)
+    })
+
     it('should retrieve message from JSONL', async () => {
       const message = {
         msg_id: 'test_123',

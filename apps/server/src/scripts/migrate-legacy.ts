@@ -14,6 +14,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { existsSync } from 'fs'
 import { PrismaClient } from '@prisma/client'
+import { formatLocalDate } from '../lib/date.js'
 
 // 加载环境变量
 import dotenv from 'dotenv'
@@ -197,7 +198,7 @@ async function main() {
       const raw = JSON.parse(await fs.readFile(fullPath, 'utf-8'))
       const msg = normalizeLegacyMessage(raw)
 
-      const date = new Date(msg.create_time * 1000).toISOString().slice(0, 10)
+      const date = formatLocalDate(new Date(msg.create_time * 1000))
       const convId = getCorrectConversationId(msg, clientUsername)
 
       // 1. 追加到 raw/{date}.jsonl

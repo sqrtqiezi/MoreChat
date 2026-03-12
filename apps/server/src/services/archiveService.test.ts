@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ArchiveService } from './archiveService.js'
 import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet'
 import fs from 'fs/promises'
@@ -121,6 +121,30 @@ describe('ArchiveService', () => {
       await archiveService.manualCleanup('2026-03-05')
 
       expect(existsSync(path.join(testLakePath, 'hot', 'conv_empty'))).toBe(false)
+    })
+  })
+
+  describe('runDailyArchive 时区处理', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('should archive yesterday in Asia/Shanghai, not UTC', async () => {
+      // 模拟 2026-03-12 01:00:00 CST = 2026-03-11 17:00:00 UTC
+      // 归档任务在凌晨 1:00 CST 执行，应归档 2026-03-11（CST 的昨天）
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-03-11T17:00:00Z'))
+
+      // 准备 2026-03-11 的 hot 数据（CST 日期）
+      await writeHotFile('conv_tz', '2026-03-11', [
+        makeMessage('msg_tz', 1741564800),
+      ])
+
+      await archiveService.runDailyArchive()
+
+      // 应该归档 2026-03-11 的数据
+      const parquetFile = path.join(testLakePath, 'daily', 'conv_tz', '2026-03-11.parquet')
+      expect(existsSync(parquetFile)).toBe(true)
     })
   })
 })

@@ -106,3 +106,6 @@ npx prisma studio        # 数据库 GUI
 - DataLake 使用 snake_case，API 返回 camelCase
 - 服务依赖注入：`index.ts` 手动组装，构造函数注入
 - 环境变量配置在 `apps/server/.env`，必填项见 `apps/server/src/lib/env.ts`
+- 任何关于 juhexbot 接口的新功能开发，*必须* 验证数据格式后再进行设计
+- 如果需要登录服务器查看日志的话，可以尝试使用 `ssh diting-server` 命令登录
+- 如果需要去服务器登录检查内容，首先需要去 .github 确认部署的配置
