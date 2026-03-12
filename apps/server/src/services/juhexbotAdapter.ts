@@ -311,7 +311,7 @@ export class JuhexbotAdapter {
       aes_key: aesKey,
       file_id: fileId,
       file_name: fileName,
-      file_type: 1
+      file_type: 2
     }
 
     logger.info({ cloudUrl, fileName }, 'Calling cloud download API')
@@ -327,7 +327,9 @@ export class JuhexbotAdapter {
     logger.info({ fileName, result }, 'Cloud download API response')
 
     if (result.errcode !== 0) {
-      throw new Error(result.errmsg || `Cloud API error: ${result.errcode}`)
+      const err = new Error(result.errmsg || `Cloud API error: ${result.errcode}`)
+      ;(err as any).cloudErrcode = result.errcode
+      throw err
     }
 
     const downloadUrl = result.data?.url || result.data?.download_url

@@ -453,7 +453,7 @@ describe('JuhexbotAdapter', () => {
       expect(body.aes_key).toBe('aes-key-123')
       expect(body.file_id).toBe('file-id-456')
       expect(body.file_name).toBe('photo.jpg')
-      expect(body.file_type).toBe(1)
+      expect(body.file_type).toBe(2)
       expect(body.base_request.cdn_info).toBe('cdn-info-string')
     })
 
