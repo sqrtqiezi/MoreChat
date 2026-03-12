@@ -20,6 +20,12 @@ export interface IncomingMessageResult {
     source?: string
     displayType: string
     displayContent: string
+    referMsg?: {
+      type: number
+      senderName: string
+      content: string
+      msgId: string
+    }
   }
 }
 
@@ -91,7 +97,7 @@ export class MessageService {
     // 更新会话最后消息时间
     await this.db.updateConversationLastMessage(conversation.id, new Date(message.createTime * 1000))
 
-    const { displayType, displayContent } = processMessageContent(message.msgType, message.content)
+    const { displayType, displayContent, referMsg } = processMessageContent(message.msgType, message.content)
 
     // 群聊消息：查询发送者昵称
     let senderNickname: string | undefined
@@ -119,6 +125,7 @@ export class MessageService {
         source: message.source,
         displayType,
         displayContent,
+        referMsg,
       }
     }
   }

@@ -53,7 +53,7 @@ export class ConversationService {
 
     // 转换字段名：下划线 -> 驼峰
     const messages = rawMessages.map((msg: any) => {
-      const { displayType, displayContent } = processMessageContent(msg.msg_type, msg.content)
+      const { displayType, displayContent, referMsg } = processMessageContent(msg.msg_type, msg.content)
       return {
         msgId: msg.msg_id,
         msgType: msg.msg_type,
@@ -71,6 +71,7 @@ export class ConversationService {
         source: msg.source,
         displayType,
         displayContent,
+        referMsg,
       }
     })
 
