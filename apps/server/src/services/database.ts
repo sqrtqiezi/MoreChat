@@ -4,7 +4,7 @@ type PrismaClientType = InstanceType<typeof PrismaClient>
 import { prisma as globalPrisma, createPrismaClient } from '../lib/prisma.js'
 
 export class DatabaseService {
-  private prisma: PrismaClientType
+  readonly prisma: PrismaClientType
 
   constructor(url?: string) {
     // 测试环境：为每个实例创建独立的 Prisma Client

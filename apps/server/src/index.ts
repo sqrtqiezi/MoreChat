@@ -75,7 +75,8 @@ async function main() {
     // ArchiveService 负责 hot/ 数据清理
     const archiveService = new ArchiveService({
       lakePath: env.DATA_LAKE_PATH,
-      hotRetentionDays: 3
+      hotRetentionDays: 3,
+      prisma: databaseService.prisma
     })
 
     // 3. 创建 HTTP 应用
