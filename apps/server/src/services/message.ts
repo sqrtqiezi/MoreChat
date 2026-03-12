@@ -13,6 +13,7 @@ export interface IncomingMessageResult {
     content: string
     createTime: number
     chatroomSender?: string
+    senderNickname?: string
     desc?: string
     isChatroomMsg: number
     chatroom?: string
@@ -92,6 +93,15 @@ export class MessageService {
 
     const { displayType, displayContent } = processMessageContent(message.msgType, message.content)
 
+    // 群聊消息：查询发送者昵称
+    let senderNickname: string | undefined
+    if (message.chatroomSender) {
+      const contact = await this.db.findContactByUsername(message.chatroomSender)
+      if (contact) {
+        senderNickname = contact.remark || contact.nickname
+      }
+    }
+
     return {
       conversationId: conversation.id,
       message: {
@@ -102,6 +112,7 @@ export class MessageService {
         content: message.content,
         createTime: message.createTime,
         chatroomSender: message.chatroomSender,
+        senderNickname,
         desc: message.desc,
         isChatroomMsg: message.isChatroomMsg ? 1 : 0,
         chatroom: message.chatroom,
