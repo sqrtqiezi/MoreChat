@@ -8,7 +8,8 @@ describe('JuhexbotAdapter', () => {
     appKey: 'test_key',
     appSecret: 'test_secret',
     clientGuid: 'test-guid-123',
-    clientUsername: 'test_user'  // 新增：匹配 fixture 中的 from_username
+    clientUsername: 'test_user',  // 新增：匹配 fixture 中的 from_username
+    cloudApiUrl: 'http://cloud.test.com'
   })
 
   describe('parseWebhookPayload', () => {
@@ -372,6 +373,161 @@ describe('JuhexbotAdapter', () => {
       })
 
       await expect(adapter.getProfile()).rejects.toThrow('Failed to get profile')
+    })
+  })
+
+  describe('getCdnInfo', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should return CDN info', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            cdn_info: 'cdn-info-string',
+            client_version: 123456,
+            device_type: 'android',
+            username: 'test_wx_user'
+          }
+        })
+      })
+
+      const result = await adapter.getCdnInfo()
+      expect(result).toEqual({
+        cdn_info: 'cdn-info-string',
+        client_version: 123456,
+        device_type: 'android',
+        username: 'test_wx_user'
+      })
+    })
+
+    it('should throw error when API fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 1001,
+          err_msg: 'CDN info unavailable'
+        })
+      })
+
+      await expect(adapter.getCdnInfo()).rejects.toThrow('CDN info unavailable')
+    })
+  })
+
+  describe('downloadImage', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should return download URL on success', async () => {
+      const fetchMock = vi.fn()
+      // 第一次调用：getCdnInfo（通过 sendRequest -> gateway）
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            cdn_info: 'cdn-info-string',
+            client_version: 123456,
+            device_type: 'android',
+            username: 'test_wx_user'
+          }
+        })
+      })
+      // 第二次调用：cloud download API
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: { url: 'https://cdn.example.com/image.jpg' }
+        })
+      })
+      globalThis.fetch = fetchMock
+
+      const result = await adapter.downloadImage('aes-key-123', 'file-id-456', 'photo.jpg')
+      expect(result).toBe('https://cdn.example.com/image.jpg')
+
+      // 验证第二次调用是对 cloud API 的请求
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(fetchMock.mock.calls[1][0]).toBe('http://cloud.test.com/cloud/download')
+      const body = JSON.parse(fetchMock.mock.calls[1][1].body)
+      expect(body.aes_key).toBe('aes-key-123')
+      expect(body.file_id).toBe('file-id-456')
+      expect(body.file_name).toBe('photo.jpg')
+      expect(body.file_type).toBe(1)
+      expect(body.base_request.cdn_info).toBe('cdn-info-string')
+    })
+
+    it('should support download_url field in response', async () => {
+      const fetchMock = vi.fn()
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            cdn_info: 'cdn-info',
+            client_version: 1,
+            device_type: 'ios',
+            username: 'user'
+          }
+        })
+      })
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: { download_url: 'https://cdn.example.com/alt.jpg' }
+        })
+      })
+      globalThis.fetch = fetchMock
+
+      const result = await adapter.downloadImage('key', 'id', 'img.jpg')
+      expect(result).toBe('https://cdn.example.com/alt.jpg')
+    })
+
+    it('should throw error when cloud API returns error', async () => {
+      const fetchMock = vi.fn()
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            cdn_info: 'cdn-info',
+            client_version: 1,
+            device_type: 'ios',
+            username: 'user'
+          }
+        })
+      })
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 5001,
+          errmsg: 'Download failed'
+        })
+      })
+      globalThis.fetch = fetchMock
+
+      await expect(adapter.downloadImage('key', 'id', 'img.jpg')).rejects.toThrow('Download failed')
+    })
+
+    it('should throw error when no download URL in response', async () => {
+      const fetchMock = vi.fn()
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            cdn_info: 'cdn-info',
+            client_version: 1,
+            device_type: 'ios',
+            username: 'user'
+          }
+        })
+      })
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {}
+        })
+      })
+      globalThis.fetch = fetchMock
+
+      await expect(adapter.downloadImage('key', 'id', 'img.jpg')).rejects.toThrow('No download URL in cloud API response')
     })
   })
 })
