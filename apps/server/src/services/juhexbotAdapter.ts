@@ -279,7 +279,7 @@ export class JuhexbotAdapter {
     device_type: string
     username: string
   }> {
-    const result = await this.sendRequest('/cloud/get_cdn_info', {
+    const result = await this.sendRequest('/cdn/get_cdn_info', {
       guid: this.config.clientGuid
     })
 
