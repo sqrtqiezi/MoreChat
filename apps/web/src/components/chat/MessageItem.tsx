@@ -5,6 +5,49 @@ import { chatApi } from '../../api/chat';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
+function ReferImage({ msgId }: { msgId: string }) {
+  const [showImage, setShowImage] = useState(false);
+  const { data: imageUrl, isLoading, error, refetch } = useQuery({
+    queryKey: ['image', msgId],
+    queryFn: () => chatApi.getImageUrl(msgId),
+    enabled: false,
+    staleTime: Infinity,
+    retry: 1,
+  });
+
+  if (!showImage) {
+    return (
+      <button
+        onClick={() => { setShowImage(true); refetch(); }}
+        className="flex items-center gap-1 text-gray-500 hover:text-gray-700 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span className="text-sm">点击查看图片</span>
+      </button>
+    );
+  }
+
+  if (isLoading) {
+    return <span className="text-sm text-gray-400">加载中...</span>;
+  }
+
+  if (error) {
+    return (
+      <button onClick={() => refetch()} className="text-sm text-red-500 hover:text-red-700 underline">
+        图片加载失败，点击重试
+      </button>
+    );
+  }
+
+  if (imageUrl) {
+    return <img src={imageUrl} alt="引用图片" className="max-w-[150px] max-h-[100px] rounded mt-1" loading="lazy" />;
+  }
+
+  return <span className="text-sm text-gray-500">[图片]</span>;
+}
+
 interface MessageItemProps {
   message: Message;
   isHighlighted?: boolean;
@@ -89,7 +132,11 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
           {message.referMsg && (
             <div className="border-l-2 border-gray-300 pl-2 mb-1">
               <span className="text-xs text-gray-500">{message.referMsg.senderName}</span>
-              <p className="text-sm text-gray-500 line-clamp-2">{message.referMsg.content}</p>
+              {message.referMsg.type === 3 ? (
+                <ReferImage msgId={message.referMsg.msgId} />
+              ) : (
+                <p className="text-sm text-gray-500 line-clamp-2">{message.referMsg.content}</p>
+              )}
             </div>
           )}
           <span>{content}</span>
