@@ -1,10 +1,18 @@
 import { XMLParser } from 'fast-xml-parser'
 
-export type DisplayType = 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'unknown'
+export type DisplayType = 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'unknown'
+
+export interface ReferMsg {
+  type: number
+  senderName: string
+  content: string
+  msgId: string
+}
 
 export interface ProcessedContent {
   displayType: DisplayType
   displayContent: string
+  referMsg?: ReferMsg
 }
 
 const xmlParser = new XMLParser({
@@ -25,6 +33,47 @@ function parseXml(content: string): any | null {
   }
 }
 
+function summarizeReferContent(referType: number, referContent: string): string {
+  if (!referContent || !referContent.trim()) {
+    return ''
+  }
+
+  switch (referType) {
+    case 1:
+      return referContent
+    case 3:
+      return '[图片]'
+    case 49: {
+      const parsed = parseXml(referContent)
+      const appmsg = parsed?.msg?.appmsg
+      if (!appmsg) {
+        return '[链接]'
+      }
+
+      const finderFeed = appmsg.finderFeed
+      if (finderFeed && finderFeed.nickname) {
+        const nickname = String(finderFeed.nickname).trim()
+        const desc = String(finderFeed.desc || '').trim()
+        if (nickname) {
+          return desc ? `[视频号] ${nickname}: ${desc}` : `[视频号] ${nickname}`
+        }
+      }
+
+      const title = appmsg.title ? String(appmsg.title).trim() : ''
+      return title || '[链接]'
+    }
+    case 51:
+      return '[语音/视频通话]'
+    case 10002: {
+      const parsed = parseXml(referContent)
+      const replacemsg = parsed?.sysmsg?.revokemsg?.replacemsg
+      return replacemsg ? String(replacemsg).trim() : '撤回了一条消息'
+    }
+    default:
+      return '[不支持的消息类型]'
+  }
+}
+
 function processType49(content: string): ProcessedContent {
   const parsed = parseXml(content)
   if (!parsed) {
@@ -34,6 +83,39 @@ function processType49(content: string): ProcessedContent {
   const appmsg = parsed?.msg?.appmsg
   if (!appmsg) {
     return { displayType: 'unknown', displayContent: '[不支持的消息类型]' }
+  }
+
+  const msgType = appmsg.type ? Number(appmsg.type) : 0
+
+  // Check for quote message (type 57)
+  if (msgType === 57) {
+    const refermsg = appmsg.refermsg
+    if (refermsg) {
+      const referType = refermsg.type ? Number(refermsg.type) : 0
+      const svrid = refermsg.svrid ? String(refermsg.svrid).trim() : ''
+      const displayname = refermsg.displayname ? String(refermsg.displayname).trim() : ''
+      const referContent = refermsg.content ? String(refermsg.content).trim() : ''
+
+      const contentSummary = summarizeReferContent(referType, referContent)
+
+      const title = appmsg.title ? String(appmsg.title).trim() : ''
+      return {
+        displayType: 'quote',
+        displayContent: title || '[引用消息]',
+        referMsg: {
+          type: referType,
+          senderName: displayname,
+          content: contentSummary,
+          msgId: svrid
+        }
+      }
+    }
+    // Fallback to link if no refermsg
+    const title = appmsg.title ? String(appmsg.title).trim() : ''
+    return {
+      displayType: 'link',
+      displayContent: title || '[链接]'
+    }
   }
 
   // Check for finderFeed (video channel) — type 51 within appmsg
