@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { processMessageContent } from './messageContentProcessor.js'
+import { processMessageContent, parseImageXml } from './messageContentProcessor.js'
 
 describe('processMessageContent', () => {
   describe('Type 1 - Text', () => {
@@ -85,5 +85,44 @@ describe('processMessageContent', () => {
       const result = processMessageContent(999, 'some content')
       expect(result).toEqual({ displayType: 'unknown', displayContent: '[不支持的消息类型]' })
     })
+  })
+})
+
+describe('parseImageXml', () => {
+  it('should parse valid encrypted image XML', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+    <img aeskey="test_aes_key_123" cdnmidimgurl="test_cdn_url_456" encryver="1" md5="abc123" length="12345"/>
+</msg>`
+
+    const result = parseImageXml(xml)
+
+    expect(result).toEqual({
+      aesKey: 'test_aes_key_123',
+      fileId: 'test_cdn_url_456'
+    })
+  })
+
+  it('should return null for non-encryver-1 images', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+    <img aeskey="key" cdnmidimgurl="url" encryver="0"/>
+</msg>`
+
+    expect(parseImageXml(xml)).toBeNull()
+  })
+
+  it('should return null for invalid XML', () => {
+    expect(parseImageXml('not xml')).toBeNull()
+    expect(parseImageXml('')).toBeNull()
+  })
+
+  it('should return null for missing required fields', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+    <img encryver="1"/>
+</msg>`
+
+    expect(parseImageXml(xml)).toBeNull()
   })
 })
