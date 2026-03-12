@@ -16,6 +16,9 @@ describe('ImageService', () => {
         findUnique: vi.fn(),
         create: vi.fn(),
         update: vi.fn()
+      },
+      messageIndex: {
+        findUnique: vi.fn()
       }
     }
 
@@ -44,6 +47,10 @@ describe('ImageService', () => {
 
   it('should download and cache if not cached', async () => {
     mockPrisma.imageCache.findUnique.mockResolvedValue(null)
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
     mockDataLake.getMessage.mockResolvedValue({
       msg_id: 'msg123',
       msg_type: 3,
@@ -54,6 +61,7 @@ describe('ImageService', () => {
     const url = await service.getImageUrl('msg123')
 
     expect(url).toBe('https://new.url/image.jpg')
+    expect(mockDataLake.getMessage).toHaveBeenCalledWith('hot/conv_a/2026-03-12.jsonl:msg123')
     expect(mockPrisma.imageCache.create).toHaveBeenCalledWith({
       data: {
         msgId: 'msg123',
@@ -72,17 +80,16 @@ describe('ImageService', () => {
 
   it('should throw error if message not found', async () => {
     mockPrisma.imageCache.findUnique.mockResolvedValue(null)
-    mockDataLake.getMessage.mockRejectedValue(new Error('Message not found'))
+    mockPrisma.messageIndex.findUnique.mockResolvedValue(null)
 
-    await expect(service.getImageUrl('msg123')).rejects.toThrow()
+    await expect(service.getImageUrl('msg123')).rejects.toThrow('Message not found')
   })
 
   it('should throw error if not image message', async () => {
     mockPrisma.imageCache.findUnique.mockResolvedValue(null)
-    mockDataLake.getMessage.mockResolvedValue({
-      msg_id: 'msg123',
-      msg_type: 1,
-      content: 'Hello'
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 1
     })
 
     await expect(service.getImageUrl('msg123')).rejects.toThrow('Not an image message')
@@ -90,6 +97,10 @@ describe('ImageService', () => {
 
   it('should throw error if XML parse fails', async () => {
     mockPrisma.imageCache.findUnique.mockResolvedValue(null)
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
     mockDataLake.getMessage.mockResolvedValue({
       msg_id: 'msg123',
       msg_type: 3,
@@ -101,6 +112,10 @@ describe('ImageService', () => {
 
   it('should deduplicate concurrent requests', async () => {
     mockPrisma.imageCache.findUnique.mockResolvedValue(null)
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
     mockDataLake.getMessage.mockResolvedValue({
       msg_id: 'msg123',
       msg_type: 3,

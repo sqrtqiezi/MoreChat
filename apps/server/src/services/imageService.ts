@@ -53,13 +53,22 @@ export class ImageService {
       return cached.downloadUrl
     }
 
-    // 2. 从 DataLake 读取消息
-    const message = await this.dataLake.getMessage(msgId)
+    // 2. 从 MessageIndex 查出 dataLakeKey，再从 DataLake 读取消息
+    const messageIndex = await this.prisma.messageIndex.findUnique({
+      where: { msgId },
+      select: { dataLakeKey: true, msgType: true }
+    })
+
+    if (!messageIndex) {
+      throw new Error('Message not found')
+    }
 
     // 3. 验证是图片消息
-    if (message.msg_type !== 3) {
+    if (messageIndex.msgType !== 3) {
       throw new Error('Not an image message')
     }
+
+    const message = await this.dataLake.getMessage(messageIndex.dataLakeKey)
 
     // 4. 解析 XML
     const imageInfo = parseImageXml(message.content)
