@@ -6,6 +6,7 @@ export interface JuhexbotConfig {
   appSecret: string
   clientGuid: string
   clientUsername?: string  // 新增：登录用户的微信用户名
+  cloudApiUrl: string
 }
 
 export interface UserProfile {
@@ -270,5 +271,70 @@ export class JuhexbotAdapter {
       nickname: userInfo.nickName?.string || userInfo.nickname || '',
       avatar: userInfo.smallHeadImgUrl || userInfo.bigHeadImgUrl || userInfo.avatar || undefined,
     }
+  }
+
+  async getCdnInfo(): Promise<{
+    cdn_info: string
+    client_version: number
+    device_type: string
+    username: string
+  }> {
+    const result = await this.sendRequest('/cloud/get_cdn_info', {
+      guid: this.config.clientGuid
+    })
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || 'Failed to get CDN info')
+    }
+
+    return {
+      cdn_info: result.data.cdn_info,
+      client_version: result.data.client_version,
+      device_type: result.data.device_type,
+      username: result.data.username
+    }
+  }
+
+  async downloadImage(aesKey: string, fileId: string, fileName: string): Promise<string> {
+    const cdnInfo = await this.getCdnInfo()
+
+    const baseRequest = {
+      cdn_info: cdnInfo.cdn_info,
+      client_version: cdnInfo.client_version,
+      device_type: cdnInfo.device_type,
+      username: cdnInfo.username
+    }
+
+    const cloudUrl = `${this.config.cloudApiUrl}/cloud/download`
+    const requestBody = {
+      base_request: baseRequest,
+      aes_key: aesKey,
+      file_id: fileId,
+      file_name: fileName,
+      file_type: 1
+    }
+
+    logger.info({ cloudUrl, fileName }, 'Calling cloud download API')
+
+    const response = await fetch(cloudUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    })
+
+    const result = await response.json() as any
+
+    logger.info({ fileName, result }, 'Cloud download API response')
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || `Cloud API error: ${result.errcode}`)
+    }
+
+    const downloadUrl = result.data?.url || result.data?.download_url
+    if (!downloadUrl) {
+      throw new Error('No download URL in cloud API response')
+    }
+
+    return downloadUrl
   }
 }

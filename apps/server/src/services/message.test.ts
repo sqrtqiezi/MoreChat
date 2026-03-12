@@ -29,7 +29,8 @@ describe('MessageService', () => {
       apiUrl: 'http://test',
       appKey: 'test_key',
       appSecret: 'test_secret',
-      clientGuid: 'test-guid-123'
+      clientGuid: 'test-guid-123',
+      cloudApiUrl: 'http://cloud.test.com'
     })
 
     // 创建测试 client

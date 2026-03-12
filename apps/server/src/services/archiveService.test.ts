@@ -8,9 +8,15 @@ import { existsSync } from 'fs'
 describe('ArchiveService', () => {
   const testLakePath = './test-archive-lake'
   let archiveService: ArchiveService
+  let mockPrisma: any
 
   beforeEach(async () => {
-    archiveService = new ArchiveService({ lakePath: testLakePath, hotRetentionDays: 3 })
+    mockPrisma = {
+      imageCache: {
+        findMany: vi.fn().mockResolvedValue([])
+      }
+    }
+    archiveService = new ArchiveService({ lakePath: testLakePath, hotRetentionDays: 3, prisma: mockPrisma })
   })
 
   afterEach(async () => {

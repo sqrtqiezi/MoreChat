@@ -79,3 +79,41 @@ export function processMessageContent(msgType: number, content: string): Process
       return { displayType: 'unknown', displayContent: '[不支持的消息类型]' }
   }
 }
+
+export interface ImageInfo {
+  aesKey: string
+  fileId: string
+}
+
+export function parseImageXml(content: string): ImageInfo | null {
+  if (!content || !content.trim()) {
+    return null
+  }
+
+  const parsed = parseXml(content)
+  if (!parsed) {
+    return null
+  }
+
+  const img = parsed?.msg?.img
+  if (!img) {
+    return null
+  }
+
+  const encryver = img['@_encryver']
+  if (encryver !== '1') {
+    return null
+  }
+
+  const aesKey = img['@_aeskey']
+  const cdnMidImgUrl = img['@_cdnmidimgurl']
+
+  if (!aesKey || !cdnMidImgUrl) {
+    return null
+  }
+
+  return {
+    aesKey: String(aesKey),
+    fileId: String(cdnMidImgUrl)
+  }
+}

@@ -36,7 +36,8 @@ describe('Integration Tests', () => {
       apiUrl: 'https://test.api.com',
       appKey: 'test-key',
       appSecret: 'test-secret',
-      clientGuid: 'test-guid'
+      clientGuid: 'test-guid',
+      cloudApiUrl: 'https://test.cloud.com'
     })
 
     const clientService = new ClientService(juhexbotAdapter)

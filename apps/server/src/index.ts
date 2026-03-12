@@ -10,6 +10,7 @@ import { ClientService } from './services/clientService.js'
 import { ConversationService } from './services/conversationService.js'
 import { ContactSyncService } from './services/contactSyncService.js'
 import { ArchiveService } from './services/archiveService.js'
+import { ImageService } from './services/imageService.js'
 import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
 
@@ -41,7 +42,8 @@ async function main() {
       apiUrl: env.JUHEXBOT_API_URL,
       appKey: env.JUHEXBOT_APP_KEY,
       appSecret: env.JUHEXBOT_APP_SECRET,
-      clientGuid: env.JUHEXBOT_CLIENT_GUID
+      clientGuid: env.JUHEXBOT_CLIENT_GUID,
+      cloudApiUrl: env.JUHEXBOT_CLOUD_API_URL
     })
 
     // 获取登录用户信息
@@ -57,6 +59,12 @@ async function main() {
     const conversationService = new ConversationService(databaseService, dataLakeService)
     const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, userProfile.username)
 
+    const imageService = new ImageService(
+      databaseService.prisma,
+      dataLakeService,
+      juhexbotAdapter
+    )
+
     // ContactSyncService 需要 wsService，使用 getter 延迟访问
     const contactSyncService = new ContactSyncService(
       databaseService,
@@ -67,7 +75,8 @@ async function main() {
     // ArchiveService 负责 hot/ 数据清理
     const archiveService = new ArchiveService({
       lakePath: env.DATA_LAKE_PATH,
-      hotRetentionDays: 3
+      hotRetentionDays: 3,
+      prisma: databaseService.prisma
     })
 
     // 3. 创建 HTTP 应用
@@ -78,6 +87,7 @@ async function main() {
       clientService,
       conversationService,
       messageService,
+      imageService,
       contactSyncService,
       juhexbotAdapter,
       get wsService() { return wsService },

@@ -13,21 +13,25 @@ import path from 'path'
 import { existsSync } from 'fs'
 import { parquetWriteFile } from 'hyparquet-writer'
 import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet'
+import type { PrismaClient } from '@prisma/client'
 import { logger } from '../lib/logger.js'
 import { formatLocalDate, formatLocalMonth } from '../lib/date.js'
 
 export interface ArchiveConfig {
   lakePath: string
   hotRetentionDays?: number  // hot/ 保留天数，默认 3
+  prisma: PrismaClient
 }
 
 const MESSAGE_COLUMNS = [
   'msg_id', 'from_username', 'to_username', 'content', 'create_time',
   'msg_type', 'chatroom_sender', 'desc', 'is_chatroom_msg', 'chatroom', 'source',
+  'image_url',
 ] as const
 
 export class ArchiveService {
   private config: ArchiveConfig
+  private prisma: PrismaClient
   private dailyTimer?: NodeJS.Timeout
   private monthlyTimer?: NodeJS.Timeout
 
@@ -36,6 +40,7 @@ export class ArchiveService {
       hotRetentionDays: 3,
       ...config
     }
+    this.prisma = config.prisma
   }
 
   start() {
@@ -151,8 +156,30 @@ export class ArchiveService {
       const messages = await this.readJsonl(hotFile)
       if (messages.length === 0) continue
 
-      await this.writeParquet(dailyFile, messages)
-      logger.debug({ convId, date, count: messages.length }, 'Archived hot to daily')
+      // 批量查询 ImageCache，合并 image_url
+      const msgIds = messages.map(m => String(m.msg_id))
+      const imageCaches = await this.prisma.imageCache.findMany({
+        where: {
+          msgId: { in: msgIds },
+          downloadUrl: { not: null }
+        },
+        select: {
+          msgId: true,
+          downloadUrl: true
+        }
+      })
+
+      const imageUrlMap = new Map(
+        imageCaches.map(c => [c.msgId, c.downloadUrl!])
+      )
+
+      const messagesWithImageUrl = messages.map(m => ({
+        ...m,
+        image_url: imageUrlMap.get(String(m.msg_id)) || ''
+      }))
+
+      await this.writeParquet(dailyFile, messagesWithImageUrl)
+      logger.debug({ convId, date, count: messages.length, imagesWithUrl: imageCaches.length }, 'Archived hot to daily')
     }
   }
 

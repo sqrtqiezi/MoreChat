@@ -19,6 +19,7 @@ interface EnvConfig {
   JUHEXBOT_APP_KEY: string
   JUHEXBOT_APP_SECRET: string
   JUHEXBOT_CLIENT_GUID: string
+  JUHEXBOT_CLOUD_API_URL: string
   WEBHOOK_URL?: string
   LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error'
   AUTH_PASSWORD_HASH: string
@@ -37,6 +38,7 @@ function loadEnv(): EnvConfig {
     'JUHEXBOT_APP_KEY',
     'JUHEXBOT_APP_SECRET',
     'JUHEXBOT_CLIENT_GUID',
+    'JUHEXBOT_CLOUD_API_URL',
     'AUTH_PASSWORD_HASH',
     'AUTH_JWT_SECRET'
   ]
@@ -68,6 +70,7 @@ function loadEnv(): EnvConfig {
     JUHEXBOT_APP_KEY: process.env.JUHEXBOT_APP_KEY!,
     JUHEXBOT_APP_SECRET: process.env.JUHEXBOT_APP_SECRET!,
     JUHEXBOT_CLIENT_GUID: process.env.JUHEXBOT_CLIENT_GUID!,
+    JUHEXBOT_CLOUD_API_URL: process.env.JUHEXBOT_CLOUD_API_URL!,
     WEBHOOK_URL: process.env.WEBHOOK_URL,
     LOG_LEVEL: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
     AUTH_PASSWORD_HASH: process.env.AUTH_PASSWORD_HASH!,

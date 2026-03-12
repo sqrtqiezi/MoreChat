@@ -22,6 +22,7 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
 
@@ -34,6 +35,7 @@ describe('env', () => {
     expect(env.JUHEXBOT_APP_KEY).toBe('test-key')
     expect(env.JUHEXBOT_APP_SECRET).toBe('test-secret')
     expect(env.JUHEXBOT_CLIENT_GUID).toBe('test-guid')
+    expect(env.JUHEXBOT_CLOUD_API_URL).toBe('http://cloud.test.com')
   })
 
   it('should throw error when required variable is missing', async () => {
@@ -45,6 +47,7 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
     delete process.env.DATABASE_URL
@@ -64,6 +67,7 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
 
@@ -82,6 +86,7 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
 
@@ -100,6 +105,7 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
     delete process.env.AUTH_PASSWORD_HASH
 
@@ -118,6 +124,7 @@ describe('env', () => {
     process.env.JUHEXBOT_APP_KEY = 'test-key'
     process.env.JUHEXBOT_APP_SECRET = 'test-secret'
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
+    process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     delete process.env.AUTH_JWT_SECRET
 

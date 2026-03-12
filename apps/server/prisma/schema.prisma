@@ -142,3 +142,15 @@ model MessageStateChange {
   @@index([changeTime])
   @@index([msgId, changeTime])
 }
+
+// 图片缓存
+model ImageCache {
+  msgId        String   @id @map("msg_id")
+  aesKey       String   @map("aes_key")
+  cdnFileId    String   @map("cdn_file_id")
+  downloadUrl  String?  @map("download_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  downloadedAt DateTime? @map("downloaded_at")
+
+  @@map("image_cache")
+}
