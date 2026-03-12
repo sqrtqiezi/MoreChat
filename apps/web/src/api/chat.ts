@@ -37,6 +37,12 @@ export interface ApiMessage {
   senderNickname?: string;
   displayType?: string;
   displayContent?: string;
+  referMsg?: {
+    type: number;
+    senderName: string;
+    content: string;
+    msgId: string;
+  };
 }
 
 interface ConversationsResponse {
@@ -114,6 +120,7 @@ export function mapMessage(raw: ApiMessage, conversationId: string, contactNameM
     isMine: isMineFinal,
     msgType: raw.msgType,
     displayType: raw.displayType as Message['displayType'],
+    referMsg: raw.referMsg,
   };
 }
 

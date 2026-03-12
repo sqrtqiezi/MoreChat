@@ -10,6 +10,14 @@ export interface Conversation {
   updatedAt: string;
 }
 
+// ReferMsg interface
+export interface ReferMsg {
+  type: number;
+  senderName: string;
+  content: string;
+  msgId: string;
+}
+
 // Message interface
 export interface Message {
   id: string;
@@ -21,7 +29,8 @@ export interface Message {
   status: 'sending' | 'sent' | 'failed';
   isMine: boolean;
   msgType?: number;
-  displayType?: 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'unknown';
+  displayType?: 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'unknown';
+  referMsg?: ReferMsg;
 }
 
 // ClientStatus interface
