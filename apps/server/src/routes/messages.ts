@@ -44,7 +44,7 @@ export function messageRoutes(deps: MessageRouteDeps) {
       }
 
       const result = await deps.imageService.getImageUrl(msgId, size || 'mid')
-      return c.json({ success: true, data: { imageUrl: result.imageUrl, hasHd: result.hasHd } })
+      return c.json({ success: true, data: result })
     } catch (error: any) {
       logger.error({ err: error, msgId: c.req.param('msgId') }, 'Failed to get image URL')
 
