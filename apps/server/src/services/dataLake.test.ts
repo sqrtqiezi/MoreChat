@@ -224,6 +224,93 @@ describe('DataLakeService', () => {
       const retrieved = await dataLake.getMessage(`hot/conv_123/${date}.jsonl:test_valid`)
       expect(retrieved.msg_id).toBe('test_valid')
     })
+
+    describe('updateMessage', () => {
+      it('should update a message in hot layer JSONL', async () => {
+        const msg = {
+          msg_id: 'test_msg_1',
+          from_username: 'user1',
+          to_username: 'user2',
+          content: 'hello',
+          create_time: 1772989439,
+          msg_type: 1,
+          chatroom_sender: '',
+          desc: '',
+          is_chatroom_msg: 0,
+          chatroom: '',
+          source: ''
+        }
+
+        const key = await dataLake.saveMessage('conv1', msg)
+
+        await dataLake.updateMessage(key, { is_recalled: true })
+
+        const updated = await dataLake.getMessage(key)
+        expect(updated.is_recalled).toBe(true)
+        expect(updated.msg_id).toBe('test_msg_1')
+        expect(updated.content).toBe('hello')
+      })
+
+      it('should not affect other messages in the same JSONL file', async () => {
+        const msg1 = {
+          msg_id: 'msg_1',
+          from_username: 'user1',
+          to_username: 'user2',
+          content: 'first',
+          create_time: 1772989439,
+          msg_type: 1,
+          chatroom_sender: '',
+          desc: '',
+          is_chatroom_msg: 0,
+          chatroom: '',
+          source: ''
+        }
+        const msg2 = {
+          msg_id: 'msg_2',
+          from_username: 'user1',
+          to_username: 'user2',
+          content: 'second',
+          create_time: 1772989440,
+          msg_type: 1,
+          chatroom_sender: '',
+          desc: '',
+          is_chatroom_msg: 0,
+          chatroom: '',
+          source: ''
+        }
+
+        const key1 = await dataLake.saveMessage('conv1', msg1)
+        const key2 = await dataLake.saveMessage('conv1', msg2)
+
+        await dataLake.updateMessage(key1, { is_recalled: true })
+
+        const updated1 = await dataLake.getMessage(key1)
+        const updated2 = await dataLake.getMessage(key2)
+        expect(updated1.is_recalled).toBe(true)
+        expect(updated2.is_recalled).toBeUndefined()
+      })
+
+      it('should throw when message not found in JSONL', async () => {
+        const msg = {
+          msg_id: 'existing_msg',
+          from_username: 'user1',
+          to_username: 'user2',
+          content: 'hello',
+          create_time: 1772989439,
+          msg_type: 1,
+          chatroom_sender: '',
+          desc: '',
+          is_chatroom_msg: 0,
+          chatroom: '',
+          source: ''
+        }
+
+        const key = await dataLake.saveMessage('conv1', msg)
+        const fakeKey = key.replace('existing_msg', 'nonexistent_msg')
+
+        await expect(dataLake.updateMessage(fakeKey, { is_recalled: true })).rejects.toThrow()
+      })
+    })
   })
 
   describe('旧格式兼容性', () => {
@@ -300,4 +387,3 @@ describe('DataLakeService', () => {
     })
   })
 })
-

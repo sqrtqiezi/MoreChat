@@ -1,7 +1,7 @@
 import type { DatabaseService } from './database.js'
 import type { DataLakeService, ChatMessage } from './dataLake.js'
 import type { JuhexbotAdapter, ParsedWebhookPayload } from './juhexbotAdapter.js'
-import { processMessageContent } from './messageContentProcessor.js'
+import { processMessageContent, parseRecallXml } from './messageContentProcessor.js'
 
 export interface IncomingMessageResult {
   conversationId: string
@@ -29,6 +29,12 @@ export interface IncomingMessageResult {
   }
 }
 
+export interface RecallResult {
+  type: 'recall'
+  conversationId: string
+  revokedMsgId: string
+}
+
 export class MessageService {
   constructor(
     private db: DatabaseService,
@@ -37,7 +43,7 @@ export class MessageService {
     private clientUsername: string
   ) {}
 
-  async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | null> {
+  async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
     const { message } = parsed
 
     // 去重：检查 msgId 是否已存在
@@ -48,8 +54,7 @@ export class MessageService {
 
     // 消息撤回特殊处理
     if (message.msgType === 10002) {
-      await this.handleRecall(parsed)
-      return null
+      return this.handleRecall(parsed)
     }
 
     // 确保联系人存在
@@ -130,8 +135,24 @@ export class MessageService {
     }
   }
 
-  private async handleRecall(parsed: ParsedWebhookPayload): Promise<void> {
+  private async handleRecall(parsed: ParsedWebhookPayload): Promise<RecallResult | null> {
     const { message } = parsed
+    const revokedMsgId = parseRecallXml(message.content)
+
+    let result: RecallResult | null = null
+
+    if (revokedMsgId) {
+      const originalIndex = await this.db.findMessageIndexByMsgId(revokedMsgId)
+      if (originalIndex) {
+        await this.db.updateMessageIndex(revokedMsgId, { isRecalled: true })
+        await this.dataLake.updateMessage(originalIndex.dataLakeKey, { is_recalled: true })
+        result = {
+          type: 'recall',
+          conversationId: originalIndex.conversationId,
+          revokedMsgId
+        }
+      }
+    }
 
     await this.db.createMessageStateChange({
       msgId: message.msgId,
@@ -139,6 +160,8 @@ export class MessageService {
       changeTime: message.createTime,
       changeData: message.content
     })
+
+    return result
   }
 
   private async ensureContact(username: string): Promise<void> {

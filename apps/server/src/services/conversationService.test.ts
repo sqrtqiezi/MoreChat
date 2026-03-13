@@ -13,7 +13,8 @@ describe('ConversationService', () => {
       getConversations: vi.fn(),
       findConversationById: vi.fn(),
       updateConversation: vi.fn(),
-      getMessageIndexes: vi.fn()
+      getMessageIndexes: vi.fn(),
+      findContactsByUsernames: vi.fn().mockResolvedValue([])
     } as any
 
     mockDataLake = {
@@ -66,16 +67,16 @@ describe('ConversationService', () => {
   describe('getMessages', () => {
     it('should return paginated messages from DataLake', async () => {
       const mockIndexes = [
-        { dataLakeKey: 'key1', createTime: 1000 },
-        { dataLakeKey: 'key2', createTime: 900 }
+        { dataLakeKey: 'key1', createTime: 1000, isRecalled: false },
+        { dataLakeKey: 'key2', createTime: 900, isRecalled: false }
       ]
       const mockRawMessages = [
         { msg_id: 'msg1', msg_type: 1, from_username: 'user1', to_username: 'user2', content: 'hello', create_time: 1000 },
         { msg_id: 'msg2', msg_type: 1, from_username: 'user2', to_username: 'user1', content: 'world', create_time: 900 }
       ]
       const expectedMessages = [
-        { msgId: 'msg2', msgType: 1, fromUsername: 'user2', toUsername: 'user1', content: 'world', createTime: 900, chatroomSender: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined, displayType: 'text', displayContent: 'world' },
-        { msgId: 'msg1', msgType: 1, fromUsername: 'user1', toUsername: 'user2', content: 'hello', createTime: 1000, chatroomSender: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined, displayType: 'text', displayContent: 'hello' }
+        { msgId: 'msg2', msgType: 1, fromUsername: 'user2', toUsername: 'user1', content: 'world', createTime: 900, chatroomSender: undefined, senderNickname: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined, displayType: 'text', displayContent: 'world', referMsg: undefined, isRecalled: false },
+        { msgId: 'msg1', msgType: 1, fromUsername: 'user1', toUsername: 'user2', content: 'hello', createTime: 1000, chatroomSender: undefined, senderNickname: undefined, desc: undefined, isChatroomMsg: undefined, chatroom: undefined, source: undefined, displayType: 'text', displayContent: 'hello', referMsg: undefined, isRecalled: false }
       ]
 
       vi.mocked(mockDb.getMessageIndexes).mockResolvedValue(mockIndexes)
@@ -97,7 +98,7 @@ describe('ConversationService', () => {
 
     it('should process non-text messages with displayType and displayContent', async () => {
       const mockIndexes = [
-        { dataLakeKey: 'key1', createTime: 1000 }
+        { dataLakeKey: 'key1', createTime: 1000, isRecalled: false }
       ]
       const mockRawMessages = [
         { msg_id: 'msg1', msg_type: 3, from_username: 'user1', to_username: 'user2', content: '', create_time: 1000 }
@@ -109,6 +110,25 @@ describe('ConversationService', () => {
       const result = await service.getMessages('conv_1', { limit: 20 })
       expect(result.messages[0].displayType).toBe('image')
       expect(result.messages[0].displayContent).toBe('[图片]')
+    })
+
+    it('should include isRecalled in getMessages response', async () => {
+      const mockIndexes = [
+        { dataLakeKey: 'key1', createTime: 1000, isRecalled: true },
+        { dataLakeKey: 'key2', createTime: 900, isRecalled: false }
+      ]
+      const mockRawMessages = [
+        { msg_id: 'msg1', msg_type: 1, from_username: 'user1', to_username: 'user2', content: 'recalled', create_time: 1000 },
+        { msg_id: 'msg2', msg_type: 1, from_username: 'user2', to_username: 'user1', content: 'normal', create_time: 900 }
+      ]
+
+      vi.mocked(mockDb.getMessageIndexes).mockResolvedValue(mockIndexes)
+      vi.mocked(mockDataLake.getMessages).mockResolvedValue(mockRawMessages)
+      vi.mocked(mockDb.findContactsByUsernames).mockResolvedValue([])
+
+      const result = await service.getMessages('conv_1', { limit: 20 })
+      expect(result.messages[1].isRecalled).toBe(true)
+      expect(result.messages[0].isRecalled).toBe(false)
     })
   })
 })

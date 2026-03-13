@@ -83,21 +83,38 @@ describe('MessageService', () => {
     expect(conversation!.groupId).toBe(group!.id)
   })
 
-  it('should handle message recall', async () => {
+  it('should handle message recall and mark original message', async () => {
     // 先发送一条消息
     const textParsed = adapter.parseWebhookPayload(textMessage)
-    await messageService.handleIncomingMessage(textParsed)
+    const textResult = await messageService.handleIncomingMessage(textParsed)
+    expect(textResult).not.toBeNull()
 
     // 然后撤回
+    const recallParsed = adapter.parseWebhookPayload(messageRecall)
+    const recallResult = await messageService.handleIncomingMessage(recallParsed)
+
+    expect(recallResult).not.toBeNull()
+    expect(recallResult).toHaveProperty('type', 'recall')
+    expect(recallResult).toHaveProperty('revokedMsgId', textMessage.data.msg_id)
+    expect(recallResult).toHaveProperty('conversationId')
+
+    const index = await db.findMessageIndexByMsgId(textMessage.data.msg_id)
+    expect(index).not.toBeNull()
+    expect(index!.isRecalled).toBe(true)
+
+    const changes = await db.getMessageStateChanges(messageRecall.data.msg_id)
+    expect(changes).toHaveLength(1)
+    expect(changes[0].changeType).toBe('recall')
+  })
+
+  it('should return null when recalled message not found', async () => {
     const recallParsed = adapter.parseWebhookPayload(messageRecall)
     const result = await messageService.handleIncomingMessage(recallParsed)
 
     expect(result).toBeNull()
 
-    // 验证状态变更已记录
     const changes = await db.getMessageStateChanges(messageRecall.data.msg_id)
     expect(changes).toHaveLength(1)
-    expect(changes[0].changeType).toBe('recall')
   })
 
   it('should skip duplicate message when msgId already exists', async () => {

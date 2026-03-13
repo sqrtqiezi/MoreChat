@@ -1,5 +1,5 @@
 import type { DatabaseService } from './database.js'
-import type { DataLakeService, ChatMessage } from './dataLake.js'
+import type { DataLakeService } from './dataLake.js'
 import { processMessageContent } from './messageContentProcessor.js'
 
 export class ConversationService {
@@ -52,7 +52,7 @@ export class ConversationService {
     }
 
     // 转换字段名：下划线 -> 驼峰
-    const messages = rawMessages.map((msg: any) => {
+    const messages = rawMessages.map((msg: any, index: number) => {
       const { displayType, displayContent, referMsg } = processMessageContent(msg.msg_type, msg.content)
       return {
         msgId: msg.msg_id,
@@ -72,6 +72,7 @@ export class ConversationService {
         displayType,
         displayContent,
         referMsg,
+        isRecalled: actualIndexes[index]?.isRecalled ?? false,
       }
     })
 

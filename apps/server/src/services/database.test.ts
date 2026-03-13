@@ -123,13 +123,42 @@ describe('DatabaseService', () => {
       const notFound = await db.findMessageIndexByMsgId('not_exist')
       expect(notFound).toBeNull()
     })
+
+    it('should update MessageIndex isRecalled', async () => {
+      const client = await db.createClient({ guid: 'recall-guid' })
+      const contact = await db.createContact({
+        username: 'test_user',
+        nickname: 'Test User',
+        type: 'friend'
+      })
+      const conversation = await db.createConversation({
+        clientId: client.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      await db.createMessageIndex({
+        conversationId: conversation.id,
+        msgId: 'recall_test_msg',
+        msgType: 1,
+        fromUsername: 'test_user',
+        toUsername: 'test_receiver',
+        createTime: 1772989439,
+        dataLakeKey: 'hot/conv1/2026-03-10.jsonl:recall_test_msg'
+      })
+
+      await db.updateMessageIndex('recall_test_msg', { isRecalled: true })
+
+      const index = await db.findMessageIndexByMsgId('recall_test_msg')
+      expect(index!.isRecalled).toBe(true)
+    })
   })
 
   describe('getConversations', () => {
     it('should return conversations ordered by lastMessageAt desc', async () => {
       const client = await db.createClient({ guid: 'conv_test_guid' })
 
-      const conv1 = await db.createConversation({ clientId: client.id, type: 'private' })
+      await db.createConversation({ clientId: client.id, type: 'private' })
       const conv2 = await db.createConversation({ clientId: client.id, type: 'group' })
       await db.updateConversationLastMessage(conv2.id, new Date('2026-03-09'))
 

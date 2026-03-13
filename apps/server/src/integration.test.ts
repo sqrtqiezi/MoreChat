@@ -15,7 +15,9 @@ const TEST_PASSWORD = 'test123'
 const TEST_PASSWORD_HASH = '$2b$10$zC.9OzD0p0tx9b/w8pU2K.ijNk2vjHM4YU0.PxJBvKNkUZ85tqTtu'
 const TEST_JWT_SECRET = 'test-jwt-secret'
 
-describe('Integration Tests', () => {
+const describeIfSocketsAvailable = process.env.CODEX_SANDBOX_NETWORK_DISABLED ? describe.skip : describe
+
+describeIfSocketsAvailable('Integration Tests', () => {
   let server: Server
   let wsService: WebSocketService
   let databaseService: DatabaseService
@@ -60,15 +62,15 @@ describe('Integration Tests', () => {
       },
     } as any)
 
-    server = serve({ fetch: app.fetch, port: 0 })
+    server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' })
 
     const address = server.address()
     if (!address || typeof address === 'string') {
       throw new Error('Failed to get server address')
     }
     const port = address.port
-    baseUrl = `http://localhost:${port}`
-    wsUrl = `ws://localhost:${port}`
+    baseUrl = `http://127.0.0.1:${port}`
+    wsUrl = `ws://127.0.0.1:${port}`
 
     _wsService = new WebSocketService(server)
     wsService = _wsService

@@ -43,6 +43,7 @@ export interface ApiMessage {
     content: string;
     msgId: string;
   };
+  isRecalled?: boolean;
 }
 
 interface ConversationsResponse {
@@ -121,6 +122,7 @@ export function mapMessage(raw: ApiMessage, conversationId: string, contactNameM
     msgType: raw.msgType,
     displayType: raw.displayType as Message['displayType'],
     referMsg: raw.referMsg,
+    isRecalled: raw.isRecalled,
   };
 }
 

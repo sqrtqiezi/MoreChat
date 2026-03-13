@@ -31,6 +31,7 @@ export interface Message {
   msgType?: number;
   displayType?: 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'unknown';
   referMsg?: ReferMsg;
+  isRecalled?: boolean;
 }
 
 // ClientStatus interface

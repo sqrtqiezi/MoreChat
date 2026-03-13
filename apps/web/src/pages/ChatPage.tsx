@@ -31,6 +31,25 @@ export function ChatPage() {
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
       }
 
+      if (data.event === 'message:recall') {
+        const { conversationId, msgId } = data.data || {};
+        if (!conversationId || !msgId) return;
+
+        queryClient.setQueryData(
+          ['messages', conversationId],
+          (old: any) => {
+            if (!old) return old;
+
+            return {
+              ...old,
+              messages: old.messages.map((msg: any) =>
+                msg.id === msgId ? { ...msg, isRecalled: true } : msg
+              ),
+            };
+          }
+        );
+      }
+
       if (data.event === 'contact:updated' || data.event === 'group:updated') {
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
       }

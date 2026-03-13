@@ -1,6 +1,5 @@
-import pkg from '@prisma/client'
-const { PrismaClient } = pkg
-type PrismaClientType = InstanceType<typeof PrismaClient>
+import type { PrismaClient as PrismaClientClass } from '@prisma/client'
+type PrismaClientType = InstanceType<typeof PrismaClientClass>
 import { prisma as globalPrisma, createPrismaClient } from '../lib/prisma.js'
 
 export class DatabaseService {
@@ -19,6 +18,13 @@ export class DatabaseService {
   async connect() {
     await this.prisma.$connect()
     await this.pushSchema()
+  }
+
+  private async hasColumn(tableName: string, columnName: string): Promise<boolean> {
+    const columns = await this.prisma.$queryRawUnsafe<Array<{ name: string }>>(
+      `PRAGMA table_info("${tableName}")`
+    )
+    return columns.some(column => column.name === columnName)
   }
 
   private async pushSchema() {
@@ -116,6 +122,7 @@ export class DatabaseService {
         "chatroomSender" TEXT,
         "createTime" INTEGER NOT NULL,
         "dataLakeKey" TEXT NOT NULL,
+        "isRecalled" BOOLEAN NOT NULL DEFAULT false,
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "MessageIndex_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "Conversation" ("id")
       )
@@ -134,8 +141,15 @@ export class DatabaseService {
     `)
 
     // Migrations: add lastSyncAt columns if not exist
-    await this.prisma.$executeRawUnsafe(`ALTER TABLE "Contact" ADD COLUMN "lastSyncAt" DATETIME`).catch(() => {})
-    await this.prisma.$executeRawUnsafe(`ALTER TABLE "Group" ADD COLUMN "lastSyncAt" DATETIME`).catch(() => {})
+    if (!(await this.hasColumn('Contact', 'lastSyncAt'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Contact" ADD COLUMN "lastSyncAt" DATETIME`)
+    }
+    if (!(await this.hasColumn('Group', 'lastSyncAt'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Group" ADD COLUMN "lastSyncAt" DATETIME`)
+    }
+    if (!(await this.hasColumn('MessageIndex', 'isRecalled'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "MessageIndex" ADD COLUMN "isRecalled" BOOLEAN NOT NULL DEFAULT false`)
+    }
   }
 
   async disconnect() {
@@ -331,6 +345,13 @@ export class DatabaseService {
   async findMessageIndexByMsgId(msgId: string) {
     return this.prisma.messageIndex.findUnique({
       where: { msgId }
+    })
+  }
+
+  async updateMessageIndex(msgId: string, data: { isRecalled: boolean }) {
+    return this.prisma.messageIndex.update({
+      where: { msgId },
+      data
     })
   }
 

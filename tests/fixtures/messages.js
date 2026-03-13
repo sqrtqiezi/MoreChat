@@ -50,7 +50,7 @@ export const messageRecall = {
         is_chatroom_msg: 0,
         chatroom: "",
         source: "<msgsource>\n\t<signature>test</signature>\n</msgsource>\n",
-        content: "<sysmsg type=\"revokemsg\"><revokemsg><session>test_user</session><msgid>583100271</msgid><newmsgid>2024578957280591112</newmsgid><replacemsg><![CDATA[\"Test User\" 撤回了一条消息]]></replacemsg></revokemsg></sysmsg>"
+        content: "<sysmsg type=\"revokemsg\"><revokemsg><session>test_user</session><msgid>583100271</msgid><newmsgid>2265241832514211437</newmsgid><replacemsg><![CDATA[\"Test User\" 撤回了一条消息]]></replacemsg></revokemsg></sysmsg>"
     }
 };
 export const voiceCallMessage = {

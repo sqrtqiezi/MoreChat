@@ -1,5 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { processMessageContent, parseImageXml } from './messageContentProcessor.js'
+import { processMessageContent, parseImageXml, parseRecallXml } from './messageContentProcessor.js'
+
+describe('parseRecallXml', () => {
+  it('should extract newmsgid from recall XML', () => {
+    const xml = '<sysmsg type="revokemsg"><revokemsg><session>user1</session><msgid>583100271</msgid><newmsgid>2024578957280591112</newmsgid><replacemsg><![CDATA["小明" 撤回了一条消息]]></replacemsg></revokemsg></sysmsg>'
+    expect(parseRecallXml(xml)).toBe('2024578957280591112')
+  })
+
+  it('should return null when newmsgid is missing', () => {
+    const xml = '<sysmsg type="revokemsg"><revokemsg><session>user1</session><msgid>583100271</msgid></revokemsg></sysmsg>'
+    expect(parseRecallXml(xml)).toBeNull()
+  })
+
+  it('should return null for empty content', () => {
+    expect(parseRecallXml('')).toBeNull()
+  })
+
+  it('should return null for invalid XML', () => {
+    expect(parseRecallXml('not xml at all')).toBeNull()
+  })
+})
 
 describe('processMessageContent', () => {
   describe('Type 1 - Text', () => {

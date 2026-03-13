@@ -63,23 +63,29 @@ export function createApp(deps: AppDependencies) {
 
       // 广播新消息给所有 WebSocket 客户端
       if (result) {
-        deps.wsService.broadcast('message:new', {
-          conversationId: result.conversationId,
-          message: result.message,
-        })
-        logger.debug({ conversationId: result.conversationId, msgId: result.message.msgId }, 'Message broadcasted via WebSocket')
+        if ('message' in result) {
+          deps.wsService.broadcast('message:new', {
+            conversationId: result.conversationId,
+            message: result.message,
+          })
+          logger.debug({ conversationId: result.conversationId, msgId: result.message.msgId }, 'Message broadcasted via WebSocket')
 
-        // 异步同步联系人信息（不阻塞 webhook 响应）
-        const msg = parsed.message
-        if (msg.isChatroomMsg && msg.chatroom) {
-          // 群聊：同步群信息和实际发送人
-          deps.contactSyncService.syncGroup(msg.chatroom).catch(() => {})
-          if (msg.chatroomSender) {
-            deps.contactSyncService.syncContact(msg.chatroomSender).catch(() => {})
+          // 异步同步联系人信息（不阻塞 webhook 响应）
+          const msg = parsed.message
+          if (msg.isChatroomMsg && msg.chatroom) {
+            deps.contactSyncService.syncGroup(msg.chatroom).catch(() => {})
+            if (msg.chatroomSender) {
+              deps.contactSyncService.syncContact(msg.chatroomSender).catch(() => {})
+            }
+          } else {
+            deps.contactSyncService.syncContact(msg.fromUsername).catch(() => {})
           }
         } else {
-          // 私聊：同步发送人
-          deps.contactSyncService.syncContact(msg.fromUsername).catch(() => {})
+          deps.wsService.broadcast('message:recall', {
+            conversationId: result.conversationId,
+            msgId: result.revokedMsgId,
+          })
+          logger.debug({ conversationId: result.conversationId, revokedMsgId: result.revokedMsgId }, 'Recall broadcasted via WebSocket')
         }
       }
 

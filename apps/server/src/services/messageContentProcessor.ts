@@ -144,6 +144,14 @@ function processType10002(content: string): ProcessedContent {
   return { displayType: 'recall', displayContent: text }
 }
 
+export function parseRecallXml(content: string): string | null {
+  if (!content) return null
+
+  const parsed = parseXml(content)
+  const newmsgid = parsed?.sysmsg?.revokemsg?.newmsgid
+  return newmsgid ? String(newmsgid) : null
+}
+
 export function processMessageContent(msgType: number, content: string): ProcessedContent {
   const safeContent = content ?? ''
   switch (msgType) {

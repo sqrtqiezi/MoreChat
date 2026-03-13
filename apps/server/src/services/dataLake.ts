@@ -14,6 +14,7 @@ export interface ChatMessage {
   is_chatroom_msg: number
   chatroom: string
   source: string
+  is_recalled?: boolean
 }
 
 export interface DataLakeConfig {
@@ -72,7 +73,7 @@ export class DataLakeService {
           if (msg.msg_id === msgId) {
             return msg
           }
-        } catch (error) {
+        } catch {
           console.warn(`Skipping corrupted line in ${filePath}`)
         }
       }
@@ -131,7 +132,7 @@ export class DataLakeService {
             if (msgIds.includes(msg.msg_id)) {
               messageMap.set(msg.msg_id, msg)
             }
-          } catch (error) {
+          } catch {
             console.warn(`Skipping corrupted line in ${fullPath}`)
           }
         }
@@ -147,5 +148,39 @@ export class DataLakeService {
         return messageMap.get(key)!
       }
     })
+  }
+
+  async updateMessage(key: string, updates: { is_recalled: boolean }): Promise<void> {
+    if (!key.startsWith('hot/')) {
+      throw new Error(`updateMessage only supports hot layer keys: ${key}`)
+    }
+
+    const [filePart, msgId] = key.split(':')
+    const filePath = path.join(this.config.path, filePart)
+    const content = await fs.readFile(filePath, 'utf-8')
+    const lines = content.split('\n').filter(Boolean)
+
+    let found = false
+    const updatedLines = lines.map(line => {
+      try {
+        const message = JSON.parse(line)
+        if (message.msg_id === msgId) {
+          found = true
+          return JSON.stringify({ ...message, ...updates })
+        }
+      } catch {
+        return line
+      }
+
+      return line
+    })
+
+    if (!found) {
+      throw new Error(`Message not found in JSONL: ${key}`)
+    }
+
+    const tmpPath = `${filePath}.tmp`
+    await fs.writeFile(tmpPath, `${updatedLines.join('\n')}\n`, 'utf-8')
+    await fs.rename(tmpPath, filePath)
   }
 }

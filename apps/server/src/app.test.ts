@@ -26,6 +26,11 @@ describe('createApp', () => {
         handleIncomingMessage: vi.fn(),
         sendMessage: vi.fn()
       } as any,
+      imageService: {} as any,
+      contactSyncService: {
+        syncGroup: vi.fn(),
+        syncContact: vi.fn()
+      } as any,
       juhexbotAdapter: {
         parseWebhookPayload: vi.fn()
       } as any,
@@ -34,6 +39,10 @@ describe('createApp', () => {
         sendToClient: vi.fn()
       } as any,
       clientGuid: 'test_guid',
+      userProfile: {
+        username: 'test_user',
+        nickname: 'Test User'
+      },
       auth: {
         passwordHash: '$2a$10$some_test_hash',
         jwtSecret: TEST_JWT_SECRET,
@@ -134,5 +143,29 @@ describe('createApp', () => {
     })
 
     expect(res.status).toBe(200)
+  })
+
+  it('should broadcast message:recall via WebSocket for recall result', async () => {
+    vi.mocked(deps.juhexbotAdapter.parseWebhookPayload).mockReturnValue({
+      message: { msgType: 10002 }
+    } as any)
+    vi.mocked(deps.messageService.handleIncomingMessage).mockResolvedValue({
+      type: 'recall',
+      conversationId: 'conv_1',
+      revokedMsgId: 'msg_1',
+    } as any)
+
+    const app = createApp(deps)
+    const res = await app.request('/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'message', data: {} })
+    })
+
+    expect(res.status).toBe(200)
+    expect(deps.wsService.broadcast).toHaveBeenCalledWith('message:recall', {
+      conversationId: 'conv_1',
+      msgId: 'msg_1',
+    })
   })
 })

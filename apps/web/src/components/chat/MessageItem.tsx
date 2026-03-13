@@ -250,10 +250,13 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
     return (
       <div className={`flex justify-end items-start gap-3 px-6 py-3 animate-fade-in ${highlightClass}`}>
         <div className="flex flex-col items-end max-w-[70%]">
-          <div className="flex items-center gap-2 mb-1">
-            {getStatusDisplay()}
-            <span className="text-xs text-gray-500">{formattedTime}</span>
-          </div>
+        <div className="flex items-center gap-2 mb-1">
+          {getStatusDisplay()}
+          <span className="text-xs text-gray-500">{formattedTime}</span>
+          {message.isRecalled && (
+            <span className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">已撤回</span>
+          )}
+        </div>
           <div className="bg-blue-500 text-white rounded-2xl px-4 py-2.5 w-fit max-w-full break-words">
             {renderContent()}
           </div>
@@ -283,6 +286,9 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
         <div className="flex items-center gap-2 mb-1">
           <span className="text-sm font-medium text-gray-900">{senderName}</span>
           <span className="text-xs text-gray-500">{formattedTime}</span>
+          {message.isRecalled && (
+            <span className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">已撤回</span>
+          )}
         </div>
         <div className="bg-gray-100 text-gray-900 rounded-2xl px-4 py-2.5 w-fit max-w-full break-words">
           {renderContent()}
@@ -291,4 +297,3 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
     </div>
   );
 });
-

@@ -3,15 +3,19 @@ import { WebSocketService } from './websocket.js'
 import { createServer } from 'http'
 import WebSocket from 'ws'
 
-describe('WebSocketService', () => {
+const describeIfSocketsAvailable = process.env.CODEX_SANDBOX_NETWORK_DISABLED ? describe.skip : describe
+
+describeIfSocketsAvailable('WebSocketService', () => {
   let server: ReturnType<typeof createServer>
   let wsService: WebSocketService
   let port: number
 
   beforeEach(async () => {
     server = createServer()
-    await new Promise<void>((resolve) => {
-      server.listen(0, () => {
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        server.off('error', reject)
         port = (server.address() as any).port
         wsService = new WebSocketService(server)
         resolve()
@@ -27,7 +31,7 @@ describe('WebSocketService', () => {
   })
 
   it('should accept WebSocket connections', async () => {
-    const client = new WebSocket(`ws://localhost:${port}`)
+    const client = new WebSocket(`ws://127.0.0.1:${port}`)
 
     await new Promise<void>((resolve) => {
       client.on('open', () => {
@@ -39,7 +43,7 @@ describe('WebSocketService', () => {
   })
 
   it('should handle client:connect event', async () => {
-    const client = new WebSocket(`ws://localhost:${port}`)
+    const client = new WebSocket(`ws://127.0.0.1:${port}`)
 
     await new Promise<void>((resolve) => {
       client.on('open', () => {
@@ -60,7 +64,7 @@ describe('WebSocketService', () => {
   })
 
   it('should send message to specific client', async () => {
-    const client = new WebSocket(`ws://localhost:${port}`)
+    const client = new WebSocket(`ws://127.0.0.1:${port}`)
 
     await new Promise<void>((resolve) => {
       client.on('open', () => {
