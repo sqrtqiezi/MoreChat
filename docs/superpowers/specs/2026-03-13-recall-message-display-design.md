@@ -272,19 +272,15 @@ if (data.event === 'message:recall') {
   const { conversationId, msgId } = data.data || {};
   if (!conversationId || !msgId) return;
 
-  // 更新 TanStack Query 缓存中对应消息的 isRecalled 状态
-  queryClient.setQueriesData(
-    { queryKey: ['messages', conversationId] },
-    (oldData: any) => {
-      if (!oldData?.pages) return oldData;
+  queryClient.setQueryData(
+    ['messages', conversationId],
+    (old: any) => {
+      if (!old) return old;
       return {
-        ...oldData,
-        pages: oldData.pages.map((page: any) => ({
-          ...page,
-          messages: page.messages.map((msg: any) =>
-            msg.id === msgId ? { ...msg, isRecalled: true } : msg
-          ),
-        })),
+        ...old,
+        messages: old.messages.map((msg: any) =>
+          msg.id === msgId ? { ...msg, isRecalled: true } : msg
+        ),
       };
     }
   );
