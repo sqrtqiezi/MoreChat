@@ -124,3 +124,28 @@ interface ImageInfo {
 | 4 | 错误 | - | 不支持 |
 
 三种尺寸使用同一个 fileId，仅靠 `file_type` 区分。1174 条图片消息中 446 条有 `hdlength`，所有消息的 cdnthumburl / cdnmidimgurl / cdnbigimgurl 的 fileId 完全一致。cloud download 返回的 URL 为 OSS 永久链接。
+
+---
+
+## 实施状态
+
+✅ **已完成** (2026-03-13)
+
+### 实施计划
+详见：`docs/superpowers/plans/2026-03-13-multi-size-image-lightbox.md`
+
+### 测试结果
+- ✅ 后端单元测试全部通过
+- ✅ 前端类型检查通过
+- ✅ 端到端测试通过
+- ✅ 缓存机制验证通过
+- ✅ 并发去重验证通过
+
+### 关键文件
+- `apps/server/src/services/messageContentProcessor.ts` - XML 解析 hasHd
+- `apps/server/src/services/juhexbotAdapter.ts` - fileType 参数
+- `apps/server/src/services/imageService.ts` - 多尺寸支持
+- `apps/server/src/routes/messages.ts` - size 查询参数
+- `apps/web/src/api/chat.ts` - API 客户端
+- `apps/web/src/components/chat/ImageLightbox.tsx` - Lightbox 组件
+- `apps/web/src/components/chat/MessageItem.tsx` - 集成
