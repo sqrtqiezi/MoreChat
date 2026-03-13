@@ -212,13 +212,16 @@ export const chatApi = {
   },
 
   // GET /api/messages/:msgId/image - 获取图片消息 URL
-  async getImageUrl(msgId: string): Promise<string> {
-    const response = await client.get<ApiResponse<{ imageUrl: string }>>(`/messages/${msgId}/image`);
+  async getImageUrl(msgId: string, size: 'mid' | 'hd' = 'mid'): Promise<{ imageUrl: string; hasHd: boolean }> {
+    const response = await client.get<ApiResponse<{ imageUrl: string; hasHd: boolean }>>(
+      `/messages/${msgId}/image`,
+      { params: { size } }
+    );
 
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error?.message || 'Failed to get image URL');
     }
 
-    return response.data.data.imageUrl;
+    return response.data.data;
   },
 };
