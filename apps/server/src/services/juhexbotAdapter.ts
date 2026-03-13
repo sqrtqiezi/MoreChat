@@ -295,7 +295,7 @@ export class JuhexbotAdapter {
     }
   }
 
-  async downloadImage(aesKey: string, fileId: string, fileName: string): Promise<string> {
+  async downloadImage(aesKey: string, fileId: string, fileName: string, fileType: number = 2): Promise<string> {
     const cdnInfo = await this.getCdnInfo()
 
     const baseRequest = {
@@ -311,10 +311,10 @@ export class JuhexbotAdapter {
       aes_key: aesKey,
       file_id: fileId,
       file_name: fileName,
-      file_type: 2
+      file_type: fileType
     }
 
-    logger.info({ cloudUrl, fileName }, 'Calling cloud download API')
+    logger.info({ cloudUrl, fileName, fileType }, 'Calling cloud download API')
 
     const response = await fetch(cloudUrl, {
       method: 'POST',

@@ -529,5 +529,63 @@ describe('JuhexbotAdapter', () => {
 
       await expect(adapter.downloadImage('key', 'id', 'img.jpg')).rejects.toThrow('No download URL in cloud API response')
     })
+
+    it('should pass fileType parameter to cloud API', async () => {
+      const fetchMock = vi.fn()
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            cdn_info: 'cdn-info-string',
+            client_version: 123456,
+            device_type: 'android',
+            username: 'test_wx_user'
+          }
+        })
+      })
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: { url: 'https://cdn.example.com/hd-image.jpg' }
+        })
+      })
+      globalThis.fetch = fetchMock
+
+      const result = await adapter.downloadImage('aes-key-123', 'file-id-456', 'photo.jpg', 1)
+      expect(result).toBe('https://cdn.example.com/hd-image.jpg')
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const body = JSON.parse(fetchMock.mock.calls[1][1].body)
+      expect(body.file_type).toBe(1)
+    })
+
+    it('should default to fileType=2 (mid) when not specified', async () => {
+      const fetchMock = vi.fn()
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            cdn_info: 'cdn-info-string',
+            client_version: 123456,
+            device_type: 'android',
+            username: 'test_wx_user'
+          }
+        })
+      })
+      fetchMock.mockResolvedValueOnce({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: { url: 'https://cdn.example.com/mid-image.jpg' }
+        })
+      })
+      globalThis.fetch = fetchMock
+
+      const result = await adapter.downloadImage('aes-key-123', 'file-id-456', 'photo.jpg')
+      expect(result).toBe('https://cdn.example.com/mid-image.jpg')
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const body = JSON.parse(fetchMock.mock.calls[1][1].body)
+      expect(body.file_type).toBe(2)
+    })
   })
 })
