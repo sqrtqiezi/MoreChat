@@ -165,6 +165,7 @@ export function processMessageContent(msgType: number, content: string): Process
 export interface ImageInfo {
   aesKey: string
   fileId: string
+  hasHd: boolean
 }
 
 export function parseImageXml(content: string): ImageInfo | null {
@@ -189,13 +190,17 @@ export function parseImageXml(content: string): ImageInfo | null {
 
   const aesKey = img['@_aeskey']
   const cdnMidImgUrl = img['@_cdnmidimgurl']
+  const hdlength = img['@_hdlength']
 
   if (!aesKey || !cdnMidImgUrl) {
     return null
   }
 
+  const hasHd = hdlength && parseInt(hdlength, 10) > 0
+
   return {
     aesKey: String(aesKey),
-    fileId: String(cdnMidImgUrl)
+    fileId: String(cdnMidImgUrl),
+    hasHd: Boolean(hasHd)
   }
 }

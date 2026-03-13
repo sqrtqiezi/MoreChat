@@ -372,7 +372,8 @@ describe('parseImageXml', () => {
 
     expect(result).toEqual({
       aesKey: 'test_aes_key_123',
-      fileId: 'test_cdn_url_456'
+      fileId: 'test_cdn_url_456',
+      hasHd: false
     })
   })
 
@@ -397,5 +398,50 @@ describe('parseImageXml', () => {
 </msg>`
 
     expect(parseImageXml(xml)).toBeNull()
+  })
+
+  it('should return hasHd=true when hdlength > 0', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+    <img aeskey="test_aes_key" cdnmidimgurl="test_cdn_url" encryver="1" hdlength="54321"/>
+</msg>`
+
+    const result = parseImageXml(xml)
+
+    expect(result).toEqual({
+      aesKey: 'test_aes_key',
+      fileId: 'test_cdn_url',
+      hasHd: true
+    })
+  })
+
+  it('should return hasHd=false when hdlength is missing', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+    <img aeskey="test_aes_key" cdnmidimgurl="test_cdn_url" encryver="1"/>
+</msg>`
+
+    const result = parseImageXml(xml)
+
+    expect(result).toEqual({
+      aesKey: 'test_aes_key',
+      fileId: 'test_cdn_url',
+      hasHd: false
+    })
+  })
+
+  it('should return hasHd=false when hdlength = 0', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+    <img aeskey="test_aes_key" cdnmidimgurl="test_cdn_url" encryver="1" hdlength="0"/>
+</msg>`
+
+    const result = parseImageXml(xml)
+
+    expect(result).toEqual({
+      aesKey: 'test_aes_key',
+      fileId: 'test_cdn_url',
+      hasHd: false
+    })
   })
 })
