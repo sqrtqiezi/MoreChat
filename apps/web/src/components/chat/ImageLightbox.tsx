@@ -1,8 +1,9 @@
-// ABOUTME: Lightbox component for viewing images with optional HD upgrade button
-// ABOUTME: Uses yet-another-react-lightbox library for image viewing
+// ABOUTME: Lightbox component for viewing images with zoom and optional HD upgrade
+// ABOUTME: Uses yet-another-react-lightbox library with Zoom plugin
 
 import { useState } from 'react';
 import Lightbox from 'yet-another-react-lightbox';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
 
 interface ImageLightboxProps {
@@ -11,6 +12,26 @@ interface ImageLightboxProps {
   imageUrl: string;
   hasHd?: boolean;
   onUpgradeToHd?: () => void;
+}
+
+function HdUpgradeButton({ hasHd, onUpgradeToHd, isUpgrading, onUpgrade }: {
+  hasHd?: boolean;
+  onUpgradeToHd?: () => void;
+  isUpgrading: boolean;
+  onUpgrade: () => void;
+}) {
+  if (!hasHd || !onUpgradeToHd) return null;
+  return (
+    <button
+      type="button"
+      onClick={onUpgrade}
+      disabled={isUpgrading}
+      className="yarl__button"
+      style={{ color: 'white' }}
+    >
+      {isUpgrading ? '加载中...' : '升级到高清'}
+    </button>
+  );
 }
 
 export function ImageLightbox({ isOpen, onClose, imageUrl, hasHd, onUpgradeToHd }: ImageLightboxProps) {
@@ -31,27 +52,30 @@ export function ImageLightbox({ isOpen, onClose, imageUrl, hasHd, onUpgradeToHd 
       open={isOpen}
       close={onClose}
       slides={[{ src: imageUrl }]}
+      plugins={[Zoom]}
+      zoom={{
+        maxZoomPixelRatio: 2,
+        scrollToZoom: true,
+        zoomInMultiplier: 1.5,
+        doubleClickMaxStops: 2,
+        keyboardMoveDistance: 50,
+      }}
+      toolbar={{
+        buttons: [
+          <HdUpgradeButton
+            key="hd-upgrade"
+            hasHd={hasHd}
+            onUpgradeToHd={onUpgradeToHd}
+            isUpgrading={isUpgrading}
+            onUpgrade={handleUpgrade}
+          />,
+          "zoom",
+          "close",
+        ],
+      }}
       render={{
         buttonPrev: () => null,
         buttonNext: () => null,
-        slide: ({ slide }) => (
-          <div className="relative w-full h-full flex items-center justify-center">
-            <img
-              src={slide.src}
-              alt="查看图片"
-              className="max-w-full max-h-full object-contain"
-            />
-            {hasHd && onUpgradeToHd && (
-              <button
-                onClick={handleUpgrade}
-                disabled={isUpgrading}
-                className="absolute bottom-8 right-8 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg shadow-lg transition-colors"
-              >
-                {isUpgrading ? '加载中...' : '升级到高清'}
-              </button>
-            )}
-          </div>
-        ),
       }}
     />
   );
