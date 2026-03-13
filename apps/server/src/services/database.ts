@@ -21,10 +21,10 @@ export class DatabaseService {
   }
 
   private async hasColumn(tableName: string, columnName: string): Promise<boolean> {
-    const columns = await this.prisma.$queryRawUnsafe<Array<{ name: string }>>(
+    const columns = await this.prisma.$queryRawUnsafe(
       `PRAGMA table_info("${tableName}")`
-    )
-    return columns.some(column => column.name === columnName)
+    ) as Array<{ name: string }>
+    return columns.some((column: { name: string }) => column.name === columnName)
   }
 
   private async pushSchema() {
