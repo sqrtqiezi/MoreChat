@@ -14,7 +14,12 @@ describe('ConversationService', () => {
       findConversationById: vi.fn(),
       updateConversation: vi.fn(),
       getMessageIndexes: vi.fn(),
-      findContactsByUsernames: vi.fn().mockResolvedValue([])
+      findContactsByUsernames: vi.fn().mockResolvedValue([]),
+      findClientByGuid: vi.fn(),
+      findContactByUsername: vi.fn(),
+      findGroupByRoomUsername: vi.fn(),
+      findConversation: vi.fn(),
+      createConversation: vi.fn()
     } as any
 
     mockDataLake = {
@@ -61,6 +66,39 @@ describe('ConversationService', () => {
 
       await service.markAsRead('conv_1')
       expect(mockDb.updateConversation).toHaveBeenCalledWith('conv_1', { unreadCount: 0 })
+    })
+  })
+
+  describe('openConversation', () => {
+    it('should return existing private conversation id', async () => {
+      vi.mocked(mockDb.findClientByGuid).mockResolvedValue({ id: 'client_1' } as any)
+      vi.mocked(mockDb.findContactByUsername).mockResolvedValue({ id: 'contact_1' } as any)
+      vi.mocked(mockDb.findConversation).mockResolvedValue({ id: 'conv_1' } as any)
+
+      await expect(
+        (service as any).openConversation('guid_1', { type: 'private', username: 'friend_1' })
+      ).resolves.toEqual({ conversationId: 'conv_1' })
+    })
+
+    it('should create a group conversation when missing', async () => {
+      vi.mocked(mockDb.findClientByGuid).mockResolvedValue({ id: 'client_1' } as any)
+      vi.mocked(mockDb.findGroupByRoomUsername).mockResolvedValue({ id: 'group_1' } as any)
+      vi.mocked(mockDb.findConversation).mockResolvedValue(null)
+      vi.mocked(mockDb.createConversation).mockResolvedValue({ id: 'conv_new' } as any)
+
+      await expect(
+        (service as any).openConversation('guid_1', { type: 'group', roomUsername: 'room_1@chatroom' })
+      ).resolves.toEqual({ conversationId: 'conv_new' })
+    })
+
+    it('should reject unknown contacts', async () => {
+      vi.mocked(mockDb.findClientByGuid).mockResolvedValue({ id: 'client_1' } as any)
+      vi.mocked(mockDb.findContactByUsername).mockResolvedValue(null)
+      vi.mocked(mockDb.findConversation).mockResolvedValue(null)
+
+      await expect(
+        (service as any).openConversation('guid_1', { type: 'private', username: 'missing' })
+      ).rejects.toThrow('Contact not found')
     })
   })
 

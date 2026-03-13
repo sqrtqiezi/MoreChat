@@ -8,6 +8,7 @@ import { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import { WebSocketService } from './services/websocket.js'
 import { ClientService } from './services/clientService.js'
 import { ConversationService } from './services/conversationService.js'
+import { DirectoryService } from './services/directoryService.js'
 import { ContactSyncService } from './services/contactSyncService.js'
 import { ArchiveService } from './services/archiveService.js'
 import { ImageService } from './services/imageService.js'
@@ -57,6 +58,7 @@ async function main() {
     // 2. 业务服务层
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
+    const directoryService = new DirectoryService(databaseService)
     const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, userProfile.username)
 
     const imageService = new ImageService(
@@ -86,6 +88,7 @@ async function main() {
     const app = createApp({
       clientService,
       conversationService,
+      directoryService,
       messageService,
       imageService,
       contactSyncService,

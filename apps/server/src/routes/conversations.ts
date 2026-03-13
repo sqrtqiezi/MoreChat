@@ -10,6 +10,36 @@ interface ConversationRouteDeps {
 export function conversationRoutes(deps: ConversationRouteDeps) {
   const router = new Hono()
 
+  router.post('/open', async (c) => {
+    try {
+      const body = await c.req.json()
+      const isPrivate = body?.type === 'private' && typeof body?.username === 'string'
+      const isGroup = body?.type === 'group' && typeof body?.roomUsername === 'string'
+
+      if (!isPrivate && !isGroup) {
+        return c.json({ success: false, error: { message: 'Invalid request body' } }, 400)
+      }
+
+      const result = await deps.conversationService.openConversation(
+        deps.clientGuid,
+        isPrivate
+          ? { type: 'private', username: body.username }
+          : { type: 'group', roomUsername: body.roomUsername }
+      )
+      return c.json({ success: true, data: result })
+    } catch (error: any) {
+      if (error.message === 'Contact not found' || error.message === 'Group not found') {
+        return c.json({ success: false, error: { message: error.message } }, 404)
+      }
+      if (error instanceof SyntaxError) {
+        return c.json({ success: false, error: { message: 'Invalid request body' } }, 400)
+      }
+
+      logger.error({ err: error }, 'Failed to open conversation')
+      return c.json({ success: false, error: { message: 'Failed to open conversation' } }, 500)
+    }
+  })
+
   // GET /api/conversations - 会话列表
   router.get('/', async (c) => {
     try {

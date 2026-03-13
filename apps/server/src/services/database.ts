@@ -216,6 +216,29 @@ export class DatabaseService {
     })
   }
 
+  async getDirectoryContacts(clientId: string) {
+    const contacts = await this.prisma.contact.findMany()
+    const contactsWithConversationIds = await Promise.all(
+      contacts.map(async (contact: Awaited<ReturnType<typeof this.prisma.contact.findMany>>[number]) => {
+        const conversation = await this.prisma.conversation.findFirst({
+          where: { clientId, contactId: contact.id },
+          select: { id: true }
+        })
+
+        return {
+          ...contact,
+          conversationId: conversation?.id ?? null,
+        }
+      })
+    )
+
+    return contactsWithConversationIds.sort((left, right) => {
+      const leftKey = left.remark || left.nickname || left.username
+      const rightKey = right.remark || right.nickname || right.username
+      return leftKey.localeCompare(rightKey)
+    })
+  }
+
   // --- Group ---
 
   async createGroup(data: { roomUsername: string; name: string; avatar?: string }) {
@@ -250,6 +273,26 @@ export class DatabaseService {
       take: limit,
       orderBy: { createdAt: 'asc' }
     })
+  }
+
+  async getDirectoryGroups(clientId: string) {
+    const groups = await this.prisma.group.findMany({
+      orderBy: { name: 'asc' }
+    })
+
+    return Promise.all(
+      groups.map(async (group: Awaited<ReturnType<typeof this.prisma.group.findMany>>[number]) => {
+        const conversation = await this.prisma.conversation.findFirst({
+          where: { clientId, groupId: group.id },
+          select: { id: true }
+        })
+
+        return {
+          ...group,
+          conversationId: conversation?.id ?? null,
+        }
+      })
+    )
   }
 
   async upsertGroupMember(data: { groupId: string; username: string; nickname?: string; role?: string }) {

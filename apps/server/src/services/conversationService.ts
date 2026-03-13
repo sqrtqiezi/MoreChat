@@ -24,6 +24,50 @@ export class ConversationService {
     await this.db.updateConversation(id, { unreadCount: 0 })
   }
 
+  async openConversation(
+    clientGuid: string,
+    input: { type: 'private'; username: string } | { type: 'group'; roomUsername: string }
+  ) {
+    const client = await this.db.findClientByGuid(clientGuid)
+    if (!client) {
+      throw new Error('Client not found')
+    }
+
+    const peerId = input.type === 'private' ? input.username : input.roomUsername
+    const existing = await this.db.findConversation(client.id, peerId)
+    if (existing) {
+      return { conversationId: existing.id }
+    }
+
+    if (input.type === 'private') {
+      const contact = await this.db.findContactByUsername(input.username)
+      if (!contact) {
+        throw new Error('Contact not found')
+      }
+
+      const created = await this.db.createConversation({
+        clientId: client.id,
+        type: 'private',
+        contactId: contact.id,
+      })
+
+      return { conversationId: created.id }
+    }
+
+    const group = await this.db.findGroupByRoomUsername(input.roomUsername)
+    if (!group) {
+      throw new Error('Group not found')
+    }
+
+    const created = await this.db.createConversation({
+      clientId: client.id,
+      type: 'group',
+      groupId: group.id,
+    })
+
+    return { conversationId: created.id }
+  }
+
   async getMessages(conversationId: string, options: { limit?: number; before?: number } = {}) {
     const limit = options.limit || 20
     // 多取一条用于判断 hasMore

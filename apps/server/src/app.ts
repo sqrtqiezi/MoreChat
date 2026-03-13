@@ -8,6 +8,7 @@ import { authRoutes } from './routes/auth.js'
 import { authMiddleware } from './middleware/auth.js'
 import { clientRoutes } from './routes/client.js'
 import { conversationRoutes } from './routes/conversations.js'
+import { directoryRoutes } from './routes/directory.js'
 import { messageRoutes } from './routes/messages.js'
 import { meRoutes } from './routes/me.js'
 import type { ClientService } from './services/clientService.js'
@@ -17,11 +18,13 @@ import type { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import type { WebSocketService } from './services/websocket.js'
 import type { ContactSyncService } from './services/contactSyncService.js'
 import type { ImageService } from './services/imageService.js'
+import type { DirectoryService } from './services/directoryService.js'
 import { logger } from './lib/logger.js'
 
 export interface AppDependencies {
   clientService: ClientService
   conversationService: ConversationService
+  directoryService: DirectoryService
   messageService: MessageService
   imageService: ImageService
   contactSyncService: ContactSyncService
@@ -109,6 +112,10 @@ export function createApp(deps: AppDependencies) {
   app.route('/api/client', clientRoutes({ clientService: deps.clientService }))
   app.route('/api/conversations', conversationRoutes({
     conversationService: deps.conversationService,
+    clientGuid: deps.clientGuid
+  }))
+  app.route('/api/directory', directoryRoutes({
+    directoryService: deps.directoryService,
     clientGuid: deps.clientGuid
   }))
   app.route('/api/messages', messageRoutes({ messageService: deps.messageService, imageService: deps.imageService }))

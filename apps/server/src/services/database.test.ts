@@ -49,6 +49,47 @@ describe('DatabaseService', () => {
       expect(found).not.toBeNull()
       expect(found!.nickname).toBe('Test User')
     })
+
+    it('should list contacts with matching conversation ids', async () => {
+      const client = await db.createClient({ guid: 'guid_1' })
+      const contact = await db.createContact({
+        username: 'friend_1',
+        nickname: 'Friend 1',
+        type: 'friend',
+      })
+      const conversation = await db.createConversation({
+        clientId: client.id,
+        type: 'private',
+        contactId: contact.id,
+      })
+
+      const contacts = await (db as any).getDirectoryContacts(client.id)
+
+      expect(contacts).toEqual([
+        expect.objectContaining({
+          username: 'friend_1',
+          conversationId: conversation.id,
+        }),
+      ])
+    })
+  })
+
+  describe('Group', () => {
+    it('should list groups with null conversationId when no session exists', async () => {
+      await db.createGroup({
+        roomUsername: 'room_1@chatroom',
+        name: 'Room 1',
+      })
+
+      const groups = await (db as any).getDirectoryGroups('missing_client_id')
+
+      expect(groups).toEqual([
+        expect.objectContaining({
+          roomUsername: 'room_1@chatroom',
+          conversationId: null,
+        }),
+      ])
+    })
   })
 
   describe('MessageIndex', () => {

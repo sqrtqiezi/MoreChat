@@ -39,3 +39,21 @@ export interface ClientStatus {
   isOnline: boolean;
   clientId: string;
 }
+
+export interface DirectoryContact {
+  id: string;
+  username: string;
+  nickname: string;
+  remark: string | null;
+  avatar?: string;
+  conversationId: string | null;
+}
+
+export interface DirectoryGroup {
+  id: string;
+  roomUsername: string;
+  name: string;
+  avatar?: string;
+  memberCount?: number;
+  conversationId: string | null;
+}

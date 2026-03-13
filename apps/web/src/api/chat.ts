@@ -1,5 +1,5 @@
 import client from './client';
-import type { Conversation, Message } from '../types';
+import type { Conversation, DirectoryContact, DirectoryGroup, Message } from '../types';
 
 // API response types
 interface ApiResponse<T> {
@@ -53,6 +53,24 @@ interface ConversationsResponse {
 interface ApiMessagesResponse {
   messages: ApiMessage[];
   hasMore: boolean;
+}
+
+interface ApiDirectoryContact {
+  id: string;
+  username: string;
+  nickname: string;
+  remark: string | null;
+  avatar: string | null;
+  conversationId: string | null;
+}
+
+interface ApiDirectoryGroup {
+  id: string;
+  roomUsername: string;
+  name: string;
+  avatar: string | null;
+  memberCount?: number | null;
+  conversationId: string | null;
 }
 
 interface CurrentUserResponse {
@@ -211,6 +229,43 @@ export const chatApi = {
     if (!response.data.success) {
       throw new Error(response.data.error?.message || 'Failed to mark as read');
     }
+  },
+
+  async getDirectory(): Promise<{ contacts: DirectoryContact[]; groups: DirectoryGroup[] }> {
+    const response = await client.get<ApiResponse<{ contacts: ApiDirectoryContact[]; groups: ApiDirectoryGroup[] }>>('/directory');
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error?.message || 'Failed to get directory');
+    }
+
+    return {
+      contacts: response.data.data.contacts.map((raw) => ({
+        id: raw.id,
+        username: raw.username,
+        nickname: raw.nickname,
+        remark: raw.remark,
+        avatar: raw.avatar || undefined,
+        conversationId: raw.conversationId,
+      })),
+      groups: response.data.data.groups.map((raw) => ({
+        id: raw.id,
+        roomUsername: raw.roomUsername,
+        name: raw.name,
+        avatar: raw.avatar || undefined,
+        memberCount: raw.memberCount ?? undefined,
+        conversationId: raw.conversationId,
+      })),
+    };
+  },
+
+  async openConversation(data: { type: 'private'; username: string } | { type: 'group'; roomUsername: string }) {
+    const response = await client.post<ApiResponse<{ conversationId: string }>>('/conversations/open', data);
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error?.message || 'Failed to open conversation');
+    }
+
+    return response.data.data;
   },
 
   // GET /api/messages/:msgId/image - 获取图片消息 URL

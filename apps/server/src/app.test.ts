@@ -20,7 +20,11 @@ describe('createApp', () => {
         list: vi.fn(),
         getById: vi.fn(),
         markAsRead: vi.fn(),
-        getMessages: vi.fn()
+        getMessages: vi.fn(),
+        openConversation: vi.fn()
+      } as any,
+      directoryService: {
+        list: vi.fn(),
       } as any,
       messageService: {
         handleIncomingMessage: vi.fn(),
@@ -79,6 +83,18 @@ describe('createApp', () => {
     const app = createApp(deps)
     const token = await validToken()
     const res = await app.request('/api/conversations', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    expect(res.status).toBe(200)
+  })
+
+  it('should mount directory routes', async () => {
+    vi.mocked((deps.directoryService as any).list).mockResolvedValue({ contacts: [], groups: [] })
+
+    const app = createApp(deps)
+    const token = await validToken()
+    const res = await app.request('/api/directory', {
       headers: { Authorization: `Bearer ${token}` }
     })
 

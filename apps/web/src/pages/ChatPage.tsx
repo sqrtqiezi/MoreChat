@@ -52,6 +52,7 @@ export function ChatPage() {
 
       if (data.event === 'contact:updated' || data.event === 'group:updated') {
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['directory'] });
       }
     },
     [selectedConversationId, queryClient, appendMessage]
@@ -62,6 +63,7 @@ export function ChatPage() {
       queryClient.invalidateQueries({ queryKey: ['messages', selectedConversationId] });
     }
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    queryClient.invalidateQueries({ queryKey: ['directory'] });
   }, [selectedConversationId, queryClient]);
 
   const { isConnected } = useWebSocket({

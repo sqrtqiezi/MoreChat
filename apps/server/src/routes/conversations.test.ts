@@ -12,7 +12,8 @@ describe('conversation routes', () => {
       list: vi.fn(),
       getById: vi.fn(),
       markAsRead: vi.fn(),
-      getMessages: vi.fn()
+      getMessages: vi.fn(),
+      openConversation: vi.fn()
     } as any
 
     app = new Hono()
@@ -89,6 +90,23 @@ describe('conversation routes', () => {
       expect(body.success).toBe(true)
       expect(body.data.messages).toHaveLength(1)
       expect(body.data.hasMore).toBe(false)
+    })
+  })
+
+  describe('POST /api/conversations/open', () => {
+    it('should open a private conversation', async () => {
+      vi.mocked((mockConvService as any).openConversation).mockResolvedValue({ conversationId: 'conv_1' })
+
+      const res = await app.request('/api/conversations/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'private', username: 'friend_1' }),
+      })
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body.success).toBe(true)
+      expect(body.data.conversationId).toBe('conv_1')
     })
   })
 })
