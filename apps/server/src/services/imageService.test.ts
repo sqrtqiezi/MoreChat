@@ -38,11 +38,20 @@ describe('ImageService', () => {
       msgId: 'msg123',
       downloadUrl: 'https://cached.url/image.jpg'
     })
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
+    mockDataLake.getMessage.mockResolvedValue({
+      msg_id: 'msg123',
+      msg_type: 3,
+      content: '<?xml version="1.0"?><msg><img aeskey="aes" cdnmidimgurl="cdn" encryver="1" hdlength="1024"/></msg>'
+    })
 
-    const url = await service.getImageUrl('msg123')
+    const result = await service.getImageUrl('msg123')
 
-    expect(url).toBe('https://cached.url/image.jpg')
-    expect(mockDataLake.getMessage).not.toHaveBeenCalled()
+    expect(result.imageUrl).toBe('https://cached.url/image.jpg')
+    expect(result.hasHd).toBe(true)
   })
 
   it('should download and cache if not cached', async () => {
@@ -58,9 +67,10 @@ describe('ImageService', () => {
     })
     mockAdapter.downloadImage.mockResolvedValue('https://new.url/image.jpg')
 
-    const url = await service.getImageUrl('msg123')
+    const result = await service.getImageUrl('msg123')
 
-    expect(url).toBe('https://new.url/image.jpg')
+    expect(result.imageUrl).toBe('https://new.url/image.jpg')
+    expect(result.hasHd).toBe(false)
     expect(mockDataLake.getMessage).toHaveBeenCalledWith('hot/conv_a/2026-03-12.jsonl:msg123')
     expect(mockPrisma.imageCache.create).toHaveBeenCalledWith({
       data: {
@@ -123,13 +133,109 @@ describe('ImageService', () => {
     })
     mockAdapter.downloadImage.mockResolvedValue('https://url.jpg')
 
-    const [url1, url2] = await Promise.all([
+    const [result1, result2] = await Promise.all([
       service.getImageUrl('msg123'),
       service.getImageUrl('msg123')
     ])
 
-    expect(url1).toBe('https://url.jpg')
-    expect(url2).toBe('https://url.jpg')
+    expect(result1.imageUrl).toBe('https://url.jpg')
+    expect(result2.imageUrl).toBe('https://url.jpg')
     expect(mockAdapter.downloadImage).toHaveBeenCalledTimes(1)
+  })
+
+  it('should return hasHd flag from XML parsing', async () => {
+    mockPrisma.imageCache.findUnique.mockResolvedValue(null)
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
+    mockDataLake.getMessage.mockResolvedValue({
+      msg_id: 'msg123',
+      msg_type: 3,
+      content: '<?xml version="1.0"?><msg><img aeskey="aes123" cdnmidimgurl="cdn456" encryver="1" hdlength="1024"/></msg>'
+    })
+    mockAdapter.downloadImage.mockResolvedValue('https://new.url/image.jpg')
+
+    const result = await service.getImageUrl('msg123')
+
+    expect(result).toEqual({
+      imageUrl: 'https://new.url/image.jpg',
+      hasHd: true
+    })
+  })
+
+  it('should request HD image when size=hd', async () => {
+    mockPrisma.imageCache.findUnique.mockResolvedValue(null)
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
+    mockDataLake.getMessage.mockResolvedValue({
+      msg_id: 'msg123',
+      msg_type: 3,
+      content: '<?xml version="1.0"?><msg><img aeskey="aes123" cdnmidimgurl="cdn456" encryver="1" hdlength="1024"/></msg>'
+    })
+    mockAdapter.downloadImage.mockResolvedValue('https://hd.url/image.jpg')
+
+    const result = await service.getImageUrl('msg123', 'hd')
+
+    expect(result.imageUrl).toBe('https://hd.url/image.jpg')
+    expect(mockAdapter.downloadImage).toHaveBeenCalledWith(
+      'aes123',
+      'cdn456',
+      'msg123.jpg',
+      1
+    )
+  })
+
+  it('should request mid image when size=mid', async () => {
+    mockPrisma.imageCache.findUnique.mockResolvedValue(null)
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
+    mockDataLake.getMessage.mockResolvedValue({
+      msg_id: 'msg123',
+      msg_type: 3,
+      content: '<?xml version="1.0"?><msg><img aeskey="aes123" cdnmidimgurl="cdn456" encryver="1"/></msg>'
+    })
+    mockAdapter.downloadImage.mockResolvedValue('https://mid.url/image.jpg')
+
+    const result = await service.getImageUrl('msg123', 'mid')
+
+    expect(result.imageUrl).toBe('https://mid.url/image.jpg')
+    expect(mockAdapter.downloadImage).toHaveBeenCalledWith(
+      'aes123',
+      'cdn456',
+      'msg123.jpg',
+      2
+    )
+  })
+
+  it('should deduplicate concurrent requests with different sizes', async () => {
+    mockPrisma.imageCache.findUnique.mockResolvedValue(null)
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
+    mockDataLake.getMessage.mockResolvedValue({
+      msg_id: 'msg123',
+      msg_type: 3,
+      content: '<?xml version="1.0"?><msg><img aeskey="aes" cdnmidimgurl="cdn" encryver="1" hdlength="1024"/></msg>'
+    })
+    mockAdapter.downloadImage
+      .mockResolvedValueOnce('https://mid.url/image.jpg')
+      .mockResolvedValueOnce('https://hd.url/image.jpg')
+
+    const [midResult, hdResult] = await Promise.all([
+      service.getImageUrl('msg123', 'mid'),
+      service.getImageUrl('msg123', 'hd')
+    ])
+
+    expect(midResult.imageUrl).toBe('https://mid.url/image.jpg')
+    expect(hdResult.imageUrl).toBe('https://hd.url/image.jpg')
+    expect(mockAdapter.downloadImage).toHaveBeenCalledTimes(2)
+    expect(mockAdapter.downloadImage).toHaveBeenNthCalledWith(1, 'aes', 'cdn', 'msg123.jpg', 2)
+    expect(mockAdapter.downloadImage).toHaveBeenNthCalledWith(2, 'aes', 'cdn', 'msg123.jpg', 1)
   })
 })

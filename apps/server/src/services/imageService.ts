@@ -7,11 +7,16 @@ import type { JuhexbotAdapter } from './juhexbotAdapter.js'
 import { parseImageXml } from './messageContentProcessor.js'
 import { logger } from '../lib/logger.js'
 
+export interface ImageUrlResult {
+  imageUrl: string
+  hasHd: boolean
+}
+
 export class ImageService {
   private prisma: PrismaClient
   private dataLake: DataLakeService
   private adapter: JuhexbotAdapter
-  private pendingRequests: Map<string, Promise<string>>
+  private pendingRequests: Map<string, Promise<ImageUrlResult>>
 
   constructor(
     prisma: PrismaClient,
@@ -24,34 +29,30 @@ export class ImageService {
     this.pendingRequests = new Map()
   }
 
-  async getImageUrl(msgId: string): Promise<string> {
-    const pending = this.pendingRequests.get(msgId)
+  async getImageUrl(msgId: string, size: 'mid' | 'hd' = 'mid'): Promise<ImageUrlResult> {
+    const cacheKey = `${msgId}:${size}`
+    const pending = this.pendingRequests.get(cacheKey)
     if (pending) {
-      logger.debug({ msgId }, 'Reusing pending image request')
+      logger.debug({ msgId, size }, 'Reusing pending image request')
       return pending
     }
 
-    const promise = this._getImageUrlInternal(msgId)
-    this.pendingRequests.set(msgId, promise)
+    const promise = this._getImageUrlInternal(msgId, size)
+    this.pendingRequests.set(cacheKey, promise)
 
     try {
-      const url = await promise
-      return url
+      const result = await promise
+      return result
     } finally {
-      this.pendingRequests.delete(msgId)
+      this.pendingRequests.delete(cacheKey)
     }
   }
 
-  private async _getImageUrlInternal(msgId: string): Promise<string> {
+  private async _getImageUrlInternal(msgId: string, size: 'mid' | 'hd'): Promise<ImageUrlResult> {
     // 1. 查缓存
     const cached = await this.prisma.imageCache.findUnique({
       where: { msgId }
     })
-
-    if (cached?.downloadUrl) {
-      logger.debug({ msgId }, 'Image URL found in cache')
-      return cached.downloadUrl
-    }
 
     // 2. 从 MessageIndex 查出 dataLakeKey，再从 DataLake 读取消息
     const messageIndex = await this.prisma.messageIndex.findUnique({
@@ -76,7 +77,16 @@ export class ImageService {
       throw new Error('Failed to parse image XML or unsupported image format')
     }
 
-    // 5. 创建缓存条目
+    // 5. 如果缓存存在且请求 mid 尺寸，直接返回缓存
+    if (cached?.downloadUrl && size === 'mid') {
+      logger.debug({ msgId, size }, 'Image URL found in cache')
+      return {
+        imageUrl: cached.downloadUrl,
+        hasHd: imageInfo.hasHd
+      }
+    }
+
+    // 6. 创建缓存条目
     if (!cached) {
       await this.prisma.imageCache.create({
         data: {
@@ -87,24 +97,31 @@ export class ImageService {
       })
     }
 
-    // 6. 调用 Cloud API 下载
-    logger.info({ msgId, fileId: imageInfo.fileId }, 'Downloading image URL from cloud API')
+    // 7. 调用 Cloud API 下载
+    const fileType = size === 'hd' ? 1 : 2
+    logger.info({ msgId, fileId: imageInfo.fileId, size, fileType }, 'Downloading image URL from cloud API')
     const downloadUrl = await this.adapter.downloadImage(
       imageInfo.aesKey,
       imageInfo.fileId,
-      `${msgId}.jpg`
+      `${msgId}.jpg`,
+      fileType
     )
 
-    // 7. 更新缓存
-    await this.prisma.imageCache.update({
-      where: { msgId },
-      data: {
-        downloadUrl,
-        downloadedAt: new Date()
-      }
-    })
+    // 8. 更新缓存（HD 图片会覆盖 mid 图片）
+    if (size === 'hd' || !cached?.downloadUrl) {
+      await this.prisma.imageCache.update({
+        where: { msgId },
+        data: {
+          downloadUrl,
+          downloadedAt: new Date()
+        }
+      })
+    }
 
-    logger.info({ msgId, downloadUrl }, 'Image URL downloaded and cached')
-    return downloadUrl
+    logger.info({ msgId, downloadUrl, size }, 'Image URL downloaded and cached')
+    return {
+      imageUrl: downloadUrl,
+      hasHd: imageInfo.hasHd
+    }
   }
 }
