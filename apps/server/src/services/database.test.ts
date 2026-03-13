@@ -72,6 +72,53 @@ describe('DatabaseService', () => {
         }),
       ])
     })
+
+    it('should exclude member-only contacts from directory list', async () => {
+      const client = await db.createClient({ guid: 'guid_filter' })
+      const room = await db.createGroup({
+        roomUsername: 'room_filter@chatroom',
+        name: 'Room Filter',
+      })
+
+      const directContact = await db.createContact({
+        username: 'direct_friend',
+        nickname: 'Direct Friend',
+        type: 'friend',
+      })
+      const memberOnlyContact = await db.createContact({
+        username: 'member_only',
+        nickname: 'Member Only',
+        type: 'friend',
+      })
+      const memberWithConversation = await db.createContact({
+        username: 'member_with_conv',
+        nickname: 'Member With Conv',
+        type: 'friend',
+      })
+
+      await db.upsertGroupMember({
+        groupId: room.id,
+        username: memberOnlyContact.username,
+        nickname: memberOnlyContact.nickname,
+      })
+      await db.upsertGroupMember({
+        groupId: room.id,
+        username: memberWithConversation.username,
+        nickname: memberWithConversation.nickname,
+      })
+      await db.createConversation({
+        clientId: client.id,
+        type: 'private',
+        contactId: memberWithConversation.id,
+      })
+
+      const contacts = await db.getDirectoryContacts(client.id)
+      const usernames = contacts.map((item) => item.username)
+
+      expect(usernames).toContain(directContact.username)
+      expect(usernames).toContain(memberWithConversation.username)
+      expect(usernames).not.toContain(memberOnlyContact.username)
+    })
   })
 
   describe('Group', () => {

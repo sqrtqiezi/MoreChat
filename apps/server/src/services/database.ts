@@ -218,7 +218,26 @@ export class DatabaseService {
 
   async getDirectoryContacts(clientId: string) {
     const [contacts, conversations] = await Promise.all([
-      this.prisma.contact.findMany(),
+      this.prisma.contact.findMany({
+        where: {
+          type: 'friend',
+          OR: [
+            {
+              conversations: {
+                some: {
+                  clientId,
+                  type: 'private',
+                }
+              },
+            },
+            {
+              groupMembers: {
+                none: {},
+              },
+            },
+          ],
+        },
+      }),
       this.prisma.conversation.findMany({
         where: {
           clientId,

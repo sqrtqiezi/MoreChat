@@ -124,6 +124,14 @@ describe('ContactSyncService', () => {
       expect(deps.db.updateGroup).toHaveBeenCalledWith('room@chatroom', expect.objectContaining({
         lastSyncAt: expect.any(Date)
       }))
+      expect(deps.db.createContact).toHaveBeenCalledWith(expect.objectContaining({
+        username: 'wxid_a',
+        type: 'group_member',
+      }))
+      expect(deps.db.createContact).toHaveBeenCalledWith(expect.objectContaining({
+        username: 'wxid_b',
+        type: 'group_member',
+      }))
       expect(deps.wsService.broadcast).toHaveBeenCalledWith('group:updated', expect.objectContaining({
         roomUsername: 'room@chatroom',
         name: '开发群'

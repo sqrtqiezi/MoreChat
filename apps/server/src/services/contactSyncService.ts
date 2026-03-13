@@ -85,7 +85,7 @@ export class ContactSyncService {
               await this.db.createContact({
                 username: member.username,
                 nickname: member.nickname || member.username,
-                type: 'friend'
+                type: 'group_member'
               })
             } catch (error: any) {
               if (error?.code !== 'P2002') throw error
