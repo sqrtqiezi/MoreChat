@@ -7,7 +7,7 @@ import { zhCN } from 'date-fns/locale';
 
 function ReferImage({ msgId }: { msgId: string }) {
   const [showImage, setShowImage] = useState(false);
-  const { data: imageUrl, isLoading, error, refetch } = useQuery({
+  const { data: imageData, isLoading, error, refetch } = useQuery({
     queryKey: ['image', msgId],
     queryFn: () => chatApi.getImageUrl(msgId),
     enabled: false,
@@ -41,8 +41,8 @@ function ReferImage({ msgId }: { msgId: string }) {
     );
   }
 
-  if (imageUrl) {
-    return <img src={imageUrl} alt="引用图片" className="max-w-[150px] max-h-[100px] rounded mt-1" loading="lazy" />;
+  if (imageData) {
+    return <img src={imageData.imageUrl} alt="引用图片" className="max-w-[150px] max-h-[100px] rounded mt-1" loading="lazy" />;
   }
 
   return <span className="text-sm text-gray-500">[图片]</span>;
@@ -57,7 +57,7 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
   const { isMine, senderName, content, timestamp, status, displayType, id: msgId } = message;
   const [showImage, setShowImage] = useState(false);
 
-  const { data: imageUrl, isLoading: imageLoading, error: imageError, refetch } = useQuery({
+  const { data: imageData, isLoading: imageLoading, error: imageError, refetch } = useQuery({
     queryKey: ['image', msgId],
     queryFn: () => chatApi.getImageUrl(msgId),
     enabled: false,
@@ -114,10 +114,10 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
         );
       }
 
-      if (imageUrl) {
+      if (imageData) {
         return (
           <img
-            src={imageUrl}
+            src={imageData.imageUrl}
             alt="图片消息"
             className="max-w-[300px] rounded-lg"
             loading="lazy"
