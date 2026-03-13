@@ -324,7 +324,7 @@ export class JuhexbotAdapter {
 
     const result = await response.json() as any
 
-    logger.info({ fileName, result }, 'Cloud download API response')
+    logger.info({ fileName, fileType, result }, 'Cloud download API response')
 
     if (result.errcode !== 0) {
       const err = new Error(result.errmsg || `Cloud API error: ${result.errcode}`)
