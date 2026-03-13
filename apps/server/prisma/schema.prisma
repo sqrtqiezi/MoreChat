@@ -149,6 +149,7 @@ model ImageCache {
   aesKey       String   @map("aes_key")
   cdnFileId    String   @map("cdn_file_id")
   downloadUrl  String?  @map("download_url")
+  hasHd        Boolean  @default(false) @map("has_hd")
   createdAt    DateTime @default(now()) @map("created_at")
   downloadedAt DateTime? @map("downloaded_at")
 

@@ -36,22 +36,16 @@ describe('ImageService', () => {
   it('should return cached URL if exists', async () => {
     mockPrisma.imageCache.findUnique.mockResolvedValue({
       msgId: 'msg123',
-      downloadUrl: 'https://cached.url/image.jpg'
-    })
-    mockPrisma.messageIndex.findUnique.mockResolvedValue({
-      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
-      msgType: 3
-    })
-    mockDataLake.getMessage.mockResolvedValue({
-      msg_id: 'msg123',
-      msg_type: 3,
-      content: '<?xml version="1.0"?><msg><img aeskey="aes" cdnmidimgurl="cdn" encryver="1" hdlength="1024"/></msg>'
+      downloadUrl: 'https://cached.url/image.jpg',
+      hasHd: true
     })
 
     const result = await service.getImageUrl('msg123')
 
     expect(result.imageUrl).toBe('https://cached.url/image.jpg')
     expect(result.hasHd).toBe(true)
+    expect(mockPrisma.messageIndex.findUnique).not.toHaveBeenCalled()
+    expect(mockDataLake.getMessage).not.toHaveBeenCalled()
   })
 
   it('should download and cache if not cached', async () => {
@@ -76,14 +70,16 @@ describe('ImageService', () => {
       data: {
         msgId: 'msg123',
         aesKey: 'aes123',
-        cdnFileId: 'cdn456'
+        cdnFileId: 'cdn456',
+        hasHd: false
       }
     })
     expect(mockPrisma.imageCache.update).toHaveBeenCalledWith({
       where: { msgId: 'msg123' },
       data: {
         downloadUrl: 'https://new.url/image.jpg',
-        downloadedAt: expect.any(Date)
+        downloadedAt: expect.any(Date),
+        hasHd: false
       }
     })
   })

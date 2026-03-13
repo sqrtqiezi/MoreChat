@@ -57,19 +57,7 @@ export class ImageService {
     // 2. 如果缓存存在且请求 mid 尺寸，直接返回缓存
     if (cached?.downloadUrl && size === 'mid') {
       logger.debug({ msgId, size }, 'Image URL found in cache')
-      // 从 DataLake 读取 hasHd 标志
-      const messageIndex = await this.prisma.messageIndex.findUnique({
-        where: { msgId },
-        select: { dataLakeKey: true }
-      })
-      if (messageIndex) {
-        const message = await this.dataLake.getMessage(messageIndex.dataLakeKey)
-        const imageInfo = parseImageXml(message.content)
-        if (imageInfo) {
-          return { imageUrl: cached.downloadUrl, hasHd: imageInfo.hasHd }
-        }
-      }
-      return { imageUrl: cached.downloadUrl, hasHd: false }
+      return { imageUrl: cached.downloadUrl, hasHd: cached.hasHd }
     }
 
     // 3. 从 MessageIndex 查出 dataLakeKey，再从 DataLake 读取消息
@@ -101,7 +89,8 @@ export class ImageService {
         data: {
           msgId,
           aesKey: imageInfo.aesKey,
-          cdnFileId: imageInfo.fileId
+          cdnFileId: imageInfo.fileId,
+          hasHd: imageInfo.hasHd
         }
       })
     }
@@ -122,7 +111,8 @@ export class ImageService {
         where: { msgId },
         data: {
           downloadUrl,
-          downloadedAt: new Date()
+          downloadedAt: new Date(),
+          hasHd: imageInfo.hasHd
         }
       })
     }
