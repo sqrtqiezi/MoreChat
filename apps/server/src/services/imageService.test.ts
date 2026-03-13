@@ -304,4 +304,59 @@ describe('ImageService', () => {
       }
     })
   })
+
+  it('should update cache when mid request succeeds after HD request created cache entry', async () => {
+    // 模拟场景：HD 请求创建了缓存条目但 downloadUrl 为 null（下载失败）
+    // 然后 mid 请求成功下载，应该更新缓存
+    mockPrisma.imageCache.findUnique.mockResolvedValue({
+      msgId: 'msg123',
+      aesKey: 'aes123',
+      cdnFileId: 'cdn456',
+      downloadUrl: null,
+      hasHd: true,
+      cachedSize: null
+    })
+    mockPrisma.messageIndex.findUnique.mockResolvedValue({
+      dataLakeKey: 'hot/conv_a/2026-03-12.jsonl:msg123',
+      msgType: 3
+    })
+    mockDataLake.getMessage.mockResolvedValue({
+      msg_id: 'msg123',
+      msg_type: 3,
+      content: '<?xml version="1.0"?><msg><img aeskey="aes123" cdnmidimgurl="cdn456" encryver="1" hdlength="1024"/></msg>'
+    })
+    mockAdapter.downloadImage.mockResolvedValue('https://mid.url/image.jpg')
+
+    const result = await service.getImageUrl('msg123', 'mid')
+
+    expect(result.imageUrl).toBe('https://mid.url/image.jpg')
+    expect(mockAdapter.downloadImage).toHaveBeenCalledWith('aes123', 'cdn456', 'msg123.jpg', 2)
+    expect(mockPrisma.imageCache.update).toHaveBeenCalledWith({
+      where: { msgId: 'msg123' },
+      data: {
+        downloadUrl: 'https://mid.url/image.jpg',
+        downloadedAt: expect.any(Date),
+        hasHd: true,
+        cachedSize: 'mid'
+      }
+    })
+  })
+
+  it('should not update cache when mid request but HD cache already exists', async () => {
+    // 模拟场景：HD 缓存已存在，mid 请求不应该降级缓存
+    mockPrisma.imageCache.findUnique.mockResolvedValue({
+      msgId: 'msg123',
+      aesKey: 'aes123',
+      cdnFileId: 'cdn456',
+      downloadUrl: 'https://hd.url/image.jpg',
+      hasHd: true,
+      cachedSize: 'hd'
+    })
+
+    const result = await service.getImageUrl('msg123', 'mid')
+
+    expect(result.imageUrl).toBe('https://hd.url/image.jpg')
+    expect(mockAdapter.downloadImage).not.toHaveBeenCalled()
+    expect(mockPrisma.imageCache.update).not.toHaveBeenCalled()
+  })
 })

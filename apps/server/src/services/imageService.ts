@@ -110,8 +110,9 @@ export class ImageService {
       fileType
     )
 
-    // 8. 更新缓存（HD 图片会覆盖 mid 图片）
-    if (size === 'hd' || !cached?.downloadUrl) {
+    // 8. 更新缓存（HD 请求总是更新，mid 请求仅在首次下载或升级时更新）
+    const shouldUpdate = size === 'hd' || !cached?.downloadUrl || cached.cachedSize === 'mid'
+    if (shouldUpdate) {
       await this.prisma.imageCache.update({
         where: { msgId },
         data: {
