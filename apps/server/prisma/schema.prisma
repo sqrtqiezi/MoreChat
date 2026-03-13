@@ -150,6 +150,7 @@ model ImageCache {
   cdnFileId    String   @map("cdn_file_id")
   downloadUrl  String?  @map("download_url")
   hasHd        Boolean  @default(false) @map("has_hd")
+  cachedSize   String?  @map("cached_size")
   createdAt    DateTime @default(now()) @map("created_at")
   downloadedAt DateTime? @map("downloaded_at")
 

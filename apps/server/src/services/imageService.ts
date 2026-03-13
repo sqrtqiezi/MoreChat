@@ -54,10 +54,14 @@ export class ImageService {
       where: { msgId }
     })
 
-    // 2. 如果缓存存在且请求 mid 尺寸，直接返回缓存
-    if (cached?.downloadUrl && size === 'mid') {
-      logger.debug({ msgId, size }, 'Image URL found in cache')
-      return { imageUrl: cached.downloadUrl, hasHd: cached.hasHd }
+    // 2. 如果缓存中的尺寸 >= 请求的尺寸，直接返回缓存
+    if (cached?.downloadUrl && cached.cachedSize) {
+      const cachedSizeRank = cached.cachedSize === 'hd' ? 2 : 1
+      const requestedSizeRank = size === 'hd' ? 2 : 1
+      if (cachedSizeRank >= requestedSizeRank) {
+        logger.debug({ msgId, size, cachedSize: cached.cachedSize }, 'Image URL found in cache')
+        return { imageUrl: cached.downloadUrl, hasHd: cached.hasHd }
+      }
     }
 
     // 3. 从 MessageIndex 查出 dataLakeKey，再从 DataLake 读取消息
@@ -90,7 +94,8 @@ export class ImageService {
           msgId,
           aesKey: imageInfo.aesKey,
           cdnFileId: imageInfo.fileId,
-          hasHd: imageInfo.hasHd
+          hasHd: imageInfo.hasHd,
+          cachedSize: null
         }
       })
     }
@@ -112,7 +117,8 @@ export class ImageService {
         data: {
           downloadUrl,
           downloadedAt: new Date(),
-          hasHd: imageInfo.hasHd
+          hasHd: imageInfo.hasHd,
+          cachedSize: size
         }
       })
     }
