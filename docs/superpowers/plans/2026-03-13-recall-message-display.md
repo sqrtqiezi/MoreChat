@@ -586,11 +586,23 @@ git commit -m "feat: handleRecall marks original message, broadcasts via WebSock
 - Modify: `apps/server/src/services/conversationService.ts`
 - Modify: `apps/server/src/services/conversationService.test.ts`
 
-- [ ] **Step 1: 更新现有测试的 expectedMessages 和 mockIndexes**
+- [ ] **Step 1: 更新现有测试的 expectedMessages、mockIndexes 和 mockDb**
 
 现有测试使用 mock 模式。修改后 `getMessages` 会返回 `isRecalled` 字段，现有的 `toEqual` 断言会因多出字段而失败。需要同步更新。
 
-在 `conversationService.test.ts` 的 `should return paginated messages from DataLake` 测试中：
+首先，在 `beforeEach` 的 `mockDb` 定义中添加 `findContactsByUsernames` mock（`getMessages` 内部会调用此方法查询群聊发送者昵称）：
+
+```typescript
+    mockDb = {
+      getConversations: vi.fn(),
+      findConversationById: vi.fn(),
+      updateConversation: vi.fn(),
+      getMessageIndexes: vi.fn(),
+      findContactsByUsernames: vi.fn().mockResolvedValue([])
+    } as any
+```
+
+然后在 `should return paginated messages from DataLake` 测试中：
 
 1. 给 `mockIndexes` 加上 `isRecalled` 字段：
 
@@ -740,23 +752,30 @@ git commit -m "feat: add isRecalled to frontend types and API mapping"
 
 - [ ] **Step 1: 在 MessageItem 中添加撤回标签**
 
-在 `apps/web/src/components/chat/MessageItem.tsx` 中，找到两处时间戳显示位置（自己的消息和他人的消息），在 `formattedTime` 的 `<span>` 之后添加撤回标签。
+在 `apps/web/src/components/chat/MessageItem.tsx` 中，有两处时间戳显示位置需要添加撤回标签。
 
-对于他人消息（左对齐），找到：
+对于他人消息（左对齐，约第 283-286 行），在时间戳 `<span>` 之后、`</div>` 之前添加：
 
 ```tsx
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-medium text-gray-900">{senderName}</span>
           <span className="text-xs text-gray-500">{formattedTime}</span>
-```
-
-在其后添加：
-
-```tsx
           {message.isRecalled && (
             <span className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">已撤回</span>
           )}
+        </div>
 ```
 
-对于自己的消息（右对齐），同样找到时间戳 span 并在其后添加相同的撤回标签。
+对于自己的消息（右对齐，约第 253-256 行），同样在时间戳 `<span>` 之后、`</div>` 之前添加：
+
+```tsx
+        <div className="flex items-center gap-2 mb-1 justify-end">
+          <span className="text-xs text-gray-500">{formattedTime}</span>
+          {message.isRecalled && (
+            <span className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">已撤回</span>
+          )}
+        </div>
+```
 
 - [ ] **Step 2: 运行 type-check**
 
