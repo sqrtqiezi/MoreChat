@@ -238,12 +238,12 @@ export class DatabaseService {
       }
     }
 
-    const contactsWithConversationIds = contacts.map((contact) => ({
+    const contactsWithConversationIds = contacts.map((contact: Awaited<ReturnType<typeof this.prisma.contact.findMany>>[number]) => ({
       ...contact,
       conversationId: conversationIdByContactId.get(contact.id) ?? null,
     }))
 
-    return contactsWithConversationIds.sort((left, right) => {
+    return contactsWithConversationIds.sort((left: typeof contactsWithConversationIds[number], right: typeof contactsWithConversationIds[number]) => {
       const leftKey = left.remark || left.nickname || left.username
       const rightKey = right.remark || right.nickname || right.username
       return leftKey.localeCompare(rightKey)
@@ -310,7 +310,7 @@ export class DatabaseService {
       }
     }
 
-    return groups.map((group) => ({
+    return groups.map((group: Awaited<ReturnType<typeof this.prisma.group.findMany>>[number]) => ({
       ...group,
       conversationId: conversationIdByGroupId.get(group.id) ?? null,
     }))
