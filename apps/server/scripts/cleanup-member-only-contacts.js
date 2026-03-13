@@ -2,21 +2,8 @@ import { PrismaClient } from '@prisma/client'
 import fs from 'fs/promises'
 import path from 'path'
 
-type BackupRecord = {
-  id: string
-  username: string
-  oldType: string
-  oldUpdatedAt: string
-}
-
-interface Args {
-  apply: boolean
-  rollbackFile?: string
-  help: boolean
-}
-
-function parseArgs(argv: string[]): Args {
-  const args: Args = { apply: false, help: false }
+function parseArgs(argv) {
+  const args = { apply: false, help: false, rollbackFile: undefined }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--apply') args.apply = true
@@ -44,24 +31,24 @@ What this cleans:
 `)
 }
 
-async function ensureBackupDir(): Promise<string> {
+async function ensureBackupDir() {
   const backupDir = path.resolve(process.cwd(), 'data', 'cleanup-backups')
   await fs.mkdir(backupDir, { recursive: true })
   return backupDir
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const result: T[][] = []
+function chunk(items, size) {
+  const result = []
   for (let i = 0; i < items.length; i += size) {
     result.push(items.slice(i, i + size))
   }
   return result
 }
 
-async function rollback(prisma: PrismaClient, rollbackFile: string) {
+async function rollback(prisma, rollbackFile) {
   const resolvedPath = path.resolve(process.cwd(), rollbackFile)
   const raw = await fs.readFile(resolvedPath, 'utf8')
-  const payload = JSON.parse(raw) as { records: BackupRecord[] }
+  const payload = JSON.parse(raw)
   const records = payload.records || []
 
   console.log(`Rollback file: ${resolvedPath}`)
@@ -72,12 +59,12 @@ async function rollback(prisma: PrismaClient, rollbackFile: string) {
     return
   }
 
-  const groupsByType = new Map<string, string[]>()
+  const groupsByType = new Map()
   for (const record of records) {
     if (!groupsByType.has(record.oldType)) {
       groupsByType.set(record.oldType, [])
     }
-    groupsByType.get(record.oldType)!.push(record.id)
+    groupsByType.get(record.oldType).push(record.id)
   }
 
   let updated = 0
