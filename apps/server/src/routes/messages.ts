@@ -38,8 +38,13 @@ export function messageRoutes(deps: MessageRouteDeps) {
         return c.json({ success: false, error: { message: 'msgId is required' } }, 400)
       }
 
-      const imageUrl = await deps.imageService.getImageUrl(msgId)
-      return c.json({ success: true, data: { imageUrl } })
+      const size = c.req.query('size') as 'mid' | 'hd' | undefined
+      if (size && size !== 'mid' && size !== 'hd') {
+        return c.json({ success: false, error: { message: 'size must be "mid" or "hd"' } }, 400)
+      }
+
+      const result = await deps.imageService.getImageUrl(msgId, size || 'mid')
+      return c.json({ success: true, data: { imageUrl: result.imageUrl, hasHd: result.hasHd } })
     } catch (error: any) {
       logger.error({ err: error, msgId: c.req.param('msgId') }, 'Failed to get image URL')
 
