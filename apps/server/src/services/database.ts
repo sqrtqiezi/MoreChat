@@ -217,20 +217,31 @@ export class DatabaseService {
   }
 
   async getDirectoryContacts(clientId: string) {
-    const contacts = await this.prisma.contact.findMany()
-    const contactsWithConversationIds = await Promise.all(
-      contacts.map(async (contact: Awaited<ReturnType<typeof this.prisma.contact.findMany>>[number]) => {
-        const conversation = await this.prisma.conversation.findFirst({
-          where: { clientId, contactId: contact.id },
-          select: { id: true }
-        })
-
-        return {
-          ...contact,
-          conversationId: conversation?.id ?? null,
+    const [contacts, conversations] = await Promise.all([
+      this.prisma.contact.findMany(),
+      this.prisma.conversation.findMany({
+        where: {
+          clientId,
+          contactId: { not: null },
+        },
+        select: {
+          id: true,
+          contactId: true,
         }
-      })
-    )
+      }),
+    ])
+
+    const conversationIdByContactId = new Map<string, string>()
+    for (const conversation of conversations) {
+      if (conversation.contactId) {
+        conversationIdByContactId.set(conversation.contactId, conversation.id)
+      }
+    }
+
+    const contactsWithConversationIds = contacts.map((contact) => ({
+      ...contact,
+      conversationId: conversationIdByContactId.get(contact.id) ?? null,
+    }))
 
     return contactsWithConversationIds.sort((left, right) => {
       const leftKey = left.remark || left.nickname || left.username
@@ -276,23 +287,33 @@ export class DatabaseService {
   }
 
   async getDirectoryGroups(clientId: string) {
-    const groups = await this.prisma.group.findMany({
-      orderBy: { name: 'asc' }
-    })
-
-    return Promise.all(
-      groups.map(async (group: Awaited<ReturnType<typeof this.prisma.group.findMany>>[number]) => {
-        const conversation = await this.prisma.conversation.findFirst({
-          where: { clientId, groupId: group.id },
-          select: { id: true }
-        })
-
-        return {
-          ...group,
-          conversationId: conversation?.id ?? null,
+    const [groups, conversations] = await Promise.all([
+      this.prisma.group.findMany({
+        orderBy: { name: 'asc' }
+      }),
+      this.prisma.conversation.findMany({
+        where: {
+          clientId,
+          groupId: { not: null },
+        },
+        select: {
+          id: true,
+          groupId: true,
         }
-      })
-    )
+      }),
+    ])
+
+    const conversationIdByGroupId = new Map<string, string>()
+    for (const conversation of conversations) {
+      if (conversation.groupId) {
+        conversationIdByGroupId.set(conversation.groupId, conversation.id)
+      }
+    }
+
+    return groups.map((group) => ({
+      ...group,
+      conversationId: conversationIdByGroupId.get(group.id) ?? null,
+    }))
   }
 
   async upsertGroupMember(data: { groupId: string; username: string; nickname?: string; role?: string }) {
