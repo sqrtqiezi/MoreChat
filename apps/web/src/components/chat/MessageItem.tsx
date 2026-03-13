@@ -1,24 +1,42 @@
 import { memo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Message } from '../../types';
 import { chatApi } from '../../api/chat';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { ImageLightbox } from './ImageLightbox';
 
 function ReferImage({ msgId }: { msgId: string }) {
   const [showImage, setShowImage] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const queryClient = useQueryClient();
+
   const { data: imageData, isLoading, error, refetch } = useQuery({
     queryKey: ['image', msgId],
-    queryFn: () => chatApi.getImageUrl(msgId),
+    queryFn: () => chatApi.getImageUrl(msgId, 'mid'),
     enabled: false,
     staleTime: Infinity,
     retry: 1,
   });
 
+  const handleUpgradeToHd = async () => {
+    const hdData = await chatApi.getImageUrl(msgId, 'hd');
+    queryClient.setQueryData(['image', msgId], hdData);
+  };
+
+  const handleImageClick = () => {
+    if (!showImage) {
+      setShowImage(true);
+      refetch();
+    } else if (imageData) {
+      setLightboxOpen(true);
+    }
+  };
+
   if (!showImage) {
     return (
       <button
-        onClick={() => { setShowImage(true); refetch(); }}
+        onClick={handleImageClick}
         className="flex items-center gap-1 text-gray-500 hover:text-gray-700 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,7 +60,24 @@ function ReferImage({ msgId }: { msgId: string }) {
   }
 
   if (imageData) {
-    return <img src={imageData.imageUrl} alt="引用图片" className="max-w-[150px] max-h-[100px] rounded mt-1" loading="lazy" />;
+    return (
+      <>
+        <img
+          src={imageData.imageUrl}
+          alt="引用图片"
+          className="max-w-[150px] max-h-[100px] rounded mt-1 cursor-pointer"
+          loading="lazy"
+          onClick={handleImageClick}
+        />
+        <ImageLightbox
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          imageUrl={imageData.imageUrl}
+          hasHd={imageData.hasHd}
+          onUpgradeToHd={handleUpgradeToHd}
+        />
+      </>
+    );
   }
 
   return <span className="text-sm text-gray-500">[图片]</span>;
@@ -56,14 +91,30 @@ interface MessageItemProps {
 export const MessageItem = memo(function MessageItem({ message, isHighlighted }: MessageItemProps) {
   const { isMine, senderName, content, timestamp, status, displayType, id: msgId } = message;
   const [showImage, setShowImage] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: imageData, isLoading: imageLoading, error: imageError, refetch } = useQuery({
     queryKey: ['image', msgId],
-    queryFn: () => chatApi.getImageUrl(msgId),
+    queryFn: () => chatApi.getImageUrl(msgId, 'mid'),
     enabled: false,
     staleTime: Infinity,
     retry: 1,
   });
+
+  const handleUpgradeToHd = async () => {
+    const hdData = await chatApi.getImageUrl(msgId, 'hd');
+    queryClient.setQueryData(['image', msgId], hdData);
+  };
+
+  const handleImageClick = () => {
+    if (!showImage) {
+      setShowImage(true);
+      refetch();
+    } else if (imageData) {
+      setLightboxOpen(true);
+    }
+  };
 
   const renderContent = () => {
     if (!message.displayType || message.displayType === 'text') {
@@ -74,10 +125,7 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
       if (!showImage) {
         return (
           <button
-            onClick={() => {
-              setShowImage(true);
-              refetch();
-            }}
+            onClick={handleImageClick}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,12 +164,22 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
 
       if (imageData) {
         return (
-          <img
-            src={imageData.imageUrl}
-            alt="图片消息"
-            className="max-w-[300px] rounded-lg"
-            loading="lazy"
-          />
+          <>
+            <img
+              src={imageData.imageUrl}
+              alt="图片消息"
+              className="max-w-[300px] rounded-lg cursor-pointer"
+              loading="lazy"
+              onClick={handleImageClick}
+            />
+            <ImageLightbox
+              isOpen={lightboxOpen}
+              onClose={() => setLightboxOpen(false)}
+              imageUrl={imageData.imageUrl}
+              hasHd={imageData.hasHd}
+              onUpgradeToHd={handleUpgradeToHd}
+            />
+          </>
         );
       }
     }
