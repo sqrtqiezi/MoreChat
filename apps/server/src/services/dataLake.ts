@@ -94,7 +94,7 @@ export class DataLakeService {
    * @param keys Data Lake keys
    * @returns 消息对象数组
    */
-  async getMessages(keys: string[]): Promise<ChatMessage[]> {
+  async getMessages(keys: string[]): Promise<Array<ChatMessage | undefined>> {
     // 按文件分组
     const fileGroups = new Map<string, string[]>()
 
@@ -143,44 +143,10 @@ export class DataLakeService {
     return keys.map(key => {
       if (key.startsWith('hot/')) {
         const msgId = key.split(':')[1]
-        return messageMap.get(msgId)!
+        return messageMap.get(msgId)
       } else {
-        return messageMap.get(key)!
+        return messageMap.get(key)
       }
     })
-  }
-
-  async updateMessage(key: string, updates: { is_recalled: boolean }): Promise<void> {
-    if (!key.startsWith('hot/')) {
-      throw new Error(`updateMessage only supports hot layer keys: ${key}`)
-    }
-
-    const [filePart, msgId] = key.split(':')
-    const filePath = path.join(this.config.path, filePart)
-    const content = await fs.readFile(filePath, 'utf-8')
-    const lines = content.split('\n').filter(Boolean)
-
-    let found = false
-    const updatedLines = lines.map(line => {
-      try {
-        const message = JSON.parse(line)
-        if (message.msg_id === msgId) {
-          found = true
-          return JSON.stringify({ ...message, ...updates })
-        }
-      } catch {
-        return line
-      }
-
-      return line
-    })
-
-    if (!found) {
-      throw new Error(`Message not found in JSONL: ${key}`)
-    }
-
-    const tmpPath = `${filePath}.tmp`
-    await fs.writeFile(tmpPath, `${updatedLines.join('\n')}\n`, 'utf-8')
-    await fs.rename(tmpPath, filePath)
   }
 }

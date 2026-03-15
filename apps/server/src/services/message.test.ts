@@ -83,7 +83,7 @@ describe('MessageService', () => {
     expect(conversation!.groupId).toBe(group!.id)
   })
 
-  it('should handle message recall and mark original message', async () => {
+  it('should handle message recall and mark original message without mutating DataLake', async () => {
     // 先发送一条消息
     const textParsed = adapter.parseWebhookPayload(textMessage)
     const textResult = await messageService.handleIncomingMessage(textParsed)
@@ -101,6 +101,9 @@ describe('MessageService', () => {
     const index = await db.findMessageIndexByMsgId(textMessage.data.msg_id)
     expect(index).not.toBeNull()
     expect(index!.isRecalled).toBe(true)
+
+    const recalledRawMessage = await dataLake.getMessage(index!.dataLakeKey)
+    expect(recalledRawMessage.is_recalled).toBeUndefined()
 
     const changes = await db.getMessageStateChanges(messageRecall.data.msg_id)
     expect(changes).toHaveLength(1)

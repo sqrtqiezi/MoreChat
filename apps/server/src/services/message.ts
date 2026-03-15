@@ -145,7 +145,6 @@ export class MessageService {
       const originalIndex = await this.db.findMessageIndexByMsgId(revokedMsgId)
       if (originalIndex) {
         await this.db.updateMessageIndex(revokedMsgId, { isRecalled: true })
-        await this.dataLake.updateMessage(originalIndex.dataLakeKey, { is_recalled: true })
         result = {
           type: 'recall',
           conversationId: originalIndex.conversationId,

@@ -1,6 +1,7 @@
 import type { DatabaseService } from './database.js'
 import type { DataLakeService } from './dataLake.js'
 import { processMessageContent } from './messageContentProcessor.js'
+import { logger } from '../lib/logger.js'
 
 export class ConversationService {
   constructor(
@@ -83,9 +84,19 @@ export class ConversationService {
       actualIndexes.map((idx: { dataLakeKey: string }) => idx.dataLakeKey)
     )
 
+    const hydrated = actualIndexes.map((index, i) => ({
+      index,
+      raw: rawMessages[i]
+    }))
+    const available = hydrated.filter((entry): entry is { index: typeof actualIndexes[number], raw: NonNullable<typeof rawMessages[number]> } => Boolean(entry.raw))
+    const missingCount = hydrated.length - available.length
+    if (missingCount > 0) {
+      logger.warn({ conversationId, missingCount, requested: hydrated.length }, 'Missing messages in Data Lake for existing indexes')
+    }
+
     // 批量解析群聊发送者昵称
     const senderUsernames = [...new Set(
-      rawMessages.map((msg: any) => msg.chatroom_sender).filter(Boolean) as string[]
+      available.map(({ raw }: any) => raw.chatroom_sender).filter(Boolean) as string[]
     )]
     const senderNicknameMap = new Map<string, string>()
     if (senderUsernames.length > 0) {
@@ -96,7 +107,8 @@ export class ConversationService {
     }
 
     // 转换字段名：下划线 -> 驼峰
-    const messages = rawMessages.map((msg: any, index: number) => {
+    const messages = available.map(({ raw, index }: any) => {
+      const msg = raw
       const { displayType, displayContent, referMsg } = processMessageContent(msg.msg_type, msg.content)
       return {
         msgId: msg.msg_id,
@@ -116,7 +128,7 @@ export class ConversationService {
         displayType,
         displayContent,
         referMsg,
-        isRecalled: actualIndexes[index]?.isRecalled ?? false,
+        isRecalled: index?.isRecalled ?? false,
       }
     })
 
