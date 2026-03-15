@@ -1,5 +1,5 @@
 import type { DatabaseService } from './database.js'
-import type { DataLakeService } from './dataLake.js'
+import type { DataLakeService, ChatMessage } from './dataLake.js'
 import { processMessageContent } from './messageContentProcessor.js'
 import { logger } from '../lib/logger.js'
 
@@ -70,25 +70,27 @@ export class ConversationService {
   }
 
   async getMessages(conversationId: string, options: { limit?: number; before?: number } = {}) {
+    type MessageIndexRow = { dataLakeKey: string; isRecalled?: boolean }
+
     const limit = options.limit || 20
     // 多取一条用于判断 hasMore
     const indexes = await this.db.getMessageIndexes(conversationId, {
       limit: limit + 1,
       before: options.before
-    })
+    }) as MessageIndexRow[]
 
     const hasMore = indexes.length > limit
-    const actualIndexes = hasMore ? indexes.slice(0, limit) : indexes
+    const actualIndexes: MessageIndexRow[] = hasMore ? indexes.slice(0, limit) : indexes
 
     const rawMessages = await this.dataLake.getMessages(
-      actualIndexes.map((idx: { dataLakeKey: string }) => idx.dataLakeKey)
+      actualIndexes.map((idx: MessageIndexRow) => idx.dataLakeKey)
     )
 
-    const hydrated = actualIndexes.map((index, i) => ({
+    const hydrated: Array<{ index: MessageIndexRow; raw: ChatMessage | undefined }> = actualIndexes.map((index: MessageIndexRow, i: number) => ({
       index,
       raw: rawMessages[i]
     }))
-    const available = hydrated.filter((entry): entry is { index: typeof actualIndexes[number], raw: NonNullable<typeof rawMessages[number]> } => Boolean(entry.raw))
+    const available = hydrated.filter((entry: { index: MessageIndexRow; raw: ChatMessage | undefined }): entry is { index: MessageIndexRow; raw: ChatMessage } => Boolean(entry.raw))
     const missingCount = hydrated.length - available.length
     if (missingCount > 0) {
       logger.warn({ conversationId, missingCount, requested: hydrated.length }, 'Missing messages in Data Lake for existing indexes')
@@ -96,7 +98,7 @@ export class ConversationService {
 
     // 批量解析群聊发送者昵称
     const senderUsernames = [...new Set(
-      available.map(({ raw }: any) => raw.chatroom_sender).filter(Boolean) as string[]
+      available.map(({ raw }: { raw: ChatMessage }) => raw.chatroom_sender).filter(Boolean) as string[]
     )]
     const senderNicknameMap = new Map<string, string>()
     if (senderUsernames.length > 0) {
@@ -107,8 +109,8 @@ export class ConversationService {
     }
 
     // 转换字段名：下划线 -> 驼峰
-    const messages = available.map(({ raw, index }: any) => {
-      const msg = raw
+    const messages = available.map(({ raw, index }: { raw: ChatMessage; index: MessageIndexRow }) => {
+      const msg: ChatMessage = raw
       const { displayType, displayContent, referMsg } = processMessageContent(msg.msg_type, msg.content)
       return {
         msgId: msg.msg_id,
