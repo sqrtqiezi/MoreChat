@@ -443,6 +443,7 @@ export class DatabaseService {
     return this.prisma.messageIndex.findMany({
       where: {
         conversationId,
+        msgType: { not: 51 },
         ...(before ? { createTime: { lt: before } } : {})
       },
       orderBy: { createTime: 'desc' },
