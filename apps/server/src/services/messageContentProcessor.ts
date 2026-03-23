@@ -137,6 +137,10 @@ function processType49(content: string): ProcessedContent {
   }
 }
 
+function processType47(content: string): ProcessedContent {
+  return { displayType: 'emoji', displayContent: '[表情]' }
+}
+
 function processType10002(content: string): ProcessedContent {
   const parsed = parseXml(content)
   const replacemsg = parsed?.sysmsg?.revokemsg?.replacemsg
@@ -159,6 +163,8 @@ export function processMessageContent(msgType: number, content: string): Process
       return { displayType: 'text', displayContent: safeContent }
     case 3:
       return { displayType: 'image', displayContent: '[图片]' }
+    case 47:
+      return processType47(safeContent)
     case 49:
       return processType49(safeContent)
     case 51:
@@ -174,6 +180,17 @@ export interface ImageInfo {
   aesKey: string
   fileId: string
   hasHd: boolean
+}
+
+export interface EmojiInfo {
+  aesKey: string
+  cdnUrl: string
+  encryptUrl?: string
+  md5?: string
+  fileSize?: number
+  width?: number
+  height?: number
+  productId?: string
 }
 
 export function parseImageXml(content: string): ImageInfo | null {
@@ -210,5 +227,39 @@ export function parseImageXml(content: string): ImageInfo | null {
     aesKey: String(aesKey),
     fileId: String(cdnMidImgUrl),
     hasHd: Boolean(hasHd)
+  }
+}
+
+export function parseEmojiXml(content: string): EmojiInfo | null {
+  if (!content || !content.trim()) {
+    return null
+  }
+
+  const parsed = parseXml(content)
+  if (!parsed) {
+    return null
+  }
+
+  const emoji = parsed?.msg?.emoji
+  if (!emoji) {
+    return null
+  }
+
+  const aesKey = emoji['@_aeskey']
+  const cdnUrl = emoji['@_cdnurl']
+
+  if (!aesKey || !cdnUrl) {
+    return null
+  }
+
+  return {
+    aesKey: String(aesKey).trim(),
+    cdnUrl: String(cdnUrl).trim(),
+    encryptUrl: emoji['@_encrypturl'] ? String(emoji['@_encrypturl']).trim() : undefined,
+    md5: emoji['@_md5'] ? String(emoji['@_md5']).trim() : undefined,
+    fileSize: emoji['@_len'] ? parseInt(emoji['@_len'], 10) : undefined,
+    width: emoji['@_width'] ? parseInt(emoji['@_width'], 10) : undefined,
+    height: emoji['@_height'] ? parseInt(emoji['@_height'], 10) : undefined,
+    productId: emoji['@_productid'] ? String(emoji['@_productid']).trim() : undefined,
   }
 }
