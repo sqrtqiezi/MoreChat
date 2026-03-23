@@ -17,9 +17,9 @@ export function EmojiMessage({ msgId, conversationId, displayContent }: EmojiMes
 
     const wsClient = getWebSocketClient()
 
-    const handleEmojiDownloaded = (data: any) => {
-      if (data.type === 'emoji_downloaded' && data.msgId === msgId) {
-        setEmojiUrl(data.ossUrl)
+    const handleEmojiDownloaded = (message: any) => {
+      if (message.event === 'emoji_downloaded' && message.data.msgId === msgId) {
+        setEmojiUrl(message.data.ossUrl)
         setLoading(false)
       }
     }
