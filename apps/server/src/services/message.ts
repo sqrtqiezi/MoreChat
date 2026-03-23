@@ -2,6 +2,8 @@ import type { DatabaseService } from './database.js'
 import type { DataLakeService, ChatMessage } from './dataLake.js'
 import type { JuhexbotAdapter, ParsedWebhookPayload } from './juhexbotAdapter.js'
 import type { OssService } from './ossService.js'
+import type { EmojiService } from './emojiService.js'
+import type { EmojiDownloadQueue } from './emojiDownloadQueue.js'
 import { processMessageContent, parseRecallXml } from './messageContentProcessor.js'
 import sharp from 'sharp'
 
@@ -43,7 +45,9 @@ export class MessageService {
     private dataLake: DataLakeService,
     private adapter: JuhexbotAdapter,
     private clientUsername: string,
-    private ossService: OssService
+    private ossService: OssService,
+    private emojiService: EmojiService,
+    private emojiQueue: EmojiDownloadQueue
   ) {}
 
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
@@ -109,6 +113,12 @@ export class MessageService {
 
     // 更新会话最后消息时间
     await this.db.updateConversationLastMessage(conversation.id, new Date(message.createTime * 1000))
+
+    // 处理表情消息
+    if (message.msgType === 47) {
+      await this.emojiService.processEmojiMessage(message.msgId, message.content)
+      this.emojiQueue.enqueue(message.msgId, conversation.id)
+    }
 
     const { displayType, displayContent, referMsg } = processMessageContent(message.msgType, message.content)
 
