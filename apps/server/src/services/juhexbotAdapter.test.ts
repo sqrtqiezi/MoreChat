@@ -588,4 +588,151 @@ describe('JuhexbotAdapter', () => {
       expect(body.file_type).toBe(2)
     })
   })
+
+  describe('uploadImageToCdn', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should upload image to CDN successfully', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {
+            file_id: 'cdn-file-123',
+            aes_key: 'aes-key-456',
+            file_size: 102400,
+            file_md5: 'abc123def456'
+          }
+        })
+      })
+
+      const result = await adapter.uploadImageToCdn('https://example.com/image.jpg')
+      expect(result).toEqual({
+        fileId: 'cdn-file-123',
+        aesKey: 'aes-key-456',
+        fileSize: 102400,
+        fileMd5: 'abc123def456'
+      })
+
+      expect(fetch).toHaveBeenCalledWith('http://chat-api.juhebot.com/open/GuidRequest', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('/cloud/cdn_upload')
+      }))
+    })
+
+    it('should throw error when upload fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 5001,
+          err_msg: 'Upload failed'
+        })
+      })
+
+      await expect(adapter.uploadImageToCdn('https://example.com/image.jpg')).rejects.toThrow('Upload failed')
+    })
+  })
+
+  describe('sendImageMessage', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should send image message successfully', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: { msg_id: 'img_msg_789' }
+        })
+      })
+
+      const result = await adapter.sendImageMessage({
+        toUsername: 'wxid_target',
+        fileId: 'cdn-file-123',
+        aesKey: 'aes-key-456',
+        fileSize: 102400,
+        bigFileSize: 204800,
+        thumbFileSize: 10240,
+        fileMd5: 'abc123def456',
+        thumbWidth: 800,
+        thumbHeight: 600,
+        fileCrc: 12345
+      })
+
+      expect(result).toEqual({ msgId: 'img_msg_789' })
+
+      expect(fetch).toHaveBeenCalledWith('http://chat-api.juhebot.com/open/GuidRequest', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('/msg/send_image')
+      }))
+    })
+
+    it('should handle msgId field in response', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: { msgId: 'img_msg_999' }
+        })
+      })
+
+      const result = await adapter.sendImageMessage({
+        toUsername: 'wxid_target',
+        fileId: 'file-id',
+        aesKey: 'aes-key',
+        fileSize: 100,
+        bigFileSize: 200,
+        thumbFileSize: 50,
+        fileMd5: 'md5',
+        thumbWidth: 100,
+        thumbHeight: 100,
+        fileCrc: 123
+      })
+
+      expect(result).toEqual({ msgId: 'img_msg_999' })
+    })
+
+    it('should throw error when send fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 2001,
+          err_msg: 'Send image failed'
+        })
+      })
+
+      await expect(adapter.sendImageMessage({
+        toUsername: 'wxid_target',
+        fileId: 'file-id',
+        aesKey: 'aes-key',
+        fileSize: 100,
+        bigFileSize: 200,
+        thumbFileSize: 50,
+        fileMd5: 'md5',
+        thumbWidth: 100,
+        thumbHeight: 100,
+        fileCrc: 123
+      })).rejects.toThrow('Send image failed')
+    })
+
+    it('should throw error when response missing msgId', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {}
+        })
+      })
+
+      await expect(adapter.sendImageMessage({
+        toUsername: 'wxid_target',
+        fileId: 'file-id',
+        aesKey: 'aes-key',
+        fileSize: 100,
+        bigFileSize: 200,
+        thumbFileSize: 50,
+        fileMd5: 'md5',
+        thumbWidth: 100,
+        thumbHeight: 100,
+        fileCrc: 123
+      })).rejects.toThrow('Image sent but response missing msgId')
+    })
+  })
 })

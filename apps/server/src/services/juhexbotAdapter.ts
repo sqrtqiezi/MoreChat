@@ -295,6 +295,68 @@ export class JuhexbotAdapter {
     }
   }
 
+  async uploadImageToCdn(imageUrl: string): Promise<{
+    fileId: string
+    aesKey: string
+    fileSize: number
+    fileMd5: string
+  }> {
+    const result = await this.sendRequest('/cloud/cdn_upload', {
+      guid: this.config.clientGuid,
+      file_type: 2,
+      url: imageUrl,
+    })
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || 'Failed to upload image to CDN')
+    }
+
+    return {
+      fileId: result.data.file_id,
+      aesKey: result.data.aes_key,
+      fileSize: result.data.file_size,
+      fileMd5: result.data.file_md5,
+    }
+  }
+
+  async sendImageMessage(params: {
+    toUsername: string
+    fileId: string
+    aesKey: string
+    fileSize: number
+    bigFileSize: number
+    thumbFileSize: number
+    fileMd5: string
+    thumbWidth: number
+    thumbHeight: number
+    fileCrc: number
+  }): Promise<{ msgId: string }> {
+    const result = await this.sendRequest('/msg/send_image', {
+      guid: this.config.clientGuid,
+      to_username: params.toUsername,
+      file_id: params.fileId,
+      aes_key: params.aesKey,
+      file_size: params.fileSize,
+      big_file_size: params.bigFileSize,
+      thumb_file_size: params.thumbFileSize,
+      file_md5: params.fileMd5,
+      thumb_width: params.thumbWidth,
+      thumb_height: params.thumbHeight,
+      file_crc: params.fileCrc,
+    })
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || 'Failed to send image message')
+    }
+
+    const msgId = result.data?.msg_id ?? result.data?.msgId
+    if (!msgId) {
+      throw new Error('Image sent but response missing msgId')
+    }
+
+    return { msgId: String(msgId) }
+  }
+
   async downloadImage(aesKey: string, fileId: string, fileName: string, fileType: number = 2): Promise<string> {
     const cdnInfo = await this.getCdnInfo()
 
