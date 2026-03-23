@@ -29,6 +29,29 @@ export function messageRoutes(deps: MessageRouteDeps) {
     }
   })
 
+  // POST /api/messages/send-image - 发送图片
+  router.post('/send-image', async (c) => {
+    try {
+      const formData = await c.req.formData()
+      const conversationId = formData.get('conversationId')
+      const image = formData.get('image')
+
+      if (!conversationId || typeof conversationId !== 'string') {
+        return c.json({ success: false, error: { message: 'conversationId is required' } }, 400)
+      }
+
+      if (!image || !(image instanceof File)) {
+        return c.json({ success: false, error: { message: 'image file is required' } }, 400)
+      }
+
+      const result = await deps.messageService.sendImageMessage(conversationId, image)
+      return c.json({ success: true, data: { message: result } })
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to send image')
+      return c.json({ success: false, error: { message: 'Failed to send image' } }, 500)
+    }
+  })
+
   // GET /api/messages/:msgId/image - 获取图片下载 URL
   router.get('/:msgId/image', async (c) => {
     try {
