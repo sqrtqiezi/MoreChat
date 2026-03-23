@@ -3,15 +3,20 @@ import { MessageService } from './message.js'
 import { DatabaseService } from './database.js'
 import { DataLakeService } from './dataLake.js'
 import { JuhexbotAdapter } from './juhexbotAdapter.js'
+import { OssService } from './ossService.js'
 import { textMessage, messageRecall, appMessage } from '../../../../tests/fixtures/messages.js'
 import fs from 'fs/promises'
 import path from 'path'
+import sharp from 'sharp'
+
+vi.mock('sharp')
 
 describe('MessageService', () => {
   let messageService: MessageService
   let db: DatabaseService
   let dataLake: DataLakeService
   let adapter: JuhexbotAdapter
+  let ossService: OssService
 
   const testDir = path.join(process.cwd(), 'test-message-service')
   const testDbPath = path.join(testDir, 'test.db')
@@ -33,10 +38,18 @@ describe('MessageService', () => {
       cloudApiUrl: 'http://cloud.test.com'
     })
 
+    ossService = new OssService({
+      region: 'test-region',
+      bucket: 'test-bucket',
+      accessKeyId: 'test-key',
+      accessKeySecret: 'test-secret',
+      endpoint: 'test.endpoint.com'
+    })
+
     // 创建测试 client
     await db.createClient({ guid: 'test-guid-123' })
 
-    messageService = new MessageService(db, dataLake, adapter, 'test-guid-123')
+    messageService = new MessageService(db, dataLake, adapter, 'test-guid-123', ossService)
   })
 
   afterEach(async () => {
@@ -163,6 +176,49 @@ describe('MessageService', () => {
 
     const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
     expect(indexes.length).toBe(1)
+  })
+
+  describe('sendImageMessage', () => {
+    it('should send image message and save to DataLake', async () => {
+      vi.mocked(sharp).mockReturnValue({
+        metadata: vi.fn().mockResolvedValue({ width: 800, height: 600 })
+      } as any)
+
+      vi.spyOn(ossService, 'uploadImage').mockResolvedValue('https://oss.example.com/image.jpg')
+      vi.spyOn(adapter, 'uploadImageToCdn').mockResolvedValue({
+        fileId: 'cdn_file_123',
+        aesKey: 'test_aes_key',
+        fileSize: 12345,
+        fileMd5: 'test_md5'
+      })
+      vi.spyOn(adapter, 'sendImageMessage').mockResolvedValue({ msgId: 'img_msg_123' })
+
+      const contact = await db.createContact({
+        username: 'wxid_target',
+        nickname: 'Target User',
+        type: 'friend'
+      })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      const imageBuffer = Buffer.from('fake-image-data')
+      const result = await messageService.sendImageMessage(conversation.id, imageBuffer, 'test.jpg')
+
+      expect(result.msgId).toBe('img_msg_123')
+      expect(result.msgType).toBe(3)
+      expect(result.displayType).toBe('image')
+      expect(result.displayContent).toBe('https://oss.example.com/image.jpg')
+      expect(ossService.uploadImage).toHaveBeenCalledWith(imageBuffer, 'test.jpg')
+      expect(adapter.uploadImageToCdn).toHaveBeenCalledWith('https://oss.example.com/image.jpg')
+
+      const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
+      expect(indexes.length).toBe(1)
+      expect(indexes[0].msgType).toBe(3)
+    })
   })
 
   describe('sendMessage', () => {

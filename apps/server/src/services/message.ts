@@ -1,7 +1,9 @@
 import type { DatabaseService } from './database.js'
 import type { DataLakeService, ChatMessage } from './dataLake.js'
 import type { JuhexbotAdapter, ParsedWebhookPayload } from './juhexbotAdapter.js'
+import type { OssService } from './ossService.js'
 import { processMessageContent, parseRecallXml } from './messageContentProcessor.js'
+import sharp from 'sharp'
 
 export interface IncomingMessageResult {
   conversationId: string
@@ -40,7 +42,8 @@ export class MessageService {
     private db: DatabaseService,
     private dataLake: DataLakeService,
     private adapter: JuhexbotAdapter,
-    private clientUsername: string
+    private clientUsername: string,
+    private ossService: OssService
   ) {}
 
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
@@ -317,6 +320,98 @@ export class MessageService {
       chatroomSender: conversation.type === 'group' ? this.clientUsername : undefined,
       displayType: 'text',
       displayContent: content,
+    }
+  }
+
+  async sendImageMessage(
+    conversationId: string,
+    imageBuffer: Buffer,
+    filename: string
+  ): Promise<{
+    msgId: string
+    msgType: number
+    fromUsername: string
+    toUsername: string
+    content: string
+    createTime: number
+    chatroomSender?: string
+    displayType: string
+    displayContent: string
+  }> {
+    const conversation = await this.db.findConversationById(conversationId)
+    if (!conversation) {
+      throw new Error('Conversation not found')
+    }
+
+    let toUsername: string
+    if (conversation.type === 'group') {
+      const group = await this.db.findGroupById(conversation.groupId!)
+      if (!group) throw new Error('Group not found')
+      toUsername = group.roomUsername
+    } else {
+      const contact = await this.db.findContactById(conversation.contactId!)
+      if (!contact) throw new Error('Contact not found')
+      toUsername = contact.username
+    }
+
+    const ossUrl = await this.ossService.uploadImage(imageBuffer, filename)
+    const cdnResult = await this.adapter.uploadImageToCdn(ossUrl)
+    const metadata = await sharp(imageBuffer).metadata()
+    const thumbWidth = metadata.width || 0
+    const thumbHeight = metadata.height || 0
+
+    const { msgId } = await this.adapter.sendImageMessage({
+      toUsername,
+      fileId: cdnResult.fileId,
+      aesKey: cdnResult.aesKey,
+      fileSize: cdnResult.fileSize,
+      bigFileSize: cdnResult.fileSize,
+      thumbFileSize: cdnResult.fileSize,
+      fileMd5: cdnResult.fileMd5,
+      thumbWidth,
+      thumbHeight,
+      fileCrc: 0,
+    })
+
+    const createTime = Math.floor(Date.now() / 1000)
+    const chatMessage: ChatMessage = {
+      msg_id: msgId,
+      from_username: this.clientUsername,
+      to_username: toUsername,
+      content: '',
+      create_time: createTime,
+      msg_type: 3,
+      chatroom_sender: conversation.type === 'group' ? this.clientUsername : '',
+      desc: '',
+      is_chatroom_msg: conversation.type === 'group' ? 1 : 0,
+      chatroom: conversation.type === 'group' ? toUsername : '',
+      source: ''
+    }
+
+    const dataLakeKey = await this.dataLake.saveMessage(conversationId, chatMessage)
+
+    await this.db.createMessageIndex({
+      conversationId,
+      msgId,
+      msgType: 3,
+      fromUsername: this.clientUsername,
+      toUsername,
+      createTime,
+      dataLakeKey
+    })
+
+    await this.db.updateConversationLastMessage(conversationId, new Date(createTime * 1000))
+
+    return {
+      msgId,
+      msgType: 3,
+      fromUsername: this.clientUsername,
+      toUsername,
+      content: '',
+      createTime,
+      chatroomSender: conversation.type === 'group' ? this.clientUsername : undefined,
+      displayType: 'image',
+      displayContent: ossUrl,
     }
   }
 }
