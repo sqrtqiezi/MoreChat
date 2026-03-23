@@ -13,6 +13,8 @@ import { ContactSyncService } from './services/contactSyncService.js'
 import { ArchiveService } from './services/archiveService.js'
 import { ImageService } from './services/imageService.js'
 import { OssService } from './services/ossService.js'
+import { EmojiService } from './services/emojiService.js'
+import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
 import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
 
@@ -68,7 +70,21 @@ async function main() {
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
     const directoryService = new DirectoryService(databaseService)
-    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, userProfile.username, ossService)
+
+    // 初始化 EmojiService
+    const emojiService = new EmojiService(databaseService, juhexbotAdapter, ossService)
+
+    // MessageService 需要 emojiQueue，使用 getter 延迟访问
+    let emojiQueue: EmojiDownloadQueue
+    const messageService = new MessageService(
+      databaseService,
+      dataLakeService,
+      juhexbotAdapter,
+      userProfile.username,
+      ossService,
+      emojiService,
+      { enqueue: (task) => emojiQueue.enqueue(task) } as any
+    )
 
     const imageService = new ImageService(
       databaseService.prisma,
@@ -126,6 +142,10 @@ async function main() {
     // 5. 创建 WebSocket 服务
     wsService = new WebSocketService(server as unknown as Server)
     logger.info('WebSocket service initialized')
+
+    // 初始化 EmojiDownloadQueue
+    emojiQueue = new EmojiDownloadQueue(emojiService, wsService)
+    logger.info('EmojiDownloadQueue initialized')
 
     // 6. 启动联系人同步后台任务
     contactSyncService.startBackfillScheduler()
