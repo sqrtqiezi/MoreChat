@@ -18,6 +18,7 @@ import type { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import type { WebSocketService } from './services/websocket.js'
 import type { ContactSyncService } from './services/contactSyncService.js'
 import type { ImageService } from './services/imageService.js'
+import type { EmojiService } from './services/emojiService.js'
 import type { DirectoryService } from './services/directoryService.js'
 import { logger } from './lib/logger.js'
 
@@ -27,6 +28,7 @@ export interface AppDependencies {
   directoryService: DirectoryService
   messageService: MessageService
   imageService: ImageService
+  emojiService: EmojiService
   contactSyncService: ContactSyncService
   juhexbotAdapter: JuhexbotAdapter
   wsService: WebSocketService
@@ -118,7 +120,7 @@ export function createApp(deps: AppDependencies) {
     directoryService: deps.directoryService,
     clientGuid: deps.clientGuid
   }))
-  app.route('/api/messages', messageRoutes({ messageService: deps.messageService, imageService: deps.imageService }))
+  app.route('/api/messages', messageRoutes({ messageService: deps.messageService, imageService: deps.imageService, emojiService: deps.emojiService }))
   app.route('/api/me', meRoutes(deps.userProfile))  // 新增
 
   // 生产环境：serve 前端静态文件

@@ -83,7 +83,7 @@ async function main() {
       userProfile.username,
       ossService,
       emojiService,
-      { enqueue: (task) => emojiQueue.enqueue(task) } as any
+      { enqueue: (msgId: string, conversationId: string) => emojiQueue.enqueue(msgId, conversationId) } as any
     )
 
     const imageService = new ImageService(
@@ -116,6 +116,7 @@ async function main() {
       directoryService,
       messageService,
       imageService,
+      emojiService,
       contactSyncService,
       juhexbotAdapter,
       get wsService() { return wsService },
