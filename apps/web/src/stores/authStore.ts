@@ -29,3 +29,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
     });
   },
 }));
+
+// Listen for unauthorized events from API client
+window.addEventListener('auth:unauthorized', () => {
+  useAuthStore.getState().logout();
+});
