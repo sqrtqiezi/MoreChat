@@ -50,7 +50,7 @@ export class EmojiService {
       const emojiBuffer = await this.adapter.downloadEmoji({
         cdnUrl: cache.cdnUrl,
         aesKey: cache.aesKey,
-        encryptUrl: cache.encryptUrl
+        encryptUrl: cache.encryptUrl ?? undefined
       })
 
       const filename = `emoji_${msgId}_${Date.now()}`

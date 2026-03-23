@@ -71,9 +71,9 @@ export class EmojiDownloadQueue {
       if (task.retryCount < this.maxRetries) {
         task.retryCount++
         this.queue.push(task)
-        logger.warn(`Retry emoji download after error for msgId: ${task.msgId}, attempt: ${task.retryCount}`, error)
+        logger.warn(`Retry emoji download after error for msgId: ${task.msgId}, attempt: ${task.retryCount}: ${error}`)
       } else {
-        logger.error(`Error processing emoji download task after ${this.maxRetries} retries: ${task.msgId}`, error)
+        logger.error(`Error processing emoji download task after ${this.maxRetries} retries: ${task.msgId}: ${error}`)
       }
     } finally {
       this.activeCount--
