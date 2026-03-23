@@ -94,8 +94,10 @@ model EmojiCache {
   msgId        String    @id @map("msg_id")
   aesKey       String    @map("aes_key")
   cdnUrl       String    @map("cdn_url")
+  encryptUrl   String?   @map("encrypt_url")
   md5          String?
   fileSize     Int?      @map("file_size")
+  productId    String?   @map("product_id")
   ossUrl       String?   @map("oss_url")
   status       String    @default("pending")  // pending, downloading, downloaded, failed
   errorMessage String?   @map("error_message")
@@ -110,9 +112,11 @@ model EmojiCache {
 **字段说明**：
 - `msgId`: 消息 ID（主键）
 - `aesKey`: AES 解密密钥
-- `cdnUrl`: 微信 CDN 下载地址
+- `cdnUrl`: 微信 CDN 下载地址（未加密，优先使用）
+- `encryptUrl`: 加密的表情文件下载地址（备用）
 - `md5`: 表情文件 MD5（可选）
 - `fileSize`: 文件大小（可选）
+- `productId`: 表情包 ID（可选）
 - `ossUrl`: OSS 存储地址（下载完成后填充）
 - `status`: 下载状态
 - `errorMessage`: 错误信息（下载失败时记录）
@@ -121,20 +125,42 @@ model EmojiCache {
 
 ### 1. 表情消息解析
 
-**XML 格式**（基于图片消息格式推测）：
+**XML 格式**（基于生产环境真实数据 2026-03-23）：
 
 ```xml
 <msg>
   <emoji
-    aeskey="..."
-    cdnurl="..."
-    md5="..."
-    len="..."
-    width="..."
-    height="..."
+    fromusername="wxid_xxx"
+    tousername="xxx@chatroom"
+    type="2"
+    md5="c99f17060237ca21e7dce8d80d216e6d"
+    len="73009"
+    productid="com.tencent.xin.emoticon.person.stiker_xxx"
+    cdnurl="http://wxapp.tc.qq.com/262/20304/stodownload?m=xxx&amp;filekey=xxx..."
+    thumburl="http://wxapp.tc.qq.com/275/20304/stodownload?m=xxx..."
+    encrypturl="http://wxapp.tc.qq.com/262/20304/stodownload?m=xxx..."
+    aeskey="03ab8c3ec37706ed560587be5afa9d2f"
+    externurl="http://wxapp.tc.qq.com/262/20304/stodownload?m=xxx..."
+    externmd5="c58b44563fedab361b044861c79acdef"
+    width="240"
+    height="240"
   />
+  <gameext type="0" content="0" />
 </msg>
 ```
+
+**关键字段说明**：
+- `cdnurl`: 表情文件的 CDN 下载地址（未加密，可直接下载）
+- `aeskey`: AES 解密密钥（用于解密 encrypturl）
+- `encrypturl`: 加密的表情文件下载地址
+- `md5`: 表情文件的 MD5 值
+- `len`: 表情文件大小（字节）
+- `width/height`: 表情尺寸
+- `thumburl`: 缩略图地址
+- `productid`: 表情包 ID
+
+**下载策略**：
+优先使用 `cdnurl`（未加密，直接下载），如果失败则使用 `encrypturl` + `aeskey` 解密。
 
 **解析逻辑**（`messageContentProcessor.ts`）：
 
@@ -142,10 +168,12 @@ model EmojiCache {
 export interface EmojiInfo {
   aesKey: string
   cdnUrl: string
+  encryptUrl?: string
   md5?: string
   fileSize?: number
   width?: number
   height?: number
+  productId?: string
 }
 
 export function parseEmojiXml(content: string): EmojiInfo | null {
@@ -171,12 +199,14 @@ export function parseEmojiXml(content: string): EmojiInfo | null {
   }
 
   return {
-    aesKey: String(aesKey),
-    cdnUrl: String(cdnUrl),
-    md5: emoji['@_md5'] ? String(emoji['@_md5']) : undefined,
+    aesKey: String(aesKey).trim(),
+    cdnUrl: String(cdnUrl).trim(),
+    encryptUrl: emoji['@_encrypturl'] ? String(emoji['@_encrypturl']).trim() : undefined,
+    md5: emoji['@_md5'] ? String(emoji['@_md5']).trim() : undefined,
     fileSize: emoji['@_len'] ? parseInt(emoji['@_len'], 10) : undefined,
     width: emoji['@_width'] ? parseInt(emoji['@_width'], 10) : undefined,
     height: emoji['@_height'] ? parseInt(emoji['@_height'], 10) : undefined,
+    productId: emoji['@_productid'] ? String(emoji['@_productid']).trim() : undefined,
   }
 }
 
@@ -226,8 +256,10 @@ export class EmojiService {
       msgId,
       aesKey: emojiInfo.aesKey,
       cdnUrl: emojiInfo.cdnUrl,
+      encryptUrl: emojiInfo.encryptUrl,
       md5: emojiInfo.md5,
       fileSize: emojiInfo.fileSize,
+      productId: emojiInfo.productId,
       status: 'pending'
     })
   }
@@ -252,8 +284,9 @@ export class EmojiService {
 
       // 调用 juhexbot API 下载表情
       const emojiBuffer = await this.adapter.downloadEmoji({
+        cdnUrl: cache.cdnUrl,
         aesKey: cache.aesKey,
-        url: cache.cdnUrl
+        encryptUrl: cache.encryptUrl
       })
 
       // 上传到 OSS
@@ -445,8 +478,10 @@ async createEmojiCache(data: {
   msgId: string
   aesKey: string
   cdnUrl: string
+  encryptUrl?: string
   md5?: string
   fileSize?: number
+  productId?: string
   status: string
 }) {
   return this.prisma.emojiCache.create({
@@ -454,8 +489,10 @@ async createEmojiCache(data: {
       msgId: data.msgId,
       aesKey: data.aesKey,
       cdnUrl: data.cdnUrl,
+      encryptUrl: data.encryptUrl,
       md5: data.md5,
       fileSize: data.fileSize,
+      productId: data.productId,
       status: data.status
     }
   })
@@ -485,33 +522,63 @@ async updateEmojiCache(msgId: string, data: {
 **新增方法**（`apps/server/src/services/juhexbotAdapter.ts`）：
 
 ```typescript
+/**
+ * 下载表情图片
+ * 策略：优先使用 cdnUrl 直接下载，失败则使用 encryptUrl + aesKey
+ */
 async downloadEmoji(params: {
-  aesKey: string
-  url: string
+  cdnUrl: string
+  aesKey?: string
+  encryptUrl?: string
 }): Promise<Buffer> {
-  const response = await fetch(`${this.config.cloudApiUrl}/cloud/download_wx_emotion`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      aes_key: params.aesKey,
-      url: params.url,
-      base_request: {
-        username: this.config.clientUsername || '',
-        device_type: 'mac',
-        client_version: 0,
-        cdn_info: ''
-      },
-      file_name: `emoji_${Date.now()}`
-    })
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to download emoji: ${response.statusText}`)
+  // 策略 1：直接从 CDN 下载（未加密）
+  try {
+    const response = await fetch(params.cdnUrl)
+    if (response.ok) {
+      return Buffer.from(await response.arrayBuffer())
+    }
+  } catch (error) {
+    logger.warn(`Failed to download emoji from cdnUrl: ${error}`)
   }
 
-  return Buffer.from(await response.arrayBuffer())
+  // 策略 2：使用 juhexbot API 下载加密表情
+  if (params.encryptUrl && params.aesKey) {
+    try {
+      const response = await fetch(`${this.config.cloudApiUrl}/cloud/download_wx_emotion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          aes_key: params.aesKey,
+          url: params.encryptUrl,
+          base_request: {
+            username: this.config.clientUsername || '',
+            device_type: 'mac',
+            client_version: 0,
+            cdn_info: ''
+          },
+          file_name: `emoji_${Date.now()}`
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to download emoji: ${response.statusText}`)
+      }
+
+      return Buffer.from(await response.arrayBuffer())
+    } catch (error) {
+      logger.error(`Failed to download emoji from encryptUrl: ${error}`)
+      throw error
+    }
+  }
+
+  throw new Error('No valid download URL available')
 }
 ```
+
+**说明**：
+- 优先使用 `cdnUrl` 直接下载（更快，无需解密）
+- 如果 `cdnUrl` 失败，使用 juhexbot API 下载加密表情
+- 基于生产环境验证的 API 端点和参数格式
 
 ### 7. WebSocket 推送
 
@@ -677,7 +744,7 @@ function MessageItem({ message }: { message: Message }) {
 **策略**：
 - XML 解析失败时，记录警告日志
 - 不创建 EmojiCache 记录
-- 前端显示 `[不支持的消息类型]`
+- 前端显示 `[表情]` 占位符（与正常表情一致）
 
 ### 3. 网络异常处理
 
@@ -779,25 +846,26 @@ const messageService = new MessageService(
 
 ## 风险与应对
 
-### 风险 1：表情 XML 格式未知
+### 风险 1：juhexbot API 不稳定
 
 **应对**：
-- 先在生产环境收集真实的表情消息样本
-- 分析 XML 格式后再实现解析逻辑
-- 如果格式与预期不同，及时调整
-
-### 风险 2：juhexbot API 不稳定
-
-**应对**：
-- 实现重试机制
+- 实现重试机制（最多 3 次）
 - 记录详细的错误日志
-- 提供降级方案（显示占位符）
+- 提供降级方案（显示占位符 `[表情]`）
+- 优先使用 cdnUrl 直接下载，减少对 juhexbot API 的依赖
 
-### 风险 3：内存队列丢失
+### 风险 2：内存队列丢失
 
 **应对**：
 - 服务重启时，从数据库恢复 pending 状态的任务
 - 实现队列持久化（可选，后续优化）
+
+### 风险 3：CDN 下载失败
+
+**应对**：
+- 实现双重下载策略（cdnUrl + encryptUrl）
+- 记录失败原因到 errorMessage 字段
+- 前端显示占位符 `[表情]`
 
 ## 总结
 
