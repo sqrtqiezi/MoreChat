@@ -401,4 +401,56 @@ export class JuhexbotAdapter {
 
     return downloadUrl
   }
+
+  /**
+   * 下载表情图片
+   * 策略：优先使用 cdnUrl 直接下载，失败则使用 encryptUrl + aesKey
+   */
+  async downloadEmoji(params: {
+    cdnUrl: string
+    aesKey?: string
+    encryptUrl?: string
+  }): Promise<Buffer> {
+    // 策略 1：直接从 CDN 下载（未加密）
+    try {
+      const response = await fetch(params.cdnUrl)
+      if (response.ok) {
+        return Buffer.from(await response.arrayBuffer())
+      }
+    } catch (error) {
+      logger.warn(`Failed to download emoji from cdnUrl: ${error}`)
+    }
+
+    // 策略 2：使用 juhexbot API 下载加密表情
+    if (params.encryptUrl && params.aesKey) {
+      try {
+        const response = await fetch(`${this.config.cloudApiUrl}/cloud/download_wx_emotion`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            aes_key: params.aesKey,
+            url: params.encryptUrl,
+            base_request: {
+              username: this.config.clientUsername || '',
+              device_type: 'mac',
+              client_version: 0,
+              cdn_info: ''
+            },
+            file_name: `emoji_${Date.now()}`
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to download emoji: ${response.statusText}`)
+        }
+
+        return Buffer.from(await response.arrayBuffer())
+      } catch (error) {
+        logger.error(`Failed to download emoji from encryptUrl: ${error}`)
+        throw error
+      }
+    }
+
+    throw new Error('No valid download URL available')
+  }
 }
