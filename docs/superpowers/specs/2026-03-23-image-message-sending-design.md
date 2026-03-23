@@ -211,9 +211,6 @@ ALICLOUD_OSS_BUCKET=your-bucket-name
 ALICLOUD_OSS_ACCESS_KEY_ID=your-access-key
 ALICLOUD_OSS_ACCESS_KEY_SECRET=your-secret-key
 ALICLOUD_OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
-
-# juhexbot 客户端用户名（用于标识发送者）
-JUHEXBOT_CLIENT_USERNAME=your-wechat-username
 ```
 
 **更新 EnvConfig：**
@@ -223,7 +220,6 @@ JUHEXBOT_CLIENT_USERNAME=your-wechat-username
 ```typescript
 export interface EnvConfig {
   // ... 现有配置
-  juhexbotClientUsername: string  // 新增
   alicloudOssRegion: string
   alicloudOssBucket: string
   alicloudOssAccessKeyId: string
@@ -237,7 +233,6 @@ export interface EnvConfig {
 ```typescript
 const required = [
   // ... 现有字段
-  'JUHEXBOT_CLIENT_USERNAME',
   'ALICLOUD_OSS_REGION',
   'ALICLOUD_OSS_BUCKET',
   'ALICLOUD_OSS_ACCESS_KEY_ID',
@@ -546,14 +541,17 @@ const ossService = new OssService({
   endpoint: env.alicloudOssEndpoint,
 })
 
+// 获取登录用户信息（与现有代码一致）
+const userProfile = await juhexbotAdapter.getProfile()
+
 // 创建 MessageService 时注入 ossService
-const messageService = new MessageService({
-  db: databaseService,
+const messageService = new MessageService(
+  databaseService,
   dataLakeService,
   juhexbotAdapter,
-  ossService, // 新增
-  clientUsername: env.juhexbotClientUsername,
-})
+  userProfile.username,  // 从 API 获取的用户名
+  ossService  // 新增
+)
 ```
 
 ## 数据库设计
