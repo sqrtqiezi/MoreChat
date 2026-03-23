@@ -211,6 +211,9 @@ ALICLOUD_OSS_BUCKET=your-bucket-name
 ALICLOUD_OSS_ACCESS_KEY_ID=your-access-key
 ALICLOUD_OSS_ACCESS_KEY_SECRET=your-secret-key
 ALICLOUD_OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
+
+# juhexbot 客户端用户名（用于标识发送者）
+JUHEXBOT_CLIENT_USERNAME=your-wechat-username
 ```
 
 **更新 EnvConfig：**
@@ -220,6 +223,7 @@ ALICLOUD_OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
 ```typescript
 export interface EnvConfig {
   // ... 现有配置
+  juhexbotClientUsername: string  // 新增
   alicloudOssRegion: string
   alicloudOssBucket: string
   alicloudOssAccessKeyId: string
@@ -228,7 +232,19 @@ export interface EnvConfig {
 }
 ```
 
-并在 `required` 列表中添加这些字段。
+并在 `required` 列表中添加这些字段：
+
+```typescript
+const required = [
+  // ... 现有字段
+  'JUHEXBOT_CLIENT_USERNAME',
+  'ALICLOUD_OSS_REGION',
+  'ALICLOUD_OSS_BUCKET',
+  'ALICLOUD_OSS_ACCESS_KEY_ID',
+  'ALICLOUD_OSS_ACCESS_KEY_SECRET',
+  'ALICLOUD_OSS_ENDPOINT',
+]
+```
 
 ### 2. OSS 服务（OssService）
 
@@ -404,35 +420,61 @@ async sendImageMessage(
 
   // 6. 构造消息对象
   const createTime = Math.floor(Date.now() / 1000)
-  const message = {
-    msgId,
-    msgType: 3,
-    fromUsername: this.clientUsername,
-    toUsername,
-    content: '', // 图片消息的 content 是 XML，暂时为空
-    createTime,
-    chatroomSender: conversation.type === 'group' ? this.clientUsername : undefined,
-    displayType: 'image',
-    displayContent: ossUrl, // 使用 OSS URL 作为显示内容
+
+  // 构造 DataLake 消息对象（snake_case）
+  const chatMessage: ChatMessage = {
+    msg_id: msgId,
+    from_username: this.clientUsername,
+    to_username: toUsername,
+    content: '', // 图片消息的 content 是 XML，暂时为空（后续可补充）
+    create_time: createTime,
+    msg_type: 3,
+    chatroom_sender: conversation.type === 'group' ? this.clientUsername : '',
+    desc: '',
+    is_chatroom_msg: conversation.type === 'group' ? 1 : 0,
+    chatroom: conversation.type === 'group' ? toUsername : '',
+    source: ''
   }
 
   // 7. 存储到 DataLake 和 MessageIndex
-  await this.dataLakeService.saveMessage(conversationId, message)
+  const dataLakeKey = await this.dataLake.saveMessage(conversationId, chatMessage)
+
   await this.db.createMessageIndex({
     msgId,
     conversationId,
     msgType: 3,
     createTime,
-    dataLakeKey: `conversations/${conversationId}/messages/${createTime}_${msgId}.json`,
+    dataLakeKey,
   })
 
-  return message
+  // 8. 返回 API 格式的消息对象（camelCase）
+  return {
+    msgId,
+    msgType: 3,
+    fromUsername: this.clientUsername,
+    toUsername,
+    content: '',
+    createTime,
+    chatroomSender: conversation.type === 'group' ? this.clientUsername : undefined,
+    displayType: 'image',
+    displayContent: ossUrl, // 使用 OSS URL 作为显示内容
+  }
 }
 ```
 
 **依赖注入：**
 
-在 `MessageService` 构造函数中新增 `ossService: OssService` 参数。
+在 `MessageService` 构造函数中新增 `ossService: OssService` 参数：
+
+```typescript
+constructor(
+  private db: DatabaseService,
+  private dataLake: DataLakeService,
+  private adapter: JuhexbotAdapter,
+  private clientUsername: string,
+  private ossService: OssService  // 新增
+) {}
+```
 
 ### 5. API 路由
 
@@ -543,8 +585,9 @@ const messageService = new MessageService({
 | 缺少参数 | 400 | 返回错误信息 |
 | 文件类型不支持 | 422 | 返回错误信息 |
 | 会话不存在 | 404 | 返回错误信息 |
-| OSS 上传失败 | 502 | 记录日志，返回错误信息，前端可重试 |
-| juhexbot API 失败 | 502 | 记录日志，返回具体错误信息 |
+| OSS 上传失败 | 502 | 记录日志，返回错误信息，前端可重试。无需清理（文件未上传） |
+| juhexbot CDN 上传失败 | 502 | 记录日志，OSS 文件依赖 OSS 生命周期规则自动清理 |
+| juhexbot 发送失败 | 502 | 记录日志，OSS 文件依赖 OSS 生命周期规则自动清理 |
 | 其他服务器错误 | 500 | 记录日志，返回通用错误信息 |
 
 ## 测试策略
@@ -657,6 +700,8 @@ cd apps/server
 pnpm add ali-oss sharp
 pnpm add -D @types/ali-oss @types/sharp
 ```
+
+**注意：** `sharp` 包含 native 模块，安装时会自动编译或下载预编译二进制文件。在 Linux 生产环境部署时，需要确保服务器有必要的编译依赖（`libvips`），或使用预编译版本。
 
 ## 不在范围内
 
