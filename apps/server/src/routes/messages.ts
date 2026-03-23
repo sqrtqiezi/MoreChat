@@ -44,7 +44,8 @@ export function messageRoutes(deps: MessageRouteDeps) {
         return c.json({ success: false, error: { message: 'image file is required' } }, 400)
       }
 
-      const result = await deps.messageService.sendImageMessage(conversationId, image)
+      const imageBuffer = Buffer.from(await image.arrayBuffer())
+      const result = await deps.messageService.sendImageMessage(conversationId, imageBuffer, image.name)
       return c.json({ success: true, data: { message: result } })
     } catch (error) {
       logger.error({ err: error }, 'Failed to send image')

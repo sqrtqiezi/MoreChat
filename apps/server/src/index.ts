@@ -12,6 +12,7 @@ import { DirectoryService } from './services/directoryService.js'
 import { ContactSyncService } from './services/contactSyncService.js'
 import { ArchiveService } from './services/archiveService.js'
 import { ImageService } from './services/imageService.js'
+import { OssService } from './services/ossService.js'
 import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
 
@@ -55,11 +56,19 @@ async function main() {
     // 更新 adapter config
     juhexbotAdapter['config'].clientUsername = userProfile.username
 
+    const ossService = new OssService({
+      region: env.alicloudOssRegion,
+      bucket: env.alicloudOssBucket,
+      accessKeyId: env.alicloudOssAccessKeyId,
+      accessKeySecret: env.alicloudOssAccessKeySecret,
+      endpoint: env.alicloudOssEndpoint,
+    })
+
     // 2. 业务服务层
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
     const directoryService = new DirectoryService(databaseService)
-    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, userProfile.username)
+    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, userProfile.username, ossService)
 
     const imageService = new ImageService(
       databaseService.prisma,
