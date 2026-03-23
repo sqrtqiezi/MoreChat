@@ -5,6 +5,7 @@ import { chatApi } from '../../api/chat';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { ImageLightbox } from './ImageLightbox';
+import { EmojiMessage } from '../EmojiMessage';
 
 function ReferImage({ msgId }: { msgId: string }) {
   const [showImage, setShowImage] = useState(false);
@@ -199,6 +200,16 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
           )}
           <span>{content}</span>
         </div>
+      );
+    }
+
+    if (displayType === 'emoji') {
+      return (
+        <EmojiMessage
+          msgId={msgId}
+          conversationId={message.conversationId}
+          displayContent={content}
+        />
       );
     }
 

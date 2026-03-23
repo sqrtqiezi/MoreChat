@@ -29,7 +29,7 @@ export interface Message {
   status: 'sending' | 'sent' | 'failed';
   isMine: boolean;
   msgType?: number;
-  displayType?: 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'unknown';
+  displayType?: 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'emoji' | 'unknown';
   referMsg?: ReferMsg;
   isRecalled?: boolean;
 }
