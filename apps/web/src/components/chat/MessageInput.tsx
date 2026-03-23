@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { useSendMessage } from '../../hooks/useSendMessage';
+import { useSendImage } from '../../hooks/useSendImage';
+import { compressImage } from '../../utils/imageCompression';
+import { ImageInput } from './ImageInput';
+import { ImagePreview } from './ImagePreview';
 
 interface MessageInputProps {
   conversationId: string | null;
@@ -8,8 +12,11 @@ interface MessageInputProps {
 
 export function MessageInput({ conversationId, disabled = false }: MessageInputProps) {
   const [content, setContent] = useState('');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { mutate: sendMessage, isPending, error } = useSendMessage();
+  const { mutate: sendImage, isPending: isImagePending } = useSendImage();
 
   // Auto-focus when conversation is selected
   useEffect(() => {
@@ -49,7 +56,6 @@ export function MessageInput({ conversationId, disabled = false }: MessageInputP
       e.preventDefault();
       handleSend();
     } else if (e.key === 'Escape') {
-      // Clear input on Esc
       e.preventDefault();
       setContent('');
       if (textareaRef.current) {
@@ -58,14 +64,61 @@ export function MessageInput({ conversationId, disabled = false }: MessageInputP
     }
   };
 
+  const handleImageSelect = (file: File) => {
+    setSelectedImage(file);
+    setImageError('');
+  };
+
+  const handleImageError = (error: string) => {
+    setImageError(error);
+  };
+
+  const handleImageSend = async () => {
+    if (!selectedImage || !conversationId) return;
+
+    const compressed = await compressImage(selectedImage);
+    sendImage(
+      { conversationId, imageFile: compressed },
+      {
+        onSuccess: () => {
+          setSelectedImage(null);
+          setImageError('');
+        },
+        onError: () => {
+          setImageError('图片发送失败，请重试');
+        },
+      }
+    );
+  };
+
+  const handleImageCancel = () => {
+    setSelectedImage(null);
+    setImageError('');
+  };
+
   return (
     <div className="border-t border-gray-200 bg-white px-6 py-4">
-      {error && (
+      {(error || imageError) && (
         <div className="mb-2 text-red-500 text-sm">
-          发送失败，请重试
+          {imageError || '发送失败，请重试'}
+        </div>
+      )}
+      {selectedImage && (
+        <div className="mb-3">
+          <ImagePreview
+            file={selectedImage}
+            onSend={handleImageSend}
+            onCancel={handleImageCancel}
+            isSending={isImagePending}
+          />
         </div>
       )}
       <div className="flex items-end gap-3">
+        <ImageInput
+          onImageSelect={handleImageSelect}
+          onError={handleImageError}
+          disabled={disabled || !conversationId || isImagePending}
+        />
         <textarea
           ref={textareaRef}
           value={content}
