@@ -25,6 +25,11 @@ interface EnvConfig {
   AUTH_PASSWORD_HASH: string
   AUTH_JWT_SECRET: string
   CORS_ORIGIN?: string
+  alicloudOssRegion: string
+  alicloudOssBucket: string
+  alicloudOssAccessKeyId: string
+  alicloudOssAccessKeySecret: string
+  alicloudOssEndpoint: string
 }
 
 function loadEnv(): EnvConfig {
@@ -40,7 +45,12 @@ function loadEnv(): EnvConfig {
     'JUHEXBOT_CLIENT_GUID',
     'JUHEXBOT_CLOUD_API_URL',
     'AUTH_PASSWORD_HASH',
-    'AUTH_JWT_SECRET'
+    'AUTH_JWT_SECRET',
+    'ALICLOUD_OSS_REGION',
+    'ALICLOUD_OSS_BUCKET',
+    'ALICLOUD_OSS_ACCESS_KEY_ID',
+    'ALICLOUD_OSS_ACCESS_KEY_SECRET',
+    'ALICLOUD_OSS_ENDPOINT'
   ]
 
   for (const key of required) {
@@ -75,7 +85,12 @@ function loadEnv(): EnvConfig {
     LOG_LEVEL: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
     AUTH_PASSWORD_HASH: process.env.AUTH_PASSWORD_HASH!,
     AUTH_JWT_SECRET: process.env.AUTH_JWT_SECRET!,
-    CORS_ORIGIN: process.env.CORS_ORIGIN
+    CORS_ORIGIN: process.env.CORS_ORIGIN,
+    alicloudOssRegion: process.env.ALICLOUD_OSS_REGION!,
+    alicloudOssBucket: process.env.ALICLOUD_OSS_BUCKET!,
+    alicloudOssAccessKeyId: process.env.ALICLOUD_OSS_ACCESS_KEY_ID!,
+    alicloudOssAccessKeySecret: process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET!,
+    alicloudOssEndpoint: process.env.ALICLOUD_OSS_ENDPOINT!
   }
 }
 
