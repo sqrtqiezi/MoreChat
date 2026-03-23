@@ -1,6 +1,6 @@
 import { XMLParser } from 'fast-xml-parser'
 
-export type DisplayType = 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'unknown'
+export type DisplayType = 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'emoji' | 'unknown'
 
 export interface ReferMsg {
   type: number
