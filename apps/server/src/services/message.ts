@@ -55,6 +55,11 @@ export class MessageService {
       return null
     }
 
+    // 过滤 type 51 消息（通话消息）
+    if (message.msgType === 51) {
+      return null
+    }
+
     // 消息撤回特殊处理
     if (message.msgType === 10002) {
       return this.handleRecall(parsed)

@@ -178,6 +178,35 @@ describe('MessageService', () => {
     expect(indexes.length).toBe(1)
   })
 
+  it('should filter out type 51 (call) messages', async () => {
+    const webhookPayload = {
+      guid: 'test-guid-123',
+      notify_type: 1,
+      data: {
+        msg_id: 'call_msg_123',
+        msg_type: 51,
+        from_username: 'wxid_caller',
+        to_username: 'test-guid-123',
+        content: '<msg><voipinvitemsg /></msg>',
+        create_time: Math.floor(Date.now() / 1000),
+        chatroom_sender: '',
+        chatroom: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        source: ''
+      }
+    }
+
+    const parsed = adapter.parseWebhookPayload(webhookPayload)
+    const result = await messageService.handleIncomingMessage(parsed)
+
+    expect(result).toBeNull()
+
+    // 验证消息没有被保存到数据库
+    const messageIndex = await db.findMessageIndexByMsgId('call_msg_123')
+    expect(messageIndex).toBeNull()
+  })
+
   describe('sendImageMessage', () => {
     it('should send image message and save to DataLake', async () => {
       vi.mocked(sharp).mockReturnValue({
