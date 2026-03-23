@@ -207,7 +207,6 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
       return (
         <EmojiMessage
           msgId={msgId}
-          conversationId={message.conversationId}
           displayContent={content}
         />
       );

@@ -4,11 +4,10 @@ import styles from './EmojiMessage.module.css'
 
 interface EmojiMessageProps {
   msgId: string
-  conversationId: string
   displayContent: string
 }
 
-export function EmojiMessage({ msgId, conversationId, displayContent }: EmojiMessageProps) {
+export function EmojiMessage({ msgId, displayContent }: EmojiMessageProps) {
   const [emojiUrl, setEmojiUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
