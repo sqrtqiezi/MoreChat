@@ -25,6 +25,11 @@ describe('env', () => {
     process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
+    process.env.ALICLOUD_OSS_REGION = 'oss-cn-test'
+    process.env.ALICLOUD_OSS_BUCKET = 'test-bucket'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_ID = 'test-key-id'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET = 'test-key-secret'
+    process.env.ALICLOUD_OSS_ENDPOINT = 'oss-cn-test.aliyuncs.com'
 
     // 动态导入以重新加载环境变量
     const { env } = await import('./env.js')
@@ -50,6 +55,11 @@ describe('env', () => {
     process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
+    process.env.ALICLOUD_OSS_REGION = 'oss-cn-test'
+    process.env.ALICLOUD_OSS_BUCKET = 'test-bucket'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_ID = 'test-key-id'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET = 'test-key-secret'
+    process.env.ALICLOUD_OSS_ENDPOINT = 'oss-cn-test.aliyuncs.com'
     delete process.env.DATABASE_URL
 
     await expect(async () => {
@@ -70,6 +80,11 @@ describe('env', () => {
     process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
+    process.env.ALICLOUD_OSS_REGION = 'oss-cn-test'
+    process.env.ALICLOUD_OSS_BUCKET = 'test-bucket'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_ID = 'test-key-id'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET = 'test-key-secret'
+    process.env.ALICLOUD_OSS_ENDPOINT = 'oss-cn-test.aliyuncs.com'
 
     await expect(async () => {
       await import('./env.js')
@@ -89,6 +104,11 @@ describe('env', () => {
     process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
+    process.env.ALICLOUD_OSS_REGION = 'oss-cn-test'
+    process.env.ALICLOUD_OSS_BUCKET = 'test-bucket'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_ID = 'test-key-id'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET = 'test-key-secret'
+    process.env.ALICLOUD_OSS_ENDPOINT = 'oss-cn-test.aliyuncs.com'
 
     await expect(async () => {
       await import('./env.js')
@@ -107,6 +127,11 @@ describe('env', () => {
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
     process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_JWT_SECRET = 'test-secret-key'
+    process.env.ALICLOUD_OSS_REGION = 'oss-cn-test'
+    process.env.ALICLOUD_OSS_BUCKET = 'test-bucket'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_ID = 'test-key-id'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET = 'test-key-secret'
+    process.env.ALICLOUD_OSS_ENDPOINT = 'oss-cn-test.aliyuncs.com'
     delete process.env.AUTH_PASSWORD_HASH
 
     await expect(async () => {
@@ -126,6 +151,11 @@ describe('env', () => {
     process.env.JUHEXBOT_CLIENT_GUID = 'test-guid'
     process.env.JUHEXBOT_CLOUD_API_URL = 'http://cloud.test.com'
     process.env.AUTH_PASSWORD_HASH = '$2a$10$test_hash'
+    process.env.ALICLOUD_OSS_REGION = 'oss-cn-test'
+    process.env.ALICLOUD_OSS_BUCKET = 'test-bucket'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_ID = 'test-key-id'
+    process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET = 'test-key-secret'
+    process.env.ALICLOUD_OSS_ENDPOINT = 'oss-cn-test.aliyuncs.com'
     delete process.env.AUTH_JWT_SECRET
 
     await expect(async () => {
