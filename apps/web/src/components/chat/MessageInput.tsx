@@ -25,6 +25,32 @@ export function MessageInput({ conversationId, disabled = false }: MessageInputP
     }
   }, [conversationId, disabled]);
 
+  // Handle paste event for images
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      if (disabled || !conversationId || isImagePending) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            handleImageSelect(file);
+            e.preventDefault();
+            break;
+          }
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [conversationId, disabled, isImagePending]);
+
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
