@@ -38,9 +38,8 @@
 - `apps/web/src/components/EmojiMessage.module.css` - 表情消息样式
 
 ### 前端修改文件
-- `packages/types/src/index.ts` - 添加 'emoji' DisplayType
-- `apps/web/src/components/MessageItem.tsx` - 集成 EmojiMessage 组件
-- `apps/web/src/hooks/useWebSocket.ts` - 添加 emoji_downloaded 事件监听
+- `apps/web/src/types/index.ts` - 添加 'emoji' DisplayType
+- `apps/web/src/components/chat/MessageItem.tsx` - 集成 EmojiMessage 组件
 
 ---
 
@@ -108,20 +107,20 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 2: 扩展 DisplayType 类型定义
 
 **Files:**
-- Modify: `packages/types/src/index.ts`
+- Modify: `apps/web/src/types/index.ts`
 
-- [ ] **Step 1: 添加 'emoji' 到 DisplayType**
+- [ ] **Step 1: 添加 'emoji' 到 Message 接口的 displayType 字段**
 
-找到 `DisplayType` 定义并添加 'emoji'：
+在 `apps/web/src/types/index.ts` 中找到 Message 接口的 `displayType` 字段，添加 `'emoji'`：
 
 ```typescript
-export type DisplayType = 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'emoji' | 'unknown'
+displayType?: 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'emoji' | 'unknown';
 ```
 
 - [ ] **Step 2: 提交**
 
 ```bash
-git add packages/types/src/index.ts
+git add apps/web/src/types/index.ts
 git commit -m "feat(types): add emoji display type
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -952,6 +951,8 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: 添加 broadcastEmojiDownloaded 方法**
 
+注意：现有的 `broadcast` 方法签名是 `broadcast(event: string, data: any)`，内部会序列化为 `{ event, data }`。
+
 在 `WebSocketService` 类中添加：
 
 ```typescript
@@ -960,10 +961,7 @@ broadcastEmojiDownloaded(data: {
   conversationId: string
   ossUrl: string
 }): void {
-  this.broadcast({
-    type: 'emoji_downloaded',
-    data
-  })
+  this.broadcast('emoji_downloaded', data)
 }
 ```
 
@@ -982,10 +980,20 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `apps/server/src/services/message.ts`
+- Modify: `apps/server/src/services/message.test.ts`
 
-- [ ] **Step 1: 更新构造函数添加依赖**
+- [ ] **Step 1: 添加 import**
 
-在 `MessageService` 构造函数中添加：
+在 `message.ts` 文件顶部添加：
+
+```typescript
+import type { EmojiService } from './emojiService.js'
+import type { EmojiDownloadQueue } from './emojiDownloadQueue.js'
+```
+
+- [ ] **Step 2: 更新构造函数添加依赖**
+
+当前构造函数有 5 个参数，在末尾追加 2 个：
 
 ```typescript
 constructor(
@@ -994,27 +1002,60 @@ constructor(
   private adapter: JuhexbotAdapter,
   private clientUsername: string,
   private ossService: OssService,
-  private emojiService: EmojiService,
-  private emojiQueue: EmojiDownloadQueue
+  private emojiService?: EmojiService,
+  private emojiQueue?: EmojiDownloadQueue
 ) {}
 ```
 
-- [ ] **Step 2: 在 handleIncomingMessage 中添加表情处理**
+注意：使用可选参数（`?`）保持向后兼容，避免破坏现有测试。
 
-在 `handleIncomingMessage` 方法中，更新会话最后消息时间之后添加：
+- [ ] **Step 3: 在 handleIncomingMessage 中添加表情处理**
+
+在 `handleIncomingMessage` 方法中，`processMessageContent` 调用之前添加：
 
 ```typescript
 // 处理表情消息
-if (message.msgType === 47) {
+if (message.msgType === 47 && this.emojiService && this.emojiQueue) {
   await this.emojiService.processEmojiMessage(message.msgId, message.content)
   this.emojiQueue.enqueue(message.msgId, conversation.id)
 }
 ```
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 4: 更新测试文件**
+
+在 `message.test.ts` 中，现有的 `MessageService` 构造不需要修改（可选参数向后兼容）。但需要添加表情消息处理的测试：
+
+```typescript
+describe('emoji message handling', () => {
+  it('should process emoji message and enqueue download', async () => {
+    const mockEmojiService = {
+      processEmojiMessage: vi.fn()
+    }
+    const mockEmojiQueue = {
+      enqueue: vi.fn()
+    }
+    const serviceWithEmoji = new MessageService(
+      db, dataLake, adapter, 'test-user', ossService,
+      mockEmojiService as any, mockEmojiQueue as any
+    )
+
+    // ... test with msgType 47 payload
+  })
+})
+```
+
+- [ ] **Step 5: 运行测试确认通过**
 
 ```bash
-git add apps/server/src/services/message.ts
+cd apps/server && npx vitest run src/services/message.test.ts
+```
+
+Expected: PASS - 现有测试不受影响，新测试通过
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add apps/server/src/services/message.ts apps/server/src/services/message.test.ts
 git commit -m "feat(message): integrate emoji message processing
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -1027,16 +1068,34 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `apps/server/src/routes/messages.ts`
 
-- [ ] **Step 1: 添加 API 路由**
+- [ ] **Step 1: 扩展 MessageRouteDeps 接口**
 
-在 `messages.ts` 路由文件中添加：
+在 `messages.ts` 文件顶部找到 `MessageRouteDeps` 接口，添加 `emojiService`：
+
+```typescript
+interface MessageRouteDeps {
+  messageService: MessageService
+  imageService: ImageService
+  emojiService: EmojiService  // 新增
+}
+```
+
+同时添加 import：
+
+```typescript
+import type { EmojiService } from '../services/emojiService.js'
+```
+
+- [ ] **Step 2: 添加 API 路由**
+
+在 `messageRoutes` 工厂函数内部添加路由：
 
 ```typescript
 // GET /api/conversations/:id/messages/:msgId/emoji
-app.get('/api/conversations/:id/messages/:msgId/emoji', async (c) => {
+router.get('/api/conversations/:id/messages/:msgId/emoji', async (c) => {
   const { id: conversationId, msgId } = c.req.param()
 
-  const emojiUrl = await emojiService.getEmojiUrl(msgId)
+  const emojiUrl = await deps.emojiService.getEmojiUrl(msgId)
 
   if (!emojiUrl) {
     return c.json({ error: 'Emoji not found or not downloaded yet' }, 404)
@@ -1046,7 +1105,7 @@ app.get('/api/conversations/:id/messages/:msgId/emoji', async (c) => {
 })
 ```
 
-- [ ] **Step 2: 提交**
+- [ ] **Step 3: 提交**
 
 ```bash
 git add apps/server/src/routes/messages.ts
@@ -1062,30 +1121,51 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `apps/server/src/index.ts`
 
-- [ ] **Step 1: 初始化 EmojiService 和 EmojiDownloadQueue**
+- [ ] **Step 1: 添加 import**
 
-在 `index.ts` 中，找到服务初始化部分，添加：
+在文件顶部添加：
 
 ```typescript
-// 初始化 EmojiService
-const emojiService = new EmojiService(db, adapter, ossService)
-
-// 初始化 EmojiDownloadQueue
-const emojiQueue = new EmojiDownloadQueue(emojiService, wsService)
-
-// 更新 MessageService 初始化
-const messageService = new MessageService(
-  db,
-  dataLake,
-  adapter,
-  clientUsername,
-  ossService,
-  emojiService,
-  emojiQueue
-)
+import { EmojiService } from './services/emojiService.js'
+import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
 ```
 
-- [ ] **Step 2: 提交**
+- [ ] **Step 2: 初始化 EmojiService 和 EmojiDownloadQueue**
+
+在 `index.ts` 中，找到 `MessageService` 实例化的位置。在其之前添加 EmojiService，在 wsService 创建之后添加 EmojiDownloadQueue。
+
+注意：`wsService` 在 HTTP server 创建之后才初始化，而 `EmojiDownloadQueue` 依赖 `wsService`。需要使用延迟初始化或 getter 模式（与现有代码一致）。
+
+```typescript
+// 在 ossService 之后、messageService 之前
+const emojiService = new EmojiService(databaseService, juhexbotAdapter, ossService)
+
+// 更新 MessageService 初始化，传入 emojiService（emojiQueue 稍后设置）
+const messageService = new MessageService(
+  databaseService,
+  dataLakeService,
+  juhexbotAdapter,
+  userProfile.username,
+  ossService,
+  emojiService
+)
+
+// 在 wsService 创建之后初始化 emojiQueue
+// （参考现有代码中 wsService 的延迟初始化模式）
+const emojiQueue = new EmojiDownloadQueue(emojiService, wsService)
+```
+
+同时更新 `messageRoutes` 调用，传入 `emojiService`：
+
+```typescript
+messageRoutes({
+  messageService,
+  imageService,
+  emojiService  // 新增
+})
+```
+
+- [ ] **Step 3: 提交**
 
 ```bash
 git add apps/server/src/index.ts
@@ -1106,11 +1186,13 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: 创建 EmojiMessage 组件**
 
+注意：现有的 `useWebSocket` hook 不暴露 `.on()/.off()` 方法。WebSocket 消息监听需要通过 `wsClient.addMessageHandler(handler)` / `wsClient.removeMessageHandler(handler)` 实现，其中 handler 签名为 `(data: any) => void`。
+
 创建 `apps/web/src/components/EmojiMessage.tsx`：
 
 ```typescript
 import { useState, useEffect } from 'react'
-import { useWebSocket } from '../hooks/useWebSocket'
+import { wsClient } from '../api/websocket'
 import styles from './EmojiMessage.module.css'
 
 interface EmojiMessageProps {
@@ -1122,24 +1204,23 @@ interface EmojiMessageProps {
 export function EmojiMessage({ msgId, conversationId, displayContent }: EmojiMessageProps) {
   const [emojiUrl, setEmojiUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const ws = useWebSocket()
 
   useEffect(() => {
     fetchEmojiUrl()
 
-    const handleEmojiDownloaded = (data: any) => {
-      if (data.msgId === msgId) {
-        setEmojiUrl(data.ossUrl)
+    const handleMessage = (data: any) => {
+      if (data.event === 'emoji_downloaded' && data.data?.msgId === msgId) {
+        setEmojiUrl(data.data.ossUrl)
         setLoading(false)
       }
     }
 
-    ws.on('emoji_downloaded', handleEmojiDownloaded)
+    wsClient.addMessageHandler(handleMessage)
 
     return () => {
-      ws.off('emoji_downloaded', handleEmojiDownloaded)
+      wsClient.removeMessageHandler(handleMessage)
     }
-  }, [msgId, ws])
+  }, [msgId])
 
   const fetchEmojiUrl = async () => {
     try {
@@ -1156,7 +1237,7 @@ export function EmojiMessage({ msgId, conversationId, displayContent }: EmojiMes
   }
 
   if (loading || !emojiUrl) {
-    return <span className={styles.placeholder}>{displayContent}</span>
+    return <span clases.placeholder}>{displayContent}</span>
   }
 
   return (
@@ -1200,44 +1281,35 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 13: 集成 EmojiMessage 到 MessageItem
 
 **Files:**
-- Modify: `apps/web/src/components/MessageItem.tsx`
+- Modify: `apps/web/src/components/chat/MessageItem.tsx`
 
 - [ ] **Step 1: 导入 EmojiMessage 组件**
 
 在文件顶部添加：
 
 ```typescript
-import { EmojiMessage } from './EmojiMessage'
+import { EmojiMessage } from '../EmojiMessage'
 ```
 
 - [ ] **Step 2: 在 renderContent 中添加 emoji case**
 
-找到 `renderContent` 函数，添加 emoji 分支：
+找到 `renderContent` 函数中的 switch/if 分支，添加 emoji 分支：
 
 ```typescript
-const renderContent = () => {
-  switch (message.displayType) {
-    case 'text':
-      return <div className="message-text">{message.displayContent}</div>
-    case 'image':
-      return <ImageMessage msgId={message.msgId} />
-    case 'emoji':
-      return (
-        <EmojiMessage
-          msgId={message.msgId}
-          conversationId={message.conversationId}
-          displayContent={message.displayContent}
-        />
-      )
-    // ... other cases
-  }
-}
+case 'emoji':
+  return (
+    <EmojiMessage
+      msgId={message.msgId}
+      conversationId={message.conversationId}
+      displayContent={message.displayContent}
+    />
+  )
 ```
 
 - [ ] **Step 3: 提交**
 
 ```bash
-git add apps/web/src/components/MessageItem.tsx
+git add apps/web/src/components/chat/MessageItem.tsx
 git commit -m "feat(web): integrate EmojiMessage into MessageItem
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
