@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { MessageItem } from './MessageItem';
 import { useMessages } from '../../hooks/useMessages';
 import { useMessageScroll } from '../../hooks/useMessageScroll';
+import { useChatStore } from '../../stores/chatStore';
 import { MessageSkeleton } from '../common/Skeleton';
 import { EmptyState } from '../common/EmptyState';
 import type { Message } from '../../types';
@@ -17,6 +18,7 @@ const SCROLL_TOP_THRESHOLD = 50; // px
 export function MessageList({ conversationId, onReply }: MessageListProps) {
   const { messages, hasMore, isLoading, error, loadMore, trimToLatest, highlightedIds } = useMessages(conversationId);
   const { scrollRef, checkIsAtBottom, setIsAtBottom } = useMessageScroll(messages?.length, conversationId);
+  const storeSetIsAtBottom = useChatStore((s) => s.setIsAtBottom);
 
   const virtualizer = useVirtualizer({
     count: messages?.length || 0,
@@ -47,10 +49,11 @@ export function MessageList({ conversationId, onReply }: MessageListProps) {
     // 向下滚动到底部：裁剪
     const atBottom = checkIsAtBottom();
     setIsAtBottom(atBottom);
+    storeSetIsAtBottom(atBottom);
     if (atBottom) {
       trimToLatest();
     }
-  }, [hasMore, loadMore, trimToLatest, checkIsAtBottom, setIsAtBottom, scrollRef]);
+  }, [hasMore, loadMore, trimToLatest, checkIsAtBottom, setIsAtBottom, storeSetIsAtBottom, scrollRef]);
 
   useEffect(() => {
     const el = scrollRef.current;
