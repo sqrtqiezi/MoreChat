@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { ImageLightbox } from './ImageLightbox';
 import { EmojiMessage } from '../EmojiMessage';
+import { WechatEmojiText } from '../WechatEmojiText';
 
 function ReferImage({ msgId }: { msgId: string }) {
   const [showImage, setShowImage] = useState(false);
@@ -119,7 +120,7 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
 
   const renderContent = () => {
     if (!message.displayType || message.displayType === 'text') {
-      return <span>{content}</span>;
+      return <span><WechatEmojiText text={content} /></span>;
     }
 
     if (displayType === 'image') {
