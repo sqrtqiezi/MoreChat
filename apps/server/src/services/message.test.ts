@@ -4,7 +4,6 @@ import { DatabaseService } from './database.js'
 import { DataLakeService } from './dataLake.js'
 import { JuhexbotAdapter } from './juhexbotAdapter.js'
 import { OssService } from './ossService.js'
-import { parseImageXml } from './messageContentProcessor.js'
 import { textMessage, messageRecall, appMessage } from '../../../../tests/fixtures/messages.js'
 import fs from 'fs/promises'
 import path from 'path'
@@ -134,7 +133,7 @@ describe('MessageService', () => {
     expect(changes).toHaveLength(1)
   })
 
-  it('should skip duplicate message when msgId already exists', async () => {
+  it('should allow webhook to process message after sendMessage (no dedup)', async () => {
     vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'dup_123' })
 
     const contact = await db.createContact({
@@ -151,7 +150,7 @@ describe('MessageService', () => {
 
     await messageService.sendMessage(conversation.id, '测试')
 
-    // 模拟 webhook 回传相同 msgId 的消息
+    // webhook 回传相同 msgId 的消息 — 应该正常处理
     const webhookPayload = {
       guid: 'test-guid-123',
       notify_type: 1,
@@ -173,7 +172,8 @@ describe('MessageService', () => {
     const parsed = adapter.parseWebhookPayload(webhookPayload)
     const result = await messageService.handleIncomingMessage(parsed)
 
-    expect(result).toBeNull()
+    expect(result).not.toBeNull()
+    expect(result!.message.msgId).toBe('dup_123')
 
     const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
     expect(indexes.length).toBe(1)
@@ -209,7 +209,7 @@ describe('MessageService', () => {
   })
 
   describe('sendImageMessage', () => {
-    it('should send image message and save to DataLake', async () => {
+    it('should send image via adapter and return msgId', async () => {
       vi.mocked(sharp).mockReturnValue({
         metadata: vi.fn().mockResolvedValue({ width: 800, height: 600 })
       } as any)
@@ -239,64 +239,19 @@ describe('MessageService', () => {
       const result = await messageService.sendImageMessage(conversation.id, imageBuffer, 'test.jpg')
 
       expect(result.msgId).toBe('img_msg_123')
-      expect(result.msgType).toBe(3)
-      expect(result.displayType).toBe('image')
-      expect(result.displayContent).toBe('https://oss.example.com/image.jpg')
       expect(ossService.uploadImage).toHaveBeenCalledWith(imageBuffer, 'test.jpg')
       expect(adapter.uploadImageToCdn).toHaveBeenCalledWith('https://oss.example.com/image.jpg')
 
+      // 不再创建 MessageIndex
       const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
-      expect(indexes.length).toBe(1)
-      expect(indexes[0].msgType).toBe(3)
-    })
-
-    it('should save image XML content to DataLake so getImageUrl can parse it', async () => {
-      vi.mocked(sharp).mockReturnValue({
-        metadata: vi.fn().mockResolvedValue({ width: 800, height: 600 })
-      } as any)
-
-      vi.spyOn(ossService, 'uploadImage').mockResolvedValue('https://oss.example.com/image.jpg')
-      vi.spyOn(adapter, 'uploadImageToCdn').mockResolvedValue({
-        fileId: 'cdn_file_123',
-        aesKey: 'test_aes_key',
-        fileSize: 12345,
-        fileMd5: 'test_md5'
-      })
-      vi.spyOn(adapter, 'sendImageMessage').mockResolvedValue({ msgId: 'img_msg_123' })
-
-      const contact = await db.createContact({
-        username: 'wxid_target',
-        nickname: 'Target User',
-        type: 'friend'
-      })
-      const client = await db.findClientByGuid('test-guid-123')
-      const conversation = await db.createConversation({
-        clientId: client!.id,
-        type: 'private',
-        contactId: contact.id
-      })
-
-      const imageBuffer = Buffer.from('fake-image-data')
-      await messageService.sendImageMessage(conversation.id, imageBuffer, 'test.jpg')
-
-      // Verify DataLake content contains parseable image XML
-      const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
-      const message = await dataLake.getMessage(indexes[0].dataLakeKey)
-
-      expect(message.content).not.toBe('')
-      const imageInfo = parseImageXml(message.content)
-      expect(imageInfo).not.toBeNull()
-      expect(imageInfo!.aesKey).toBe('test_aes_key')
-      expect(imageInfo!.fileId).toBe('cdn_file_123')
+      expect(indexes.length).toBe(0)
     })
   })
 
   describe('sendMessage', () => {
-    it('should send text message via adapter and save to DataLake', async () => {
-      // Mock adapter.sendTextMessage
+    it('should send text message via adapter and return msgId', async () => {
       vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'sent_123' })
 
-      // 创建联系人和会话
       const contact = await db.createContact({
         username: 'wxid_target',
         nickname: 'Target User',
@@ -311,87 +266,61 @@ describe('MessageService', () => {
 
       const result = await messageService.sendMessage(conversation.id, '你好')
 
-      // 验证返回完整消息对象
       expect(result.msgId).toBe('sent_123')
-      expect(result.msgType).toBe(1)
-      expect(result.fromUsername).toBe('test-guid-123')
-      expect(result.toUsername).toBe('wxid_target')
-      expect(result.content).toBe('你好')
-      expect(result.createTime).toBeGreaterThan(0)
-      expect(result.displayType).toBe('text')
-      expect(result.displayContent).toBe('你好')
-      expect(result.chatroomSender).toBeUndefined()
-
       expect(adapter.sendTextMessage).toHaveBeenCalledWith('wxid_target', '你好')
 
-      // 验证消息索引已创建
+      // 不再创建 MessageIndex
       const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
-      expect(indexes.length).toBeGreaterThanOrEqual(1)
+      expect(indexes.length).toBe(0)
     })
 
     it('should throw error when conversation not found', async () => {
       await expect(messageService.sendMessage('not_exist', '你好')).rejects.toThrow('Conversation not found')
     })
 
-    it('should include chatroomSender for group messages', async () => {
-      vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'group_msg_123' })
-
-      const group = await db.createGroup({
-        roomUsername: '12345@chatroom',
-        name: 'Test Group'
-      })
-      const client = await db.findClientByGuid('test-guid-123')
-      const conversation = await db.createConversation({
-        clientId: client!.id,
-        type: 'group',
-        groupId: group.id
-      })
-
-      const result = await messageService.sendMessage(conversation.id, '群消息')
-
-      expect(result.msgId).toBe('group_msg_123')
-      expect(result.chatroomSender).toBe('test-guid-123')
-      expect(adapter.sendTextMessage).toHaveBeenCalledWith('12345@chatroom', '群消息')
-    })
-
     it('should send refer message when replyToMsgId is provided', async () => {
       vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'text_123' })
       vi.spyOn(adapter, 'sendReferMessage').mockResolvedValue({ msgId: 'refer_456' })
 
-      // 创建联系人和会话
-      await db.createContact({
-        username: 'wxid_sender',
-        nickname: 'Sender',
-        type: 'friend',
-      })
-      const target = await db.createContact({
-        username: 'wxid_target',
-        nickname: 'Target User',
-        type: 'friend',
-      })
+      await db.createContact({ username: 'wxid_sender', nickname: 'Sender', type: 'friend' })
+      const target = await db.createContact({ username: 'wxid_target', nickname: 'Target User', type: 'friend' })
       const client = await db.findClientByGuid('test-guid-123')
       const conversation = await db.createConversation({
         clientId: client!.id,
         type: 'private',
-        contactId: target.id,
+        contactId: target.id
       })
 
-      // 先发送一条原始消息（模拟被引用的消息）
-      const originalResult = await messageService.sendMessage(conversation.id, '原始消息')
+      // 先通过 webhook 创建一条原始消息
+      const webhookPayload = {
+        guid: 'test-guid-123',
+        notify_type: 1,
+        data: {
+          msg_id: 'original_msg_123',
+          msg_type: 1,
+          from_username: 'wxid_sender',
+          to_username: 'test-guid-123',
+          content: '原始消息',
+          create_time: Math.floor(Date.now() / 1000),
+          chatroom_sender: '',
+          chatroom: '',
+          desc: '',
+          is_chatroom_msg: 0,
+          source: ''
+        }
+      }
+      const parsed = adapter.parseWebhookPayload(webhookPayload)
+      await messageService.handleIncomingMessage(parsed)
 
       // 发送引用消息
-      const result = await messageService.sendMessage(conversation.id, '回复内容', originalResult.msgId)
+      const result = await messageService.sendMessage(conversation.id, '回复内容', 'original_msg_123')
 
       expect(result.msgId).toBe('refer_456')
-      expect(result.displayType).toBe('quote')
-      expect(result.referMsg).toBeDefined()
-      expect(result.referMsg!.msgId).toBe(originalResult.msgId)
-      expect(result.referMsg!.content).toBe('原始消息')
       expect(adapter.sendReferMessage).toHaveBeenCalledWith(expect.objectContaining({
         toUsername: 'wxid_target',
         content: '回复内容',
         referMsg: expect.objectContaining({
-          msgId: originalResult.msgId,
+          msgId: 'original_msg_123',
           msgType: 1,
           content: '原始消息',
         }),

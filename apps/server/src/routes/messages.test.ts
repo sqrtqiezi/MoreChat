@@ -29,14 +29,7 @@ describe('message routes', () => {
   describe('POST /api/messages/send', () => {
     it('should send message successfully', async () => {
       vi.mocked(mockMessageService.sendMessage).mockResolvedValue({
-        msgId: 'sent_123',
-        msgType: 1,
-        fromUsername: 'wxid_me',
-        toUsername: 'wxid_target',
-        content: '你好',
-        createTime: 1234567890,
-        displayType: 'text',
-        displayContent: '你好'
+        msgId: 'sent_123'
       })
 
       const res = await app.request('/api/messages/send', {
@@ -48,9 +41,7 @@ describe('message routes', () => {
 
       expect(res.status).toBe(200)
       expect(body.success).toBe(true)
-      expect(body.data.message).toBeDefined()
-      expect(body.data.message.msgId).toBe('sent_123')
-      expect(body.data.message.msgType).toBe(1)
+      expect(body.data.msgId).toBe('sent_123')
       expect(mockMessageService.sendMessage).toHaveBeenCalledWith('conv_1', '你好', undefined)
     })
 
@@ -83,18 +74,9 @@ describe('message routes', () => {
     })
 
     it('should pass replyToMsgId to messageService.sendMessage', async () => {
-      const mockResult = {
-        msgId: 'refer_789',
-        msgType: 49,
-        fromUsername: 'me',
-        toUsername: 'target',
-        content: '回复',
-        createTime: 1234567890,
-        displayType: 'quote',
-        displayContent: '回复',
-        referMsg: { type: 1, senderName: 'Sender', content: '原始', msgId: 'orig_123' },
-      }
-      vi.mocked(mockMessageService.sendMessage).mockResolvedValue(mockResult)
+      vi.mocked(mockMessageService.sendMessage).mockResolvedValue({
+        msgId: 'refer_789'
+      })
 
       const res = await app.request('/api/messages/send', {
         method: 'POST',
@@ -110,14 +92,7 @@ describe('message routes', () => {
   describe('POST /api/messages/send-image', () => {
     it('should send image successfully', async () => {
       vi.mocked(mockMessageService.sendImageMessage).mockResolvedValue({
-        msgId: 'img_123',
-        msgType: 3,
-        fromUsername: 'wxid_me',
-        toUsername: 'wxid_target',
-        content: '<msg><img /></msg>',
-        createTime: 1234567890,
-        displayType: 'image',
-        displayContent: '[图片]'
+        msgId: 'img_123'
       })
 
       const formData = new FormData()
@@ -132,8 +107,7 @@ describe('message routes', () => {
 
       expect(res.status).toBe(200)
       expect(body.success).toBe(true)
-      expect(body.data.message.msgId).toBe('img_123')
-      expect(body.data.message.msgType).toBe(3)
+      expect(body.data.msgId).toBe('img_123')
     })
 
     it('should return 400 when missing conversationId', async () => {

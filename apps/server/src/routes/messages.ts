@@ -26,7 +26,7 @@ export function messageRoutes(deps: MessageRouteDeps) {
       }
 
       const result = await deps.messageService.sendMessage(conversationId, content, replyToMsgId)
-      return c.json({ success: true, data: { message: result } })
+      return c.json({ success: true, data: { msgId: result.msgId } })
     } catch (error) {
       logger.error({ err: error }, 'Failed to send message')
       return c.json({ success: false, error: { message: 'Failed to send message' } }, 500)
@@ -50,7 +50,7 @@ export function messageRoutes(deps: MessageRouteDeps) {
 
       const imageBuffer = Buffer.from(await image.arrayBuffer())
       const result = await deps.messageService.sendImageMessage(conversationId, imageBuffer, image.name)
-      return c.json({ success: true, data: { message: result } })
+      return c.json({ success: true, data: { msgId: result.msgId } })
     } catch (error) {
       logger.error({ err: error }, 'Failed to send image')
       return c.json({ success: false, error: { message: 'Failed to send image' } }, 500)

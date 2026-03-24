@@ -273,20 +273,6 @@ export class MessageService {
 
   async sendMessage(conversationId: string, content: string, replyToMsgId?: string): Promise<{
     msgId: string
-    msgType: number
-    fromUsername: string
-    toUsername: string
-    content: string
-    createTime: number
-    chatroomSender?: string
-    displayType: string
-    displayContent: string
-    referMsg?: {
-      type: number
-      senderName: string
-      content: string
-      msgId: string
-    }
   }> {
     // 1. 获取会话信息
     const conversation = await this.db.findConversationById(conversationId)
@@ -308,11 +294,8 @@ export class MessageService {
 
     // 3. 发送消息（普通文本 or 引用）
     let msgId: string
-    let displayType = 'text'
-    let referMsgResult: { type: number; senderName: string; content: string; msgId: string } | undefined
 
     if (replyToMsgId) {
-      // 获取被引用消息信息
       const refIndex = await this.db.findMessageIndexByMsgId(replyToMsgId)
       if (!refIndex) {
         throw new Error('Referenced message not found')
@@ -335,79 +318,19 @@ export class MessageService {
         },
       })
       msgId = result.msgId
-      displayType = 'quote'
-      referMsgResult = {
-        type: refMessage.msg_type,
-        senderName: refNickname,
-        content: refMessage.content,
-        msgId: replyToMsgId,
-      }
     } else {
       const result = await this.adapter.sendTextMessage(toUsername, content)
       msgId = result.msgId
     }
 
-    // 4. 保存到 DataLake
-    const createTime = Math.floor(Date.now() / 1000)
-    const chatMessage: ChatMessage = {
-      msg_id: msgId,
-      from_username: this.clientUsername,
-      to_username: toUsername,
-      content,
-      create_time: createTime,
-      msg_type: replyToMsgId ? 49 : 1,
-      chatroom_sender: conversation.type === 'group' ? this.clientUsername : '',
-      desc: '',
-      is_chatroom_msg: conversation.type === 'group' ? 1 : 0,
-      chatroom: conversation.type === 'group' ? toUsername : '',
-      source: '',
-    }
-
-    const dataLakeKey = await this.dataLake.saveMessage(conversationId, chatMessage)
-
-    // 5. 创建消息索引
-    await this.db.createMessageIndex({
-      conversationId,
-      msgId,
-      msgType: replyToMsgId ? 49 : 1,
-      fromUsername: this.clientUsername,
-      toUsername,
-      createTime,
-      dataLakeKey,
-    })
-
-    // 6. 更新会话最后消息时间
-    await this.db.updateConversationLastMessage(conversationId, new Date(createTime * 1000))
-
-    return {
-      msgId,
-      msgType: replyToMsgId ? 49 : 1,
-      fromUsername: this.clientUsername,
-      toUsername,
-      content,
-      createTime,
-      chatroomSender: conversation.type === 'group' ? this.clientUsername : undefined,
-      displayType,
-      displayContent: content,
-      referMsg: referMsgResult,
-    }
+    return { msgId }
   }
 
   async sendImageMessage(
     conversationId: string,
     imageBuffer: Buffer,
     filename: string
-  ): Promise<{
-    msgId: string
-    msgType: number
-    fromUsername: string
-    toUsername: string
-    content: string
-    createTime: number
-    chatroomSender?: string
-    displayType: string
-    displayContent: string
-  }> {
+  ): Promise<{ msgId: string }> {
     const conversation = await this.db.findConversationById(conversationId)
     if (!conversation) {
       throw new Error('Conversation not found')
@@ -443,46 +366,6 @@ export class MessageService {
       fileCrc: 0,
     })
 
-    const createTime = Math.floor(Date.now() / 1000)
-    const imageXml = `<msg><img aeskey="${cdnResult.aesKey}" cdnmidimgurl="${cdnResult.fileId}" encryver="1" length="${cdnResult.fileSize}" hdlength="${cdnResult.fileSize}"/></msg>`
-    const chatMessage: ChatMessage = {
-      msg_id: msgId,
-      from_username: this.clientUsername,
-      to_username: toUsername,
-      content: imageXml,
-      create_time: createTime,
-      msg_type: 3,
-      chatroom_sender: conversation.type === 'group' ? this.clientUsername : '',
-      desc: '',
-      is_chatroom_msg: conversation.type === 'group' ? 1 : 0,
-      chatroom: conversation.type === 'group' ? toUsername : '',
-      source: ''
-    }
-
-    const dataLakeKey = await this.dataLake.saveMessage(conversationId, chatMessage)
-
-    await this.db.createMessageIndex({
-      conversationId,
-      msgId,
-      msgType: 3,
-      fromUsername: this.clientUsername,
-      toUsername,
-      createTime,
-      dataLakeKey
-    })
-
-    await this.db.updateConversationLastMessage(conversationId, new Date(createTime * 1000))
-
-    return {
-      msgId,
-      msgType: 3,
-      fromUsername: this.clientUsername,
-      toUsername,
-      content: '',
-      createTime,
-      chatroomSender: conversation.type === 'group' ? this.clientUsername : undefined,
-      displayType: 'image',
-      displayContent: ossUrl,
-    }
+    return { msgId }
   }
 }
