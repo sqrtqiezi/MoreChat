@@ -63,7 +63,7 @@ export class FileService {
         cache.aesKey,
         cache.cdnFileId,
         `${cache.fileName}.${cache.fileExt}`,
-        2
+        5  // file_type 5 = file attachment (2 = image)
       )
 
       const response = await fetch(tempUrl)

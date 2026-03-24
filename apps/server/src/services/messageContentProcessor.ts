@@ -141,6 +141,11 @@ function processType49(content: string): ProcessedContent {
     }
   }
 
+  // Skip file transfer notification (type 74) — duplicate of type 6
+  if (msgType === 74) {
+    return { displayType: 'unknown', displayContent: '' }
+  }
+
   // Check for finderFeed (video channel) — type 51 within appmsg
   const finderFeed = appmsg.finderFeed
   if (finderFeed && finderFeed.nickname) {

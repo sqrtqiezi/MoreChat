@@ -559,8 +559,9 @@ describe('Type 49 - File (appmsg type 6)', () => {
   </appmsg>
 </msg>`
     const result = processMessageContent(49, type74Xml)
-    // type 74 has no cdnattachurl/aeskey, should fall through to link
-    expect(result.displayType).toBe('link')
+    // type 74 is a duplicate notification, should be hidden
+    expect(result.displayType).toBe('unknown')
+    expect(result.displayContent).toBe('')
   })
 
   it('should handle file message without cdnattachurl gracefully', () => {

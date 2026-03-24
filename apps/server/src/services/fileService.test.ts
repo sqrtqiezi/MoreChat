@@ -121,7 +121,7 @@ describe('FileService', () => {
 
       expect(result.ossUrl).toBe('https://oss.com/files/report.pdf')
       expect(result.fileName).toBe('report.pdf')
-      expect(mockAdapter.downloadImage).toHaveBeenCalledWith('aes123', 'cdn456', 'report.pdf.pdf', 2)
+      expect(mockAdapter.downloadImage).toHaveBeenCalledWith('aes123', 'cdn456', 'report.pdf.pdf', 5)
       expect(mockDb.updateFileCache).toHaveBeenCalledWith('msg123', { status: 'downloading' })
       expect(mockDb.updateFileCache).toHaveBeenCalledWith('msg123', {
         status: 'downloaded',

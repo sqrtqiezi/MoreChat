@@ -219,7 +219,8 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted, o
       return <FileMessage msgId={msgId} displayContent={content} />;
     }
 
-    // Non-text messages: gray italic style
+    // Non-text messages: gray italic style (hide empty unknown messages)
+    if (!content) return null;
     return <span className="text-gray-500 italic">{content}</span>;
   };
 
