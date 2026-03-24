@@ -88,9 +88,10 @@ function ReferImage({ msgId }: { msgId: string }) {
 interface MessageItemProps {
   message: Message;
   isHighlighted?: boolean;
+  onReply?: () => void;
 }
 
-export const MessageItem = memo(function MessageItem({ message, isHighlighted }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ message, isHighlighted, onReply }: MessageItemProps) {
   const { isMine, senderName, content, timestamp, status, displayType, id: msgId } = message;
   const [showImage, setShowImage] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -220,6 +221,18 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
   // Get first letter for avatar
   const avatarLetter = senderName.charAt(0).toUpperCase();
 
+  const replyButton = onReply ? (
+    <button
+      onClick={onReply}
+      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 flex-shrink-0 self-center"
+      title="回复"
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+      </svg>
+    </button>
+  ) : null;
+
   // Generate gradient color based on sender name
   const getGradient = (name: string) => {
     const colors = [
@@ -259,7 +272,8 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
   if (isMine) {
     // Right-aligned (my messages)
     return (
-      <div className={`flex justify-end items-start gap-3 px-6 py-3 animate-fade-in ${highlightClass}`}>
+      <div className={`group flex justify-end items-start gap-3 px-6 py-3 animate-fade-in ${highlightClass}`}>
+        {replyButton}
         <div className="flex flex-col items-end max-w-[70%]">
         <div className="flex items-center gap-2 mb-1">
           {getStatusDisplay()}
@@ -285,7 +299,7 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
 
   // Left-aligned (other's messages)
   return (
-    <div className={`flex justify-start items-start gap-3 px-6 py-3 animate-fade-in ${highlightClass}`}>
+    <div className={`group flex justify-start items-start gap-3 px-6 py-3 animate-fade-in ${highlightClass}`}>
       <div
         className={`w-10 h-10 rounded-full bg-gradient-to-br ${getGradient(
           senderName
@@ -305,6 +319,7 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted }:
           {renderContent()}
         </div>
       </div>
+      {replyButton}
     </div>
   );
 });

@@ -1,14 +1,22 @@
+import { useState, useEffect } from 'react';
 import { ChatHeader } from './ChatHeader';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { useConversations } from '../../hooks/useConversations';
+import type { Message } from '../../types';
 
 interface ChatWindowProps {
   selectedConversationId: string | null;
 }
 
 export function ChatWindow({ selectedConversationId }: ChatWindowProps) {
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const { data: conversations } = useConversations();
+
+  // Clear reply state when switching conversations
+  useEffect(() => {
+    setReplyingTo(null);
+  }, [selectedConversationId]);
 
   // Find selected conversation from real API data
   const selectedConversation = conversations?.find(
@@ -50,8 +58,15 @@ export function ChatWindow({ selectedConversationId }: ChatWindowProps) {
         conversationType={selectedConversation.type}
         memberCount={selectedConversation.memberCount}
       />
-      <MessageList conversationId={selectedConversationId} />
-      <MessageInput conversationId={selectedConversationId} />
+      <MessageList
+        conversationId={selectedConversationId}
+        onReply={(message) => setReplyingTo(message)}
+      />
+      <MessageInput
+        conversationId={selectedConversationId}
+        replyingTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+      />
     </div>
   );
 }

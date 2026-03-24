@@ -5,14 +5,16 @@ import { useMessages } from '../../hooks/useMessages';
 import { useMessageScroll } from '../../hooks/useMessageScroll';
 import { MessageSkeleton } from '../common/Skeleton';
 import { EmptyState } from '../common/EmptyState';
+import type { Message } from '../../types';
 
 interface MessageListProps {
   conversationId: string | null;
+  onReply?: (message: Message) => void;
 }
 
 const SCROLL_TOP_THRESHOLD = 50; // px
 
-export function MessageList({ conversationId }: MessageListProps) {
+export function MessageList({ conversationId, onReply }: MessageListProps) {
   const { messages, hasMore, isLoading, error, loadMore, trimToLatest, highlightedIds } = useMessages(conversationId);
   const { scrollRef, checkIsAtBottom, setIsAtBottom } = useMessageScroll(messages?.length, conversationId);
 
@@ -107,7 +109,7 @@ export function MessageList({ conversationId }: MessageListProps) {
                 transform: `translateY(${virtualItem.start}px)`,
               }}
             >
-              <MessageItem message={messages[virtualItem.index]} isHighlighted={highlightedIds.includes(messages[virtualItem.index].id)} />
+              <MessageItem message={messages[virtualItem.index]} isHighlighted={highlightedIds.includes(messages[virtualItem.index].id)} onReply={onReply ? () => onReply(messages[virtualItem.index]) : undefined} />
             </div>
           ))}
         </div>

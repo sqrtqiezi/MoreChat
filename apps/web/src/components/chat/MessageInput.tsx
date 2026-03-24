@@ -4,13 +4,16 @@ import { useSendImage } from '../../hooks/useSendImage';
 import { compressImage } from '../../utils/imageCompression';
 import { ImageInput } from './ImageInput';
 import { ImagePreview } from './ImagePreview';
+import type { Message } from '../../types';
 
 interface MessageInputProps {
   conversationId: string | null;
   disabled?: boolean;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
 }
 
-export function MessageInput({ conversationId, disabled = false }: MessageInputProps) {
+export function MessageInput({ conversationId, disabled = false, replyingTo = null, onCancelReply = () => {} }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState<string>('');
@@ -63,10 +66,16 @@ export function MessageInput({ conversationId, disabled = false }: MessageInputP
     const trimmedContent = content.trim();
     if (trimmedContent && !disabled && !isPending && conversationId) {
       sendMessage(
-        { conversationId, content: trimmedContent },
+        {
+          conversationId,
+          content: trimmedContent,
+          replyToMsgId: replyingTo?.id,
+          replyingTo: replyingTo || undefined,
+        },
         {
           onSuccess: () => {
             setContent('');
+            onCancelReply();
             // Reset textarea height
             if (textareaRef.current) {
               textareaRef.current.style.height = 'auto';
@@ -124,6 +133,22 @@ export function MessageInput({ conversationId, disabled = false }: MessageInputP
 
   return (
     <div className="border-t border-gray-200 bg-white px-6 py-4">
+      {replyingTo && (
+        <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-gray-50 border-l-2 border-blue-500 rounded">
+          <div className="flex-1 min-w-0">
+            <span className="text-xs text-blue-600 font-medium">{replyingTo.senderName}</span>
+            <p className="text-sm text-gray-500 truncate">{replyingTo.content}</p>
+          </div>
+          <button
+            onClick={onCancelReply}
+            className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
       {(error || imageError) && (
         <div className="mb-2 text-red-500 text-sm">
           {imageError || '发送失败，请重试'}
