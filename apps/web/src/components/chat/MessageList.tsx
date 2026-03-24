@@ -76,6 +76,11 @@ export function MessageList({ conversationId, onReply }: MessageListProps) {
     }
   }, [isAtBottom, unreadCount, resetUnreadCount]);
 
+  // 切换会话时重置未读计数
+  useEffect(() => {
+    resetUnreadCount();
+  }, [conversationId, resetUnreadCount]);
+
   if (isLoading) {
     return (
       <div className="flex-1 overflow-y-auto bg-gray-50">

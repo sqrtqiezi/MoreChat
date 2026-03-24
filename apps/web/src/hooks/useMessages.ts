@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import { chatApi } from '../api/chat';
 import type { Message } from '../types';
 import { hasPendingMsgId } from '../utils/pendingMessages';
+import { useChatStore } from '../stores/chatStore';
 
 const HIGHLIGHT_DURATION = 2000; // ms
 
@@ -77,8 +78,9 @@ export function useMessages(conversationId: string | null) {
 
   // 追加新消息（WebSocket 推送用）
   const appendMessage = useCallback(
-    (message: Message, isAtBottom: boolean) => {
+    (message: Message) => {
       if (!conversationId) return;
+      const isAtBottom = useChatStore.getState().isAtBottom;
       queryClient.setQueryData<MessageQueryData>(
         ['messages', conversationId], (old) => {
         if (!old) return { messages: [message], hasMore: false, highlightedIds: [message.id], unreadCount: 0 };
