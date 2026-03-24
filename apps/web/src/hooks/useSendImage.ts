@@ -1,5 +1,3 @@
-// ABOUTME: React Query hook for sending image messages with optimistic updates
-// ABOUTME: Handles image upload, UI feedback, and cache synchronization
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatApi, getCurrentUser } from '../api/chat';
 import { addPendingMsgId } from '../utils/pendingMessages';
@@ -14,6 +12,7 @@ interface MessageQueryData {
   messages: Message[];
   hasMore: boolean;
   highlightedIds: string[];
+  unreadCount: number;
 }
 
 export function useSendImage() {
@@ -27,8 +26,9 @@ export function useSendImage() {
 
       const currentUser = await getCurrentUser();
 
+      const tempId = `temp-${Date.now()}`;
       const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         conversationId: variables.conversationId,
         senderId: currentUser.username,
         senderName: '我',
@@ -44,16 +44,13 @@ export function useSendImage() {
         ['messages', variables.conversationId],
         (old) => {
           if (!old) {
-            return { messages: [tempMessage], hasMore: false, highlightedIds: [] };
+            return { messages: [tempMessage], hasMore: false, highlightedIds: [], unreadCount: 0 };
           }
-          return {
-            ...old,
-            messages: [...old.messages, tempMessage],
-          };
+          return { ...old, messages: [...old.messages, tempMessage] };
         }
       );
 
-      return { tempMessage };
+      return { tempId };
     },
 
     onSuccess: (data, variables, context) => {
@@ -66,15 +63,15 @@ export function useSendImage() {
           return {
             ...old,
             messages: old.messages.map((msg) =>
-              msg.id === context.tempMessage.id
-                ? { ...data, status: 'sent' as const }
+              msg.id === context.tempId
+                ? { ...msg, id: data.msgId, status: 'sent' as const }
                 : msg
             ),
           };
         }
       );
 
-      addPendingMsgId(data.id);
+      addPendingMsgId(data.msgId);
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
 
@@ -88,7 +85,7 @@ export function useSendImage() {
           return {
             ...old,
             messages: old.messages.map((msg) =>
-              msg.id === context.tempMessage.id
+              msg.id === context.tempId
                 ? { ...msg, status: 'failed' as const }
                 : msg
             ),

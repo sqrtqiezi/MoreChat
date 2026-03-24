@@ -7,7 +7,6 @@ interface SendMessageData {
   conversationId: string;
   content: string;
   replyToMsgId?: string;
-  // 用于乐观更新的引用消息信息（不发送到后端）
   replyingTo?: Message;
 }
 
@@ -15,6 +14,7 @@ interface MessageQueryData {
   messages: Message[];
   hasMore: boolean;
   highlightedIds: string[];
+  unreadCount: number;
 }
 
 export function useSendMessage() {
@@ -28,16 +28,14 @@ export function useSendMessage() {
     }),
 
     onMutate: async (variables) => {
-      // 取消正在进行的查询，避免覆盖乐观更新
       await queryClient.cancelQueries({ queryKey: ['messages', variables.conversationId] });
 
-      // 获取当前用户信息
       const currentUser = await getCurrentUser();
 
-      // 构造临时消息
       const isQuote = !!variables.replyingTo;
+      const tempId = `temp-${Date.now()}`;
       const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         conversationId: variables.conversationId,
         senderId: currentUser.username,
         senderName: '我',
@@ -55,28 +53,23 @@ export function useSendMessage() {
         } : undefined,
       };
 
-      // 乐观插入到缓存
       queryClient.setQueryData<MessageQueryData>(
         ['messages', variables.conversationId],
         (old) => {
           if (!old) {
-            return { messages: [tempMessage], hasMore: false, highlightedIds: [] };
+            return { messages: [tempMessage], hasMore: false, highlightedIds: [], unreadCount: 0 };
           }
-          return {
-            ...old,
-            messages: [...old.messages, tempMessage],
-          };
+          return { ...old, messages: [...old.messages, tempMessage] };
         }
       );
 
-      // 返回上下文，用于回滚
-      return { tempMessage };
+      return { tempId };
     },
 
     onSuccess: (data, variables, context) => {
       if (!context) return;
 
-      // 用真实 msgId 替换临时消息
+      // 用真实 msgId 更新临时消息，保持乐观内容，等 WebSocket 替换完整数据
       queryClient.setQueryData<MessageQueryData>(
         ['messages', variables.conversationId],
         (old) => {
@@ -84,25 +77,23 @@ export function useSendMessage() {
           return {
             ...old,
             messages: old.messages.map((msg) =>
-              msg.id === context.tempMessage.id
-                ? { ...data, status: 'sent' as const }
+              msg.id === context.tempId
+                ? { ...msg, id: data.msgId, status: 'sent' as const }
                 : msg
             ),
           };
         }
       );
 
-      // 将真实 msgId 加入 pending 集合
-      addPendingMsgId(data.id);
+      // 将真实 msgId 加入 pending 集合，防止 WebSocket 重复追加
+      addPendingMsgId(data.msgId);
 
-      // 刷新会话列表
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
 
     onError: (_error, variables, context) => {
       if (!context) return;
 
-      // 标记消息为失败
       queryClient.setQueryData<MessageQueryData>(
         ['messages', variables.conversationId],
         (old) => {
@@ -110,7 +101,7 @@ export function useSendMessage() {
           return {
             ...old,
             messages: old.messages.map((msg) =>
-              msg.id === context.tempMessage.id
+              msg.id === context.tempId
                 ? { ...msg, status: 'failed' as const }
                 : msg
             ),

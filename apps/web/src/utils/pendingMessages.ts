@@ -26,3 +26,9 @@ export const removePendingMsgId = (msgId: string) => {
     timeouts.delete(msgId)
   }
 }
+
+export const consumePendingMsgId = (msgId: string): boolean => {
+  if (!pendingMsgIds.has(msgId)) return false
+  removePendingMsgId(msgId)
+  return true
+}

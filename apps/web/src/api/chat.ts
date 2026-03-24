@@ -208,8 +208,8 @@ export const chatApi = {
   },
 
   // POST /api/messages/send - 发送消息
-  async sendMessage(data: SendMessageData): Promise<Message> {
-    const response = await client.post<ApiResponse<{ message: ApiMessage }>>(
+  async sendMessage(data: SendMessageData): Promise<{ msgId: string }> {
+    const response = await client.post<ApiResponse<{ msgId: string }>>(
       '/messages/send',
       data
     );
@@ -218,16 +218,16 @@ export const chatApi = {
       throw new Error(response.data.error?.message || 'Failed to send message');
     }
 
-    return mapMessage(response.data.data.message, data.conversationId, new Map());
+    return response.data.data;
   },
 
   // POST /api/messages/send-image - 发送图片消息
-  async sendImage(data: { conversationId: string; imageFile: File }): Promise<Message> {
+  async sendImage(data: { conversationId: string; imageFile: File }): Promise<{ msgId: string }> {
     const formData = new FormData();
     formData.append('conversationId', data.conversationId);
     formData.append('image', data.imageFile);
 
-    const response = await client.post<ApiResponse<{ message: ApiMessage }>>(
+    const response = await client.post<ApiResponse<{ msgId: string }>>(
       '/messages/send-image',
       formData,
       {
@@ -240,7 +240,7 @@ export const chatApi = {
       throw new Error(response.data.error?.message || 'Failed to send image');
     }
 
-    return mapMessage(response.data.data.message, data.conversationId, new Map());
+    return response.data.data;
   },
 
   // PUT /api/conversations/:id/read - 标记会话为已读
