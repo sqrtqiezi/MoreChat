@@ -31,7 +31,7 @@ function extractDomain(url: string): string {
 }
 
 export function LinkMessage({ displayContent }: LinkMessageProps) {
-  const { title, url, des } = parseLinkContent(displayContent)
+  const { title, url } = parseLinkContent(displayContent)
   const domain = extractDomain(url)
 
   const handleClick = () => {
