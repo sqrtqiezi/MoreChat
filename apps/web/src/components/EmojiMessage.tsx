@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getWebSocketClient } from '../api/websocket'
+import client from '../api/client'
 import styles from './EmojiMessage.module.css'
 
 interface EmojiMessageProps {
@@ -32,12 +33,9 @@ export function EmojiMessage({ msgId, displayContent }: EmojiMessageProps) {
 
   const fetchEmojiUrl = async () => {
     try {
-      const response = await fetch(`/api/messages/${msgId}/emoji`)
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.data.ossUrl) {
-          setEmojiUrl(result.data.ossUrl)
-        }
+      const response = await client.get<{ success: boolean; data: { ossUrl: string } }>(`/messages/${msgId}/emoji`)
+      if (response.data.success && response.data.data.ossUrl) {
+        setEmojiUrl(response.data.data.ossUrl)
       }
     } catch (error) {
       console.error('Failed to fetch emoji URL:', error)
