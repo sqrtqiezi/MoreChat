@@ -12,7 +12,7 @@ export function NewMessageIndicator({ count, onClick }: NewMessageIndicatorProps
       className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10
         bg-blue-500 hover:bg-blue-600 text-white text-sm
         px-4 py-2 rounded-full shadow-lg
-        transition-all duration-200
+        transition-all duration-200 animate-slide-up
         cursor-pointer"
     >
       ↓ {count} 条新消息
