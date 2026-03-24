@@ -14,6 +14,7 @@ interface MessageQueryData {
   messages: Message[];
   hasMore: boolean;
   highlightedIds: string[];
+  unreadCount: number;
 }
 
 export function useMessages(conversationId: string | null) {
@@ -26,7 +27,7 @@ export function useMessages(conversationId: string | null) {
       const response = await chatApi.getMessages(conversationId!, {
         limit: PAGE_SIZE,
       });
-      return { messages: response.messages, hasMore: response.hasMore, highlightedIds: [] as string[] };
+      return { messages: response.messages, hasMore: response.hasMore, highlightedIds: [] as string[], unreadCount: 0 };
     },
     enabled: !!conversationId,
   });
@@ -55,6 +56,7 @@ export function useMessages(conversationId: string | null) {
             messages: response.messages,
             hasMore: response.hasMore,
             highlightedIds: [],
+            unreadCount: 0,
           };
         // 去重后拼接到头部
         const existingIds = new Set(old.messages.map((m) => m.id));
@@ -65,6 +67,7 @@ export function useMessages(conversationId: string | null) {
           messages: [...newMessages, ...old.messages],
           hasMore: response.hasMore,
           highlightedIds: old.highlightedIds,
+          unreadCount: old.unreadCount,
         };
       });
     } finally {
@@ -74,17 +77,18 @@ export function useMessages(conversationId: string | null) {
 
   // 追加新消息（WebSocket 推送用）
   const appendMessage = useCallback(
-    (message: Message) => {
+    (message: Message, isAtBottom: boolean) => {
       if (!conversationId) return;
       queryClient.setQueryData<MessageQueryData>(
         ['messages', conversationId], (old) => {
-        if (!old) return { messages: [message], hasMore: false, highlightedIds: [message.id] };
+        if (!old) return { messages: [message], hasMore: false, highlightedIds: [message.id], unreadCount: 0 };
         // 按 msgId 去重
         if (old.messages.some((m) => m.id === message.id) || hasPendingMsgId(message.id)) return old;
         return {
           messages: [...old.messages, message],
           hasMore: old.hasMore,
           highlightedIds: [...old.highlightedIds, message.id],
+          unreadCount: isAtBottom ? 0 : old.unreadCount + 1,
         };
       });
 
@@ -115,11 +119,22 @@ export function useMessages(conversationId: string | null) {
         messages: trimmed,
         hasMore: true,
         highlightedIds: old.highlightedIds.filter((id) => trimmedIds.has(id)),
+        unreadCount: old.unreadCount,
       };
     });
   }, [conversationId, queryClient]);
 
+  const resetUnreadCount = useCallback(() => {
+    if (!conversationId) return;
+    queryClient.setQueryData<MessageQueryData>(
+      ['messages', conversationId], (old) => {
+      if (!old || old.unreadCount === 0) return old;
+      return { ...old, unreadCount: 0 };
+    });
+  }, [conversationId, queryClient]);
+
   const highlightedIds = query.data?.highlightedIds ?? [];
+  const unreadCount = query.data?.unreadCount ?? 0;
 
   return {
     messages: query.data?.messages,
@@ -130,5 +145,7 @@ export function useMessages(conversationId: string | null) {
     appendMessage,
     trimToLatest,
     highlightedIds,
+    unreadCount,
+    resetUnreadCount,
   };
 }

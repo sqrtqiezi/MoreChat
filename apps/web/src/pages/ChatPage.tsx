@@ -10,6 +10,7 @@ import type { ApiMessage } from '../api/chat';
 
 export function ChatPage() {
   const selectedConversationId = useChatStore((state) => state.selectedConversationId);
+  const isAtBottom = useChatStore((s) => s.isAtBottom);
   const queryClient = useQueryClient();
 
   // useMessages for the selected conversation (to get appendMessage)
@@ -24,7 +25,7 @@ export function ChatPage() {
         if (conversationId === selectedConversationId) {
           // 当前会话：追加消息到缓存
           const mapped = mapMessage(message as ApiMessage, conversationId, contactNameCache);
-          appendMessage(mapped);
+          appendMessage(mapped, isAtBottom);
         }
 
         // 更新侧边栏会话列表
@@ -55,7 +56,7 @@ export function ChatPage() {
         queryClient.invalidateQueries({ queryKey: ['directory'] });
       }
     },
-    [selectedConversationId, queryClient, appendMessage]
+    [selectedConversationId, queryClient, appendMessage, isAtBottom]
   );
 
   const handleReconnect = useCallback(() => {
