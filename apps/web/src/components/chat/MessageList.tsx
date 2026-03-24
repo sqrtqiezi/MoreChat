@@ -4,6 +4,7 @@ import { MessageItem } from './MessageItem';
 import { useMessages } from '../../hooks/useMessages';
 import { useMessageScroll } from '../../hooks/useMessageScroll';
 import { useChatStore } from '../../stores/chatStore';
+import { NewMessageIndicator } from './NewMessageIndicator';
 import { MessageSkeleton } from '../common/Skeleton';
 import { EmptyState } from '../common/EmptyState';
 import type { Message } from '../../types';
@@ -16,8 +17,8 @@ interface MessageListProps {
 const SCROLL_TOP_THRESHOLD = 50; // px
 
 export function MessageList({ conversationId, onReply }: MessageListProps) {
-  const { messages, hasMore, isLoading, error, loadMore, trimToLatest, highlightedIds } = useMessages(conversationId);
-  const { scrollRef, checkIsAtBottom, setIsAtBottom } = useMessageScroll(messages?.length, conversationId);
+  const { messages, hasMore, isLoading, error, loadMore, trimToLatest, highlightedIds, unreadCount, resetUnreadCount } = useMessages(conversationId);
+  const { scrollRef, isAtBottom, checkIsAtBottom, setIsAtBottom, scrollToBottom } = useMessageScroll(messages?.length, conversationId);
   const storeSetIsAtBottom = useChatStore((s) => s.setIsAtBottom);
 
   const virtualizer = useVirtualizer({
@@ -61,6 +62,19 @@ export function MessageList({ conversationId, onReply }: MessageListProps) {
     el.addEventListener('scroll', handleScroll);
     return () => el.removeEventListener('scroll', handleScroll);
   }, [handleScroll, scrollRef]);
+
+  const handleNewMessageClick = useCallback(() => {
+    scrollToBottom();
+    resetUnreadCount();
+    setIsAtBottom(true);
+    storeSetIsAtBottom(true);
+  }, [scrollToBottom, resetUnreadCount, setIsAtBottom, storeSetIsAtBottom]);
+
+  useEffect(() => {
+    if (isAtBottom && unreadCount > 0) {
+      resetUnreadCount();
+    }
+  }, [isAtBottom, unreadCount, resetUnreadCount]);
 
   if (isLoading) {
     return (
@@ -117,6 +131,7 @@ export function MessageList({ conversationId, onReply }: MessageListProps) {
           ))}
         </div>
       </div>
+      <NewMessageIndicator count={unreadCount} onClick={handleNewMessageClick} />
     </div>
   );
 }
