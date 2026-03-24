@@ -353,5 +353,49 @@ describe('MessageService', () => {
       expect(result.chatroomSender).toBe('test-guid-123')
       expect(adapter.sendTextMessage).toHaveBeenCalledWith('12345@chatroom', '群消息')
     })
+
+    it('should send refer message when replyToMsgId is provided', async () => {
+      vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'text_123' })
+      vi.spyOn(adapter, 'sendReferMessage').mockResolvedValue({ msgId: 'refer_456' })
+
+      // 创建联系人和会话
+      const sender = await db.createContact({
+        username: 'wxid_sender',
+        nickname: 'Sender',
+        type: 'friend',
+      })
+      const target = await db.createContact({
+        username: 'wxid_target',
+        nickname: 'Target User',
+        type: 'friend',
+      })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'private',
+        contactId: target.id,
+      })
+
+      // 先发送一条原始消息（模拟被引用的消息）
+      const originalResult = await messageService.sendMessage(conversation.id, '原始消息')
+
+      // 发送引用消息
+      const result = await messageService.sendMessage(conversation.id, '回复内容', originalResult.msgId)
+
+      expect(result.msgId).toBe('refer_456')
+      expect(result.displayType).toBe('quote')
+      expect(result.referMsg).toBeDefined()
+      expect(result.referMsg!.msgId).toBe(originalResult.msgId)
+      expect(result.referMsg!.content).toBe('原始消息')
+      expect(adapter.sendReferMessage).toHaveBeenCalledWith(expect.objectContaining({
+        toUsername: 'wxid_target',
+        content: '回复内容',
+        referMsg: expect.objectContaining({
+          msgId: originalResult.msgId,
+          msgType: 1,
+          content: '原始消息',
+        }),
+      }))
+    })
   })
 })

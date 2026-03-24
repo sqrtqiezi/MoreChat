@@ -261,7 +261,7 @@ export class MessageService {
     }
   }
 
-  async sendMessage(conversationId: string, content: string): Promise<{
+  async sendMessage(conversationId: string, content: string, replyToMsgId?: string): Promise<{
     msgId: string
     msgType: number
     fromUsername: string
@@ -271,6 +271,12 @@ export class MessageService {
     chatroomSender?: string
     displayType: string
     displayContent: string
+    referMsg?: {
+      type: number
+      senderName: string
+      content: string
+      msgId: string
+    }
   }> {
     // 1. 获取会话信息
     const conversation = await this.db.findConversationById(conversationId)
@@ -290,23 +296,61 @@ export class MessageService {
       toUsername = contact.username
     }
 
-    // 3. 发送消息
-    const { msgId } = await this.adapter.sendTextMessage(toUsername, content)
+    // 3. 发送消息（普通文本 or 引用）
+    let msgId: string
+    let displayType = 'text'
+    let referMsgResult: { type: number; senderName: string; content: string; msgId: string } | undefined
+
+    if (replyToMsgId) {
+      // 获取被引用消息信息
+      const refIndex = await this.db.findMessageIndexByMsgId(replyToMsgId)
+      if (!refIndex) {
+        throw new Error('Referenced message not found')
+      }
+      const refMessage = await this.dataLake.getMessage(refIndex.dataLakeKey)
+      const refSender = refIndex.chatroomSender || refIndex.fromUsername
+      const refContact = await this.db.findContactByUsername(refSender)
+      const refNickname = refContact?.remark || refContact?.nickname || refSender
+
+      const result = await this.adapter.sendReferMessage({
+        toUsername,
+        content,
+        referMsg: {
+          msgType: refMessage.msg_type,
+          msgId: replyToMsgId,
+          fromUsername: refSender,
+          fromNickname: refNickname,
+          source: refMessage.source || '',
+          content: refMessage.content,
+        },
+      })
+      msgId = result.msgId
+      displayType = 'quote'
+      referMsgResult = {
+        type: refMessage.msg_type,
+        senderName: refNickname,
+        content: refMessage.content,
+        msgId: replyToMsgId,
+      }
+    } else {
+      const result = await this.adapter.sendTextMessage(toUsername, content)
+      msgId = result.msgId
+    }
 
     // 4. 保存到 DataLake
     const createTime = Math.floor(Date.now() / 1000)
     const chatMessage: ChatMessage = {
       msg_id: msgId,
-      from_username: this.clientUsername,  // 修改：使用真实用户名
+      from_username: this.clientUsername,
       to_username: toUsername,
       content,
       create_time: createTime,
-      msg_type: 1,
-      chatroom_sender: '',
+      msg_type: replyToMsgId ? 49 : 1,
+      chatroom_sender: conversation.type === 'group' ? this.clientUsername : '',
       desc: '',
       is_chatroom_msg: conversation.type === 'group' ? 1 : 0,
       chatroom: conversation.type === 'group' ? toUsername : '',
-      source: ''
+      source: '',
     }
 
     const dataLakeKey = await this.dataLake.saveMessage(conversationId, chatMessage)
@@ -315,11 +359,11 @@ export class MessageService {
     await this.db.createMessageIndex({
       conversationId,
       msgId,
-      msgType: 1,
-      fromUsername: this.clientUsername,  // 修改：使用真实用户名
+      msgType: replyToMsgId ? 49 : 1,
+      fromUsername: this.clientUsername,
       toUsername,
       createTime,
-      dataLakeKey
+      dataLakeKey,
     })
 
     // 6. 更新会话最后消息时间
@@ -327,14 +371,15 @@ export class MessageService {
 
     return {
       msgId,
-      msgType: 1,
+      msgType: replyToMsgId ? 49 : 1,
       fromUsername: this.clientUsername,
       toUsername,
       content,
       createTime,
       chatroomSender: conversation.type === 'group' ? this.clientUsername : undefined,
-      displayType: 'text',
+      displayType,
       displayContent: content,
+      referMsg: referMsgResult,
     }
   }
 
