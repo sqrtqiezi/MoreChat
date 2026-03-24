@@ -389,11 +389,12 @@ export class MessageService {
     })
 
     const createTime = Math.floor(Date.now() / 1000)
+    const imageXml = `<msg><img aeskey="${cdnResult.aesKey}" cdnmidimgurl="${cdnResult.fileId}" encryver="1" length="${cdnResult.fileSize}" hdlength="${cdnResult.fileSize}"/></msg>`
     const chatMessage: ChatMessage = {
       msg_id: msgId,
       from_username: this.clientUsername,
       to_username: toUsername,
-      content: '',
+      content: imageXml,
       create_time: createTime,
       msg_type: 3,
       chatroom_sender: conversation.type === 'group' ? this.clientUsername : '',

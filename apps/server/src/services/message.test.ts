@@ -4,6 +4,7 @@ import { DatabaseService } from './database.js'
 import { DataLakeService } from './dataLake.js'
 import { JuhexbotAdapter } from './juhexbotAdapter.js'
 import { OssService } from './ossService.js'
+import { parseImageXml } from './messageContentProcessor.js'
 import { textMessage, messageRecall, appMessage } from '../../../../tests/fixtures/messages.js'
 import fs from 'fs/promises'
 import path from 'path'
@@ -247,6 +248,46 @@ describe('MessageService', () => {
       const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
       expect(indexes.length).toBe(1)
       expect(indexes[0].msgType).toBe(3)
+    })
+
+    it('should save image XML content to DataLake so getImageUrl can parse it', async () => {
+      vi.mocked(sharp).mockReturnValue({
+        metadata: vi.fn().mockResolvedValue({ width: 800, height: 600 })
+      } as any)
+
+      vi.spyOn(ossService, 'uploadImage').mockResolvedValue('https://oss.example.com/image.jpg')
+      vi.spyOn(adapter, 'uploadImageToCdn').mockResolvedValue({
+        fileId: 'cdn_file_123',
+        aesKey: 'test_aes_key',
+        fileSize: 12345,
+        fileMd5: 'test_md5'
+      })
+      vi.spyOn(adapter, 'sendImageMessage').mockResolvedValue({ msgId: 'img_msg_123' })
+
+      const contact = await db.createContact({
+        username: 'wxid_target',
+        nickname: 'Target User',
+        type: 'friend'
+      })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      const imageBuffer = Buffer.from('fake-image-data')
+      await messageService.sendImageMessage(conversation.id, imageBuffer, 'test.jpg')
+
+      // Verify DataLake content contains parseable image XML
+      const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
+      const message = await dataLake.getMessage(indexes[0].dataLakeKey)
+
+      expect(message.content).not.toBe('')
+      const imageInfo = parseImageXml(message.content)
+      expect(imageInfo).not.toBeNull()
+      expect(imageInfo!.aesKey).toBe('test_aes_key')
+      expect(imageInfo!.fileId).toBe('cdn_file_123')
     })
   })
 

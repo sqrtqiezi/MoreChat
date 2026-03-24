@@ -8,8 +8,17 @@ import { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import { WebSocketService } from './services/websocket.js'
 import { ClientService } from './services/clientService.js'
 import { ConversationService } from './services/conversationService.js'
+import { OssService } from './services/ossService.js'
+import { EmojiService } from './services/emojiService.js'
+import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
+import { ImageService } from './services/imageService.js'
+import { DirectoryService } from './services/directoryService.js'
+// ContactSyncService requires wsService at construction time, stub it for integration tests
 import { createApp } from './app.js'
 import type { Server } from 'http'
+
+import fs from 'fs/promises'
+import path from 'path'
 
 const TEST_PASSWORD = 'test123'
 const TEST_PASSWORD_HASH = '$2b$10$zC.9OzD0p0tx9b/w8pU2K.ijNk2vjHM4YU0.PxJBvKNkUZ85tqTtu'
@@ -24,15 +33,23 @@ describeIfSocketsAvailable('Integration Tests', () => {
   let baseUrl: string
   let wsUrl: string
   let authToken: string
+  const testDir = path.join(process.cwd(), 'test-integration')
+  const testDbPath = path.join(testDir, 'test.db')
+  const testLakePath = path.join(testDir, 'lake')
 
   beforeAll(async () => {
+    await fs.mkdir(testDir, { recursive: true })
+
     const dataLakeService = new DataLakeService({
       type: 'filesystem',
-      path: './data/test-datalake'
+      path: testLakePath
     })
 
-    databaseService = new DatabaseService()
+    databaseService = new DatabaseService(`file:${testDbPath}`)
     await databaseService.connect()
+
+    // Create test client
+    await databaseService.createClient({ guid: 'test-guid' })
 
     const juhexbotAdapter = new JuhexbotAdapter({
       apiUrl: 'https://test.api.com',
@@ -42,27 +59,62 @@ describeIfSocketsAvailable('Integration Tests', () => {
       cloudApiUrl: 'https://test.cloud.com'
     })
 
+    const ossService = new OssService({
+      region: 'test-region',
+      bucket: 'test-bucket',
+      accessKeyId: 'test-key',
+      accessKeySecret: 'test-secret',
+      endpoint: 'test.endpoint.com'
+    })
+
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
-    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter)
+    const emojiService = new EmojiService(databaseService, juhexbotAdapter, ossService)
+    const imageService = new ImageService(databaseService.prisma, dataLakeService, juhexbotAdapter)
+    const directoryService = new DirectoryService(databaseService)
 
     // wsService 需要在 server 创建后初始化，用 getter 延迟访问
     let _wsService: WebSocketService
 
+    const contactSyncService = {
+      syncGroup: async () => {},
+      syncContact: async () => {},
+    } as any
+
+    const emojiQueue = new EmojiDownloadQueue(emojiService, { broadcast: () => {}, sendToClient: () => {} } as any)
+    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, 'test-guid', ossService, emojiService, emojiQueue)
+
     const app = createApp({
       clientService,
       conversationService,
+      directoryService,
       messageService,
+      imageService,
+      emojiService,
+      contactSyncService,
       juhexbotAdapter,
       get wsService() { return _wsService },
       clientGuid: 'test-guid',
+      userProfile: {
+        username: 'test-guid',
+        nickname: 'Test User',
+      },
       auth: {
         passwordHash: TEST_PASSWORD_HASH,
         jwtSecret: TEST_JWT_SECRET,
       },
-    } as any)
+    })
 
     server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' })
+
+    // Wait for server to start listening
+    await new Promise<void>((resolve) => {
+      if (server.listening) {
+        resolve()
+      } else {
+        server.on('listening', resolve)
+      }
+    })
 
     const address = server.address()
     if (!address || typeof address === 'string') {
@@ -89,6 +141,7 @@ describeIfSocketsAvailable('Integration Tests', () => {
     wsService?.close()
     await databaseService?.disconnect()
     server?.close()
+    await fs.rm(testDir, { recursive: true, force: true })
   })
 
   describe('HTTP Health Check', () => {
