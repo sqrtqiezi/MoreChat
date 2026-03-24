@@ -51,7 +51,7 @@ describe('message routes', () => {
       expect(body.data.message).toBeDefined()
       expect(body.data.message.msgId).toBe('sent_123')
       expect(body.data.message.msgType).toBe(1)
-      expect(mockMessageService.sendMessage).toHaveBeenCalledWith('conv_1', '你好')
+      expect(mockMessageService.sendMessage).toHaveBeenCalledWith('conv_1', '你好', undefined)
     })
 
     it('should return 400 when missing parameters', async () => {
@@ -80,6 +80,30 @@ describe('message routes', () => {
 
       expect(res.status).toBe(500)
       expect(body.success).toBe(false)
+    })
+
+    it('should pass replyToMsgId to messageService.sendMessage', async () => {
+      const mockResult = {
+        msgId: 'refer_789',
+        msgType: 49,
+        fromUsername: 'me',
+        toUsername: 'target',
+        content: '回复',
+        createTime: 1234567890,
+        displayType: 'quote',
+        displayContent: '回复',
+        referMsg: { type: 1, senderName: 'Sender', content: '原始', msgId: 'orig_123' },
+      }
+      vi.mocked(mockMessageService.sendMessage).mockResolvedValue(mockResult)
+
+      const res = await app.request('/api/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: 'conv_1', content: '回复', replyToMsgId: 'orig_123' }),
+      })
+
+      expect(res.status).toBe(200)
+      expect(mockMessageService.sendMessage).toHaveBeenCalledWith('conv_1', '回复', 'orig_123')
     })
   })
 

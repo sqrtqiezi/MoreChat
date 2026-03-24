@@ -17,13 +17,13 @@ export function messageRoutes(deps: MessageRouteDeps) {
   router.post('/send', async (c) => {
     try {
       const body = await c.req.json()
-      const { conversationId, content } = body
+      const { conversationId, content, replyToMsgId } = body
 
       if (!conversationId || !content) {
         return c.json({ success: false, error: { message: 'conversationId and content are required' } }, 400)
       }
 
-      const result = await deps.messageService.sendMessage(conversationId, content)
+      const result = await deps.messageService.sendMessage(conversationId, content, replyToMsgId)
       return c.json({ success: true, data: { message: result } })
     } catch (error) {
       logger.error({ err: error }, 'Failed to send message')
