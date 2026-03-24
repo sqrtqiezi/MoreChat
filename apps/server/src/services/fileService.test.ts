@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FileService } from './fileService.js'
+import { CDN_FILE_TYPE } from './juhexbotAdapter.js'
 import type { DatabaseService } from './database.js'
 import type { JuhexbotAdapter } from './juhexbotAdapter.js'
 import type { OssService } from './ossService.js'
@@ -121,7 +122,7 @@ describe('FileService', () => {
 
       expect(result.ossUrl).toBe('https://oss.com/files/report.pdf')
       expect(result.fileName).toBe('report.pdf')
-      expect(mockAdapter.downloadImage).toHaveBeenCalledWith('aes123', 'cdn456', 'report.pdf.pdf', 5)
+      expect(mockAdapter.downloadImage).toHaveBeenCalledWith('aes123', 'cdn456', 'report.pdf.pdf', CDN_FILE_TYPE.ATTACHMENT)
       expect(mockDb.updateFileCache).toHaveBeenCalledWith('msg123', { status: 'downloading' })
       expect(mockDb.updateFileCache).toHaveBeenCalledWith('msg123', {
         status: 'downloaded',

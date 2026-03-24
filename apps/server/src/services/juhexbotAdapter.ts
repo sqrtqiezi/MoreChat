@@ -1,5 +1,13 @@
 import { logger } from '../lib/logger.js'
 
+/** juhexbot Cloud API file_type 参数 */
+export const CDN_FILE_TYPE = {
+  IMAGE_HD: 1,
+  IMAGE_MID: 2,
+  VIDEO: 4,
+  ATTACHMENT: 5,
+} as const
+
 export interface JuhexbotConfig {
   apiUrl: string
   appKey: string
@@ -402,7 +410,7 @@ export class JuhexbotAdapter {
     return { msgId: String(msgId) }
   }
 
-  async downloadImage(aesKey: string, fileId: string, fileName: string, fileType: number = 2): Promise<string> {
+  async downloadImage(aesKey: string, fileId: string, fileName: string, fileType: number = CDN_FILE_TYPE.IMAGE_MID): Promise<string> {
     const cdnInfo = await this.getCdnInfo()
 
     const baseRequest = {

@@ -5,6 +5,7 @@ import type { PrismaClient } from '@prisma/client'
 import type { DataLakeService } from './dataLake.js'
 import type { JuhexbotAdapter } from './juhexbotAdapter.js'
 import { parseImageXml } from './messageContentProcessor.js'
+import { CDN_FILE_TYPE } from './juhexbotAdapter.js'
 import { logger } from '../lib/logger.js'
 
 export interface ImageUrlResult {
@@ -101,7 +102,7 @@ export class ImageService {
     }
 
     // 7. 调用 Cloud API 下载
-    const fileType = size === 'hd' ? 1 : 2
+    const fileType = size === 'hd' ? CDN_FILE_TYPE.IMAGE_HD : CDN_FILE_TYPE.IMAGE_MID
     logger.info({ msgId, fileId: imageInfo.fileId, size, fileType }, 'Downloading image URL from cloud API')
     const downloadUrl = await this.adapter.downloadImage(
       imageInfo.aesKey,

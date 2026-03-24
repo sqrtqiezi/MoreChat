@@ -1,5 +1,6 @@
 import type { DatabaseService } from './database.js'
 import type { JuhexbotAdapter } from './juhexbotAdapter.js'
+import { CDN_FILE_TYPE } from './juhexbotAdapter.js'
 import type { OssService } from './ossService.js'
 import { parseFileXml } from './messageContentProcessor.js'
 import { logger } from '../lib/logger.js'
@@ -63,7 +64,7 @@ export class FileService {
         cache.aesKey,
         cache.cdnFileId,
         `${cache.fileName}.${cache.fileExt}`,
-        5  // file_type 5 = file attachment (2 = image)
+        CDN_FILE_TYPE.ATTACHMENT
       )
 
       const response = await fetch(tempUrl)
