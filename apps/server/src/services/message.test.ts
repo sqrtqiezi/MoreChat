@@ -359,7 +359,7 @@ describe('MessageService', () => {
       vi.spyOn(adapter, 'sendReferMessage').mockResolvedValue({ msgId: 'refer_456' })
 
       // 创建联系人和会话
-      const sender = await db.createContact({
+      await db.createContact({
         username: 'wxid_sender',
         nickname: 'Sender',
         type: 'friend',
