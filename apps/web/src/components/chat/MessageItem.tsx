@@ -8,6 +8,7 @@ import { ImageLightbox } from './ImageLightbox';
 import { EmojiMessage } from '../EmojiMessage';
 import { WechatEmojiText } from '../WechatEmojiText';
 import { FileMessage } from './FileMessage';
+import { LinkMessage } from './LinkMessage';
 
 function ReferImage({ msgId }: { msgId: string }) {
   const [showImage, setShowImage] = useState(false);
@@ -217,6 +218,10 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted, o
 
     if (displayType === 'file') {
       return <FileMessage msgId={msgId} displayContent={content} />;
+    }
+
+    if (displayType === 'link') {
+      return <LinkMessage displayContent={content} />;
     }
 
     // Non-text messages: gray italic style (hide empty unknown messages)
