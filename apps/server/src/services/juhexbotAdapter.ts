@@ -177,6 +177,51 @@ export class JuhexbotAdapter {
     return { msgId: String(msgId) }
   }
 
+  async sendReferMessage(params: {
+    toUsername: string
+    content: string
+    referMsg: {
+      msgType: number
+      msgId: string
+      fromUsername: string
+      fromNickname: string
+      source: string
+      content: string
+    }
+  }): Promise<{ msgId: string }> {
+    const result = await this.sendRequest('/msg/send_refer_msg', {
+      guid: this.config.clientGuid,
+      to_username: params.toUsername,
+      content: params.content,
+      refer_msg: {
+        msg_type: params.referMsg.msgType,
+        msg_id: params.referMsg.msgId,
+        from_username: params.referMsg.fromUsername,
+        from_nickname: params.referMsg.fromNickname,
+        source: params.referMsg.source,
+        content: params.referMsg.content,
+      },
+    })
+
+    if (result.errcode !== 0) {
+      throw new Error(result.errmsg || 'Failed to send refer message')
+    }
+
+    const msgId =
+      result.data?.msg_id ??
+      result.data?.msgId ??
+      result.data?.newMsgId ??
+      result.data?.list?.[0]?.newMsgId ??
+      result.data?.list?.[0]?.msgId ??
+      result.data?.list?.[0]?.msg_id
+
+    if (!msgId) {
+      throw new Error('Refer message sent but response missing msgId')
+    }
+
+    return { msgId: String(msgId) }
+  }
+
   async setNotifyUrl(notifyUrl: string): Promise<void> {
     const result = await this.sendRequest('/client/set_notify_url', {
       guid: this.config.clientGuid,

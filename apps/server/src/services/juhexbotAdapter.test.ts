@@ -735,4 +735,93 @@ describe('JuhexbotAdapter', () => {
       })).rejects.toThrow('Image sent but response missing msgId')
     })
   })
+
+  describe('sendReferMessage', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should call /msg/send_refer_msg with correct params', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: { msg_id: 'refer_123' }
+        })
+      })
+
+      const result = await adapter.sendReferMessage({
+        toUsername: 'wxid_target',
+        content: '回复内容',
+        referMsg: {
+          msgType: 1,
+          msgId: 'original_123',
+          fromUsername: 'wxid_sender',
+          fromNickname: '发送者',
+          source: '',
+          content: '原始消息内容',
+        },
+      })
+
+      expect(result.msgId).toBe('refer_123')
+      expect(fetch).toHaveBeenCalledWith('http://chat-api.juhebot.com/open/GuidRequest', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('/msg/send_refer_msg'),
+      }))
+
+      // 验证请求体中的 refer_msg 字段
+      const callBody = JSON.parse((fetch as any).mock.calls[0][1].body)
+      expect(callBody.data.refer_msg).toEqual({
+        msg_type: 1,
+        msg_id: 'original_123',
+        from_username: 'wxid_sender',
+        from_nickname: '发送者',
+        source: '',
+        content: '原始消息内容',
+      })
+    })
+
+    it('should throw error when send fails', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 2001,
+          err_msg: 'Client offline'
+        })
+      })
+
+      await expect(adapter.sendReferMessage({
+        toUsername: 'wxid_target',
+        content: '回复内容',
+        referMsg: {
+          msgType: 1,
+          msgId: 'original_123',
+          fromUsername: 'wxid_sender',
+          fromNickname: '发送者',
+          source: '',
+          content: '原始消息内容',
+        },
+      })).rejects.toThrow('Client offline')
+    })
+
+    it('should throw error when response missing msgId', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          errcode: 0,
+          data: {}
+        })
+      })
+
+      await expect(adapter.sendReferMessage({
+        toUsername: 'wxid_target',
+        content: '回复内容',
+        referMsg: {
+          msgType: 1,
+          msgId: 'original_123',
+          fromUsername: 'wxid_sender',
+          fromNickname: '发送者',
+          source: '',
+          content: '原始消息内容',
+        },
+      })).rejects.toThrow('Refer message sent but response missing msgId')
+    })
+  })
 })
