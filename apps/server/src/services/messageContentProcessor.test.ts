@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { processMessageContent, parseImageXml, parseRecallXml, parseEmojiXml } from './messageContentProcessor.js'
+import { processMessageContent, parseImageXml, parseRecallXml, parseEmojiXml, parseFileXml } from './messageContentProcessor.js'
 
 describe('parseRecallXml', () => {
   it('should extract newmsgid from recall XML', () => {
@@ -516,5 +516,147 @@ describe('processType47', () => {
       displayType: 'emoji',
       displayContent: '[表情]'
     })
+  })
+})
+
+describe('Type 49 - File (appmsg type 6)', () => {
+  const fileXml = `<?xml version="1.0"?>
+<msg>
+  <appmsg appid="wx6618f1cfc6c132f8" sdkver="0">
+    <title>Claude Code Cheat Sheet.pdf</title>
+    <type>6</type>
+    <appattach>
+      <totallen>448797</totallen>
+      <attachid>@cdn_305702_1</attachid>
+      <fileext>pdf</fileext>
+      <cdnattachurl>305702abc</cdnattachurl>
+      <aeskey>de1ff3c9945e7d26f96b6a1432bb78ed</aeskey>
+    </appattach>
+    <md5>dcacefe202a72887a574ff53e98b95e6</md5>
+  </appmsg>
+</msg>`
+
+  it('should return displayType file with JSON displayContent', () => {
+    const result = processMessageContent(49, fileXml)
+    expect(result.displayType).toBe('file')
+    const parsed = JSON.parse(result.displayContent)
+    expect(parsed.fileName).toBe('Claude Code Cheat Sheet.pdf')
+    expect(parsed.fileExt).toBe('pdf')
+    expect(parsed.fileSize).toBe(448797)
+  })
+
+  it('should ignore appmsg type 74 (file notification duplicate)', () => {
+    const type74Xml = `<?xml version="1.0"?>
+<msg>
+  <appmsg appid="" sdkver="0">
+    <title><![CDATA[Claude Code Cheat Sheet.pdf]]></title>
+    <type>74</type>
+    <appattach>
+      <totallen>448797</totallen>
+      <fileext><![CDATA[pdf]]></fileext>
+      <status>0</status>
+    </appattach>
+  </appmsg>
+</msg>`
+    const result = processMessageContent(49, type74Xml)
+    // type 74 has no cdnattachurl/aeskey, should fall through to link
+    expect(result.displayType).toBe('link')
+  })
+
+  it('should handle file message without cdnattachurl gracefully', () => {
+    const noCdnXml = `<?xml version="1.0"?>
+<msg>
+  <appmsg appid="" sdkver="0">
+    <title>test.pdf</title>
+    <type>6</type>
+    <appattach>
+      <totallen>100</totallen>
+      <fileext>pdf</fileext>
+    </appattach>
+  </appmsg>
+</msg>`
+    const result = processMessageContent(49, noCdnXml)
+    // No CDN info, should fall through to link
+    expect(result.displayType).toBe('link')
+  })
+})
+
+describe('parseFileXml', () => {
+  it('should parse valid file XML', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+  <appmsg appid="wx6618f1cfc6c132f8" sdkver="0">
+    <title>report.xlsx</title>
+    <type>6</type>
+    <appattach>
+      <totallen>167806</totallen>
+      <fileext>xlsx</fileext>
+      <cdnattachurl>305702def</cdnattachurl>
+      <aeskey>051c12757ac49f8798ae5150a0e97a66</aeskey>
+    </appattach>
+    <md5>4818f8fa50465724a4d3d5b4b1b580ac</md5>
+  </appmsg>
+</msg>`
+
+    const result = parseFileXml(xml)
+    expect(result).toEqual({
+      fileName: 'report.xlsx',
+      fileExt: 'xlsx',
+      fileSize: 167806,
+      aesKey: '051c12757ac49f8798ae5150a0e97a66',
+      cdnFileId: '305702def',
+      md5: '4818f8fa50465724a4d3d5b4b1b580ac',
+    })
+  })
+
+  it('should return null for non-type-6 appmsg', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+  <appmsg appid="" sdkver="0">
+    <title>link</title>
+    <type>5</type>
+  </appmsg>
+</msg>`
+    expect(parseFileXml(xml)).toBeNull()
+  })
+
+  it('should return null for missing cdnattachurl or aeskey', () => {
+    const xml = `<?xml version="1.0"?>
+<msg>
+  <appmsg appid="" sdkver="0">
+    <title>test.pdf</title>
+    <type>6</type>
+    <appattach>
+      <totallen>100</totallen>
+      <fileext>pdf</fileext>
+    </appattach>
+  </appmsg>
+</msg>`
+    expect(parseFileXml(xml)).toBeNull()
+  })
+
+  it('should return null for empty/invalid input', () => {
+    expect(parseFileXml('')).toBeNull()
+    expect(parseFileXml('not xml')).toBeNull()
+  })
+
+  it('should summarize file in referMsg as [文件] filename', () => {
+    const xmlContent = `<?xml version="1.0"?>
+<msg>
+  <appmsg appid="" sdkver="0">
+    <title>回复了文件</title>
+    <type>57</type>
+    <refermsg>
+      <type>49</type>
+      <svrid>111</svrid>
+      <fromusr>wxid_abc</fromusr>
+      <displayname>小明</displayname>
+      <content>&lt;msg&gt;&lt;appmsg&gt;&lt;title&gt;report.pdf&lt;/title&gt;&lt;type&gt;6&lt;/type&gt;&lt;/appmsg&gt;&lt;/msg&gt;</content>
+    </refermsg>
+  </appmsg>
+</msg>`
+    const result = processMessageContent(49, xmlContent)
+    expect(result.displayType).toBe('quote')
+    expect(result.referMsg?.content).toBe('[文件] report.pdf')
   })
 })

@@ -7,6 +7,7 @@ import { zhCN } from 'date-fns/locale';
 import { ImageLightbox } from './ImageLightbox';
 import { EmojiMessage } from '../EmojiMessage';
 import { WechatEmojiText } from '../WechatEmojiText';
+import { FileMessage } from './FileMessage';
 
 function ReferImage({ msgId }: { msgId: string }) {
   const [showImage, setShowImage] = useState(false);
@@ -212,6 +213,10 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted, o
           displayContent={content}
         />
       );
+    }
+
+    if (displayType === 'file') {
+      return <FileMessage msgId={msgId} displayContent={content} />;
     }
 
     // Non-text messages: gray italic style

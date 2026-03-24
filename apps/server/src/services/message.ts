@@ -4,7 +4,9 @@ import type { JuhexbotAdapter, ParsedWebhookPayload } from './juhexbotAdapter.js
 import type { OssService } from './ossService.js'
 import type { EmojiService } from './emojiService.js'
 import type { EmojiDownloadQueue } from './emojiDownloadQueue.js'
+import type { FileService } from './fileService.js'
 import { processMessageContent, parseRecallXml } from './messageContentProcessor.js'
+import { logger } from '../lib/logger.js'
 import sharp from 'sharp'
 
 export interface IncomingMessageResult {
@@ -47,7 +49,8 @@ export class MessageService {
     private clientUsername: string,
     private ossService: OssService,
     private emojiService: EmojiService,
-    private emojiQueue: EmojiDownloadQueue
+    private emojiQueue: EmojiDownloadQueue,
+    private fileService?: FileService
   ) {}
 
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
@@ -121,6 +124,13 @@ export class MessageService {
     }
 
     const { displayType, displayContent, referMsg } = processMessageContent(message.msgType, message.content)
+
+    // 处理文件消息（异步，不阻塞）
+    if (displayType === 'file' && this.fileService) {
+      this.fileService.processFileMessage(message.msgId, message.content).catch(err => {
+        logger.error({ err, msgId: message.msgId }, 'Failed to process file message')
+      })
+    }
 
     // 群聊消息：查询发送者昵称
     let senderNickname: string | undefined

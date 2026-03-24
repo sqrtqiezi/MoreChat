@@ -2,12 +2,14 @@ import { Hono } from 'hono'
 import type { MessageService } from '../services/message.js'
 import type { ImageService } from '../services/imageService.js'
 import type { EmojiService } from '../services/emojiService.js'
+import type { FileService } from '../services/fileService.js'
 import { logger } from '../lib/logger.js'
 
 interface MessageRouteDeps {
   messageService: MessageService
   imageService: ImageService
   emojiService: EmojiService
+  fileService: FileService
 }
 
 export function messageRoutes(deps: MessageRouteDeps) {
@@ -109,6 +111,32 @@ export function messageRoutes(deps: MessageRouteDeps) {
     } catch (error: any) {
       logger.error({ err: error, msgId: c.req.param('msgId') }, 'Failed to get emoji URL')
       return c.json({ success: false, error: { message: 'Internal server error' } }, 500)
+    }
+  })
+
+  // GET /api/messages/:msgId/file - 获取文件下载 URL
+  router.get('/:msgId/file', async (c) => {
+    try {
+      const msgId = c.req.param('msgId')
+
+      if (!msgId) {
+        return c.json({ success: false, error: { message: 'msgId is required' } }, 400)
+      }
+
+      const result = await deps.fileService.getFileUrl(msgId)
+      return c.json({ success: true, data: result })
+    } catch (error: any) {
+      logger.error({ err: error, msgId: c.req.param('msgId') }, 'Failed to get file URL')
+
+      if (error.message === 'File not found') {
+        return c.json({ success: false, error: { message: 'File not found' } }, 404)
+      }
+
+      if (error.message?.includes('Cloud API') || error.message?.includes('CDN')) {
+        return c.json({ success: false, error: { message: 'Failed to download file from cloud service' } }, 502)
+      }
+
+      return c.json({ success: false, error: { message: 'Failed to download file' } }, 500)
     }
   })
 

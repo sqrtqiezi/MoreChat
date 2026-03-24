@@ -304,4 +304,17 @@ export const chatApi = {
 
     return response.data.data;
   },
+
+  // GET /api/messages/:msgId/file - 获取文件下载 URL
+  async getFileUrl(msgId: string): Promise<{ ossUrl: string; fileName: string; fileExt: string; fileSize: number }> {
+    const response = await client.get<ApiResponse<{ ossUrl: string; fileName: string; fileExt: string; fileSize: number }>>(
+      `/messages/${msgId}/file`
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error?.message || 'Failed to get file URL');
+    }
+
+    return response.data.data;
+  },
 };

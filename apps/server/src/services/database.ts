@@ -150,6 +150,25 @@ export class DatabaseService {
     if (!(await this.hasColumn('MessageIndex', 'isRecalled'))) {
       await this.prisma.$executeRawUnsafe(`ALTER TABLE "MessageIndex" ADD COLUMN "isRecalled" BOOLEAN NOT NULL DEFAULT false`)
     }
+
+    // FileCache table
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "file_cache" (
+        "msg_id" TEXT NOT NULL PRIMARY KEY,
+        "file_name" TEXT NOT NULL,
+        "file_ext" TEXT NOT NULL,
+        "file_size" INTEGER NOT NULL,
+        "aes_key" TEXT NOT NULL,
+        "cdn_file_id" TEXT NOT NULL,
+        "md5" TEXT,
+        "oss_url" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'pending',
+        "error_message" TEXT,
+        "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "downloaded_at" DATETIME
+      )
+    `)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "file_cache_status_idx" ON "file_cache"("status")`)
   }
 
   async disconnect() {
@@ -508,6 +527,49 @@ export class DatabaseService {
     downloadedAt?: Date
   }) {
     return this.prisma.emojiCache.update({
+      where: { msgId },
+      data
+    })
+  }
+
+  // --- FileCache ---
+
+  async createFileCache(data: {
+    msgId: string
+    fileName: string
+    fileExt: string
+    fileSize: number
+    aesKey: string
+    cdnFileId: string
+    md5?: string
+  }) {
+    return this.prisma.fileCache.create({
+      data: {
+        msgId: data.msgId,
+        fileName: data.fileName,
+        fileExt: data.fileExt,
+        fileSize: data.fileSize,
+        aesKey: data.aesKey,
+        cdnFileId: data.cdnFileId,
+        md5: data.md5,
+        status: 'pending'
+      }
+    })
+  }
+
+  async findFileCacheByMsgId(msgId: string) {
+    return this.prisma.fileCache.findUnique({
+      where: { msgId }
+    })
+  }
+
+  async updateFileCache(msgId: string, data: {
+    status?: string
+    ossUrl?: string
+    errorMessage?: string
+    downloadedAt?: Date
+  }) {
+    return this.prisma.fileCache.update({
       where: { msgId },
       data
     })

@@ -15,6 +15,7 @@ import { ImageService } from './services/imageService.js'
 import { OssService } from './services/ossService.js'
 import { EmojiService } from './services/emojiService.js'
 import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
+import { FileService } from './services/fileService.js'
 import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
 
@@ -76,6 +77,7 @@ async function main() {
 
     // MessageService 需要 emojiQueue，使用 getter 延迟访问
     let emojiQueue: EmojiDownloadQueue
+    let fileServiceRef: FileService
     const messageService = new MessageService(
       databaseService,
       dataLakeService,
@@ -83,7 +85,8 @@ async function main() {
       userProfile.username,
       ossService,
       emojiService,
-      { enqueue: (msgId: string, conversationId: string) => emojiQueue.enqueue(msgId, conversationId) } as any
+      { enqueue: (msgId: string, conversationId: string) => emojiQueue.enqueue(msgId, conversationId) } as any,
+      { processFileMessage: (msgId: string, content: string) => fileServiceRef.processFileMessage(msgId, content) } as any
     )
 
     const imageService = new ImageService(
@@ -91,6 +94,9 @@ async function main() {
       dataLakeService,
       juhexbotAdapter
     )
+
+    const fileService = new FileService(databaseService, juhexbotAdapter, ossService)
+    fileServiceRef = fileService
 
     // ContactSyncService 需要 wsService，使用 getter 延迟访问
     const contactSyncService = new ContactSyncService(
@@ -117,6 +123,7 @@ async function main() {
       messageService,
       imageService,
       emojiService,
+      fileService,
       contactSyncService,
       juhexbotAdapter,
       get wsService() { return wsService },

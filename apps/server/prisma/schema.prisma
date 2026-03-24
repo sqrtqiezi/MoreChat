@@ -176,3 +176,22 @@ model EmojiCache {
   @@map("emoji_cache")
   @@index([status])
 }
+
+// 文件缓存
+model FileCache {
+  msgId        String    @id @map("msg_id")
+  fileName     String    @map("file_name")
+  fileExt      String    @map("file_ext")
+  fileSize     Int       @map("file_size")
+  aesKey       String    @map("aes_key")
+  cdnFileId    String    @map("cdn_file_id")
+  md5          String?
+  ossUrl       String?   @map("oss_url")
+  status       String    @default("pending")
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  downloadedAt DateTime? @map("downloaded_at")
+
+  @@map("file_cache")
+  @@index([status])
+}

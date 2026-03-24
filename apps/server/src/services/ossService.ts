@@ -33,4 +33,14 @@ export class OssService {
     const result = await this.client.put(objectName, buffer)
     return result.url
   }
+
+  async uploadFile(buffer: Buffer, filename: string, ext: string): Promise<string> {
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substring(2, 8)
+    const safeFilename = filename.replace(/[^a-zA-Z0-9._\u4e00-\u9fff-]/g, '_')
+    const objectName = `files/${timestamp}_${random}_${safeFilename}.${ext}`
+
+    const result = await this.client.put(objectName, buffer)
+    return result.url
+  }
 }

@@ -1,6 +1,6 @@
 import { XMLParser } from 'fast-xml-parser'
 
-export type DisplayType = 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'emoji' | 'unknown'
+export type DisplayType = 'text' | 'image' | 'link' | 'video' | 'call' | 'recall' | 'quote' | 'emoji' | 'file' | 'unknown'
 
 export interface ReferMsg {
   type: number
@@ -48,6 +48,12 @@ function summarizeReferContent(referType: number, referContent: string): string 
       const appmsg = parsed?.msg?.appmsg
       if (!appmsg) {
         return '[链接]'
+      }
+
+      const appType = appmsg.type ? Number(appmsg.type) : 0
+      if (appType === 6) {
+        const title = appmsg.title ? String(appmsg.title).trim() : ''
+        return title ? `[文件] ${title}` : '[文件]'
       }
 
       const finderFeed = appmsg.finderFeed
@@ -115,6 +121,23 @@ function processType49(content: string): ProcessedContent {
     return {
       displayType: 'link',
       displayContent: title || '[链接]'
+    }
+  }
+
+  // Check for file message (type 6)
+  if (msgType === 6) {
+    const appattach = appmsg.appattach
+    const cdnFileId = appattach?.cdnattachurl ? String(appattach.cdnattachurl).trim() : ''
+    const aesKey = appattach?.aeskey ? String(appattach.aeskey).trim() : ''
+
+    if (cdnFileId && aesKey) {
+      const title = appmsg.title ? String(appmsg.title).trim() : ''
+      const fileExt = appattach?.fileext ? String(appattach.fileext).trim() : ''
+      const fileSize = appattach?.totallen ? Number(appattach.totallen) : 0
+      return {
+        displayType: 'file' as DisplayType,
+        displayContent: JSON.stringify({ fileName: title || `file.${fileExt}`, fileExt, fileSize }),
+      }
     }
   }
 
@@ -261,5 +284,61 @@ export function parseEmojiXml(content: string): EmojiInfo | null {
     width: emoji['@_width'] ? parseInt(emoji['@_width'], 10) : undefined,
     height: emoji['@_height'] ? parseInt(emoji['@_height'], 10) : undefined,
     productId: emoji['@_productid'] ? String(emoji['@_productid']).trim() : undefined,
+  }
+}
+
+export interface FileInfo {
+  fileName: string
+  fileExt: string
+  fileSize: number
+  aesKey: string
+  cdnFileId: string
+  md5?: string
+}
+
+export function parseFileXml(content: string): FileInfo | null {
+  if (!content || !content.trim()) {
+    return null
+  }
+
+  const parsed = parseXml(content)
+  if (!parsed) {
+    return null
+  }
+
+  const appmsg = parsed?.msg?.appmsg
+  if (!appmsg) {
+    return null
+  }
+
+  const msgType = appmsg.type ? Number(appmsg.type) : 0
+  if (msgType !== 6) {
+    return null
+  }
+
+  const appattach = appmsg.appattach
+  if (!appattach) {
+    return null
+  }
+
+  const cdnFileId = appattach.cdnattachurl ? String(appattach.cdnattachurl).trim() : ''
+  const aesKey = appattach.aeskey ? String(appattach.aeskey).trim() : ''
+
+  if (!cdnFileId || !aesKey) {
+    return null
+  }
+
+  const title = appmsg.title ? String(appmsg.title).trim() : ''
+  const fileExt = appattach.fileext ? String(appattach.fileext).trim() : ''
+  const fileSize = appattach.totallen ? Number(appattach.totallen) : 0
+  const md5 = appmsg.md5 ? String(appmsg.md5).trim() : undefined
+
+  return {
+    fileName: title || `file.${fileExt}`,
+    fileExt,
+    fileSize,
+    aesKey,
+    cdnFileId,
+    md5,
   }
 }
