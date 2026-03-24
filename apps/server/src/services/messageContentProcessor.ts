@@ -118,9 +118,11 @@ function processType49(content: string): ProcessedContent {
     }
     // Fallback to link if no refermsg
     const title = appmsg.title ? String(appmsg.title).trim() : ''
+    const url = appmsg.url ? String(appmsg.url).trim() : ''
+    const des = appmsg.des ? String(appmsg.des).trim() : ''
     return {
       displayType: 'link',
-      displayContent: title || '[链接]'
+      displayContent: JSON.stringify({ title: title || '[链接]', url, des }),
     }
   }
 
@@ -157,11 +159,13 @@ function processType49(content: string): ProcessedContent {
     }
   }
 
-  // Default: use title
+  // Default: use title (type 5 = link/article)
   const title = appmsg.title ? String(appmsg.title).trim() : ''
+  const url = appmsg.url ? String(appmsg.url).trim() : ''
+  const des = appmsg.des ? String(appmsg.des).trim() : ''
   return {
     displayType: 'link',
-    displayContent: title || '[链接]',
+    displayContent: JSON.stringify({ title: title || '[链接]', url, des }),
   }
 }
 

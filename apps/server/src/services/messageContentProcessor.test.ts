@@ -43,10 +43,14 @@ describe('processMessageContent', () => {
   })
 
   describe('Type 49 - App/Link/File', () => {
-    it('should extract title from appmsg', () => {
-      const xmlContent = '<?xml version="1.0"?>\n<msg>\n\t<appmsg appid="" sdkver="0">\n\t\t<title>测试链接标题</title>\n\t\t<type>5</type>\n\t\t<url>https://example.com</url>\n\t</appmsg>\n</msg>'
+    it('should extract link info as JSON from appmsg type 5', () => {
+      const xmlContent = '<?xml version="1.0"?>\n<msg>\n\t<appmsg appid="" sdkver="0">\n\t\t<title>测试链接标题</title>\n\t\t<type>5</type>\n\t\t<url>https://example.com</url>\n\t\t<des>这是描述</des>\n\t</appmsg>\n</msg>'
       const result = processMessageContent(49, xmlContent)
-      expect(result).toEqual({ displayType: 'link', displayContent: '测试链接标题' })
+      expect(result.displayType).toBe('link')
+      const parsed = JSON.parse(result.displayContent)
+      expect(parsed.title).toBe('测试链接标题')
+      expect(parsed.url).toBe('https://example.com')
+      expect(parsed.des).toBe('这是描述')
     })
 
     it('should extract finderFeed info for video type', () => {
@@ -58,7 +62,9 @@ describe('processMessageContent', () => {
     it('should fallback to title when finderFeed has no nickname', () => {
       const xmlContent = '<?xml version="1.0"?>\n<msg>\n\t<appmsg appid="" sdkver="0">\n\t\t<title>分享的文章</title>\n\t\t<type>51</type>\n\t\t<finderFeed>\n\t\t\t<nickname></nickname>\n\t\t</finderFeed>\n\t</appmsg>\n</msg>'
       const result = processMessageContent(49, xmlContent)
-      expect(result).toEqual({ displayType: 'link', displayContent: '分享的文章' })
+      expect(result.displayType).toBe('link')
+      const parsed = JSON.parse(result.displayContent)
+      expect(parsed.title).toBe('分享的文章')
     })
 
     it('should handle XML parse failure gracefully', () => {
@@ -66,10 +72,23 @@ describe('processMessageContent', () => {
       expect(result).toEqual({ displayType: 'unknown', displayContent: '[不支持的消息类型]' })
     })
 
-    it('should return [链接] when title is empty or missing', () => {
+    it('should return JSON with fallback title when title is empty', () => {
       const xmlContent = '<?xml version="1.0"?>\n<msg>\n\t<appmsg appid="" sdkver="0">\n\t\t<title></title>\n\t\t<type>5</type>\n\t</appmsg>\n</msg>'
       const result = processMessageContent(49, xmlContent)
-      expect(result).toEqual({ displayType: 'link', displayContent: '[链接]' })
+      expect(result.displayType).toBe('link')
+      const parsed = JSON.parse(result.displayContent)
+      expect(parsed.title).toBe('[链接]')
+      expect(parsed.url).toBe('')
+    })
+
+    it('should handle link message without url field', () => {
+      const xmlContent = '<?xml version="1.0"?>\n<msg>\n\t<appmsg appid="" sdkver="0">\n\t\t<title>只有标题</title>\n\t\t<type>5</type>\n\t</appmsg>\n</msg>'
+      const result = processMessageContent(49, xmlContent)
+      expect(result.displayType).toBe('link')
+      const parsed = JSON.parse(result.displayContent)
+      expect(parsed.title).toBe('只有标题')
+      expect(parsed.url).toBe('')
+      expect(parsed.des).toBe('')
     })
   })
 
@@ -339,10 +358,9 @@ describe('processMessageContent', () => {
   </appmsg>
 </msg>`
       const result = processMessageContent(49, xmlContent)
-      expect(result).toEqual({
-        displayType: 'link',
-        displayContent: '普通标题'
-      })
+      expect(result.displayType).toBe('link')
+      const parsed = JSON.parse(result.displayContent)
+      expect(parsed.title).toBe('普通标题')
     })
   })
 
@@ -579,6 +597,8 @@ describe('Type 49 - File (appmsg type 6)', () => {
     const result = processMessageContent(49, noCdnXml)
     // No CDN info, should fall through to link
     expect(result.displayType).toBe('link')
+    const parsed = JSON.parse(result.displayContent)
+    expect(parsed.title).toBe('test.pdf')
   })
 })
 
