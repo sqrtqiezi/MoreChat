@@ -154,6 +154,7 @@ interface GetMessagesParams {
 interface SendMessageData {
   conversationId: string;
   content: string;
+  replyToMsgId?: string;
 }
 
 // Chat API methods

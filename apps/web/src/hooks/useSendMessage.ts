@@ -6,6 +6,9 @@ import type { Message } from '../types';
 interface SendMessageData {
   conversationId: string;
   content: string;
+  replyToMsgId?: string;
+  // 用于乐观更新的引用消息信息（不发送到后端）
+  replyingTo?: Message;
 }
 
 interface MessageQueryData {
@@ -18,7 +21,11 @@ export function useSendMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: SendMessageData) => chatApi.sendMessage(data),
+    mutationFn: (data: SendMessageData) => chatApi.sendMessage({
+      conversationId: data.conversationId,
+      content: data.content,
+      replyToMsgId: data.replyToMsgId,
+    }),
 
     onMutate: async (variables) => {
       // 取消正在进行的查询，避免覆盖乐观更新
@@ -28,6 +35,7 @@ export function useSendMessage() {
       const currentUser = await getCurrentUser();
 
       // 构造临时消息
+      const isQuote = !!variables.replyingTo;
       const tempMessage: Message = {
         id: `temp-${Date.now()}`,
         conversationId: variables.conversationId,
@@ -37,8 +45,14 @@ export function useSendMessage() {
         timestamp: new Date().toISOString(),
         status: 'sending',
         isMine: true,
-        msgType: 1,
-        displayType: 'text',
+        msgType: isQuote ? 49 : 1,
+        displayType: isQuote ? 'quote' : 'text',
+        referMsg: variables.replyingTo ? {
+          type: variables.replyingTo.msgType || 1,
+          senderName: variables.replyingTo.senderName,
+          content: variables.replyingTo.content,
+          msgId: variables.replyingTo.id,
+        } : undefined,
       };
 
       // 乐观插入到缓存
