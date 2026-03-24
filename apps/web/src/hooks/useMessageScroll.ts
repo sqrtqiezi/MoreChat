@@ -10,15 +10,19 @@ export function useMessageScroll(
   const prevConversationIdRef = useRef<string | null>(null);
   const prevMessagesLengthRef = useRef<number>(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const isAtBottomRef = useRef(true);
 
-  // 检测是否在底部
+  // 同步 ref
+  useEffect(() => {
+    isAtBottomRef.current = isAtBottom;
+  }, [isAtBottom]);
+
   const checkIsAtBottom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return true;
     return el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD;
   }, []);
 
-  // 滚动到底部
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;
     if (el) {
@@ -32,9 +36,17 @@ export function useMessageScroll(
       messagesLength !== undefined &&
       messagesLength > prevMessagesLengthRef.current;
 
-    if (conversationChanged || newMessageAdded) {
+    if (conversationChanged) {
+      // 切换会话：无条件滚到底部
+      setTimeout(() => {
+        scrollToBottom();
+        setIsAtBottom(true);
+      }, 0);
+    } else if (newMessageAdded && isAtBottomRef.current) {
+      // 新消息 + 在底部：自动滚动
       setTimeout(scrollToBottom, 0);
     }
+    // 新消息 + 不在底部：不滚动（由 unreadCount 处理提示）
 
     prevConversationIdRef.current = conversationId;
     prevMessagesLengthRef.current = messagesLength || 0;
