@@ -56,6 +56,12 @@ export class MessageService {
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
     const { message } = parsed
 
+    // 跳过 msgId 缺失的 webhook 消息
+    if (!message.msgId) {
+      logger.warn({ msgType: message.msgType, fromUsername: message.fromUsername }, 'Webhook message missing msgId, skipping')
+      return null
+    }
+
     // 去重：检查 msgId 是否已存在
     const existing = await this.db.findMessageIndexByMsgId(message.msgId)
     if (existing) {
@@ -310,7 +316,7 @@ export class MessageService {
         content,
         referMsg: {
           msgType: refMessage.msg_type,
-          msgId: replyToMsgId,
+          msgId: refMessage.new_msg_id || replyToMsgId,
           fromUsername: refSender,
           fromNickname: refNickname,
           source: refMessage.source || '',

@@ -337,5 +337,50 @@ describe('MessageService', () => {
         }),
       }))
     })
+
+    it('should use new_msg_id for refer_msg when available', async () => {
+      vi.spyOn(adapter, 'sendReferMessage').mockResolvedValue({ msgId: 'refer_789' })
+      vi.mocked(sharp).mockReturnValue({
+        metadata: vi.fn().mockResolvedValue({ width: 100, height: 100 })
+      } as any)
+      vi.spyOn(ossService, 'uploadImage').mockResolvedValue('https://oss.example.com/img.jpg')
+      vi.spyOn(adapter, 'uploadImageToCdn').mockResolvedValue({
+        fileId: 'cdn_file_456',
+        aesKey: 'test_aes_key',
+        fileSize: 1000,
+        fileMd5: 'md5'
+      })
+      vi.spyOn(adapter, 'sendImageMessage').mockResolvedValue({
+        msgId: 'img_client_id',
+        newMsgId: 'img_server_id'
+      })
+
+      // 需要创建联系人和会话
+      const contact = await db.createContact({
+        username: 'wxid_refer_test',
+        nickname: 'Refer Test',
+        type: 'friend'
+      })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      // 先发送图片（保存到 DB）
+      await messageService.sendImageMessage(conversation.id, Buffer.from('img'), 'test.jpg')
+
+      // 引用图片
+      const result = await messageService.sendMessage(conversation.id, '回复图片', 'img_client_id')
+
+      expect(result.msgId).toBe('refer_789')
+      // refer_msg.msg_id 应该是 new_msg_id（服务端 ID），而不是 img_client_id
+      expect(adapter.sendReferMessage).toHaveBeenCalledWith(expect.objectContaining({
+        referMsg: expect.objectContaining({
+          msgId: 'img_server_id',
+        }),
+      }))
+    })
   })
 })
