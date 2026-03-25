@@ -158,6 +158,21 @@ export class JuhexbotAdapter {
     }
   }
 
+  /**
+   * 从 juhexbot API 响应中提取 msgId，优先使用 newMsgId（微信服务端 ID）。
+   * juhexbot 不同接口/版本返回格式不一致，统一处理。
+   */
+  private extractMsgId(data: any): string | undefined {
+    const id =
+      data?.newMsgId ??
+      data?.list?.[0]?.newMsgId ??
+      data?.msg_id ??
+      data?.msgId ??
+      data?.list?.[0]?.msgId ??
+      data?.list?.[0]?.msg_id
+    return id != null ? String(id) : undefined
+  }
+
   async sendTextMessage(toUsername: string, content: string): Promise<{ msgId: string }> {
     const result = await this.sendRequest('/msg/send_text', {
       guid: this.config.clientGuid,
@@ -169,20 +184,12 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to send message')
     }
 
-    // API schema is inconsistent across versions; normalize message id from known fields.
-    const msgId =
-      result.data?.msg_id ??
-      result.data?.msgId ??
-      result.data?.newMsgId ??
-      result.data?.list?.[0]?.newMsgId ??
-      result.data?.list?.[0]?.msgId ??
-      result.data?.list?.[0]?.msg_id
-
+    const msgId = this.extractMsgId(result.data)
     if (!msgId) {
       throw new Error('Message sent but response missing msgId')
     }
 
-    return { msgId: String(msgId) }
+    return { msgId }
   }
 
   async sendReferMessage(params: {
@@ -215,19 +222,12 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to send refer message')
     }
 
-    const msgId =
-      result.data?.msg_id ??
-      result.data?.msgId ??
-      result.data?.newMsgId ??
-      result.data?.list?.[0]?.newMsgId ??
-      result.data?.list?.[0]?.msgId ??
-      result.data?.list?.[0]?.msg_id
-
+    const msgId = this.extractMsgId(result.data)
     if (!msgId) {
       throw new Error('Refer message sent but response missing msgId')
     }
 
-    return { msgId: String(msgId) }
+    return { msgId }
   }
 
   async setNotifyUrl(notifyUrl: string): Promise<void> {
@@ -402,12 +402,12 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to send image message')
     }
 
-    const msgId = result.data?.msg_id ?? result.data?.msgId
+    const msgId = this.extractMsgId(result.data)
     if (!msgId) {
       throw new Error('Image sent but response missing msgId')
     }
 
-    return { msgId: String(msgId) }
+    return { msgId }
   }
 
   async downloadImage(aesKey: string, fileId: string, fileName: string, fileType: number = CDN_FILE_TYPE.IMAGE_MID): Promise<string> {
