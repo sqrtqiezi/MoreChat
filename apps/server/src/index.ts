@@ -17,6 +17,8 @@ import { EmojiService } from './services/emojiService.js'
 import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
 import { FileService } from './services/fileService.js'
 import { createApp } from './app.js'
+import { retryWithBackoff } from './lib/retry.js'
+import type { ProfileState } from './routes/me.js'
 import { logger } from './lib/logger.js'
 
 // ============================================================================
@@ -51,13 +53,31 @@ async function main() {
       cloudApiUrl: env.JUHEXBOT_CLOUD_API_URL
     })
 
-    // 获取登录用户信息
-    logger.info('Fetching user profile...')
-    const userProfile = await juhexbotAdapter.getProfile()
-    logger.info({ username: userProfile.username, nickname: userProfile.nickname }, 'User profile fetched')
+    // 获取登录用户信息（带重试 + 降级）
+    let profileState: ProfileState = {
+      username: '',
+      nickname: '未连接',
+      degraded: true
+    }
+    let profileRetryTimer: ReturnType<typeof setTimeout> | undefined
 
-    // 更新 adapter config
-    juhexbotAdapter['config'].clientUsername = userProfile.username
+    try {
+      logger.info('Fetching user profile...')
+      const userProfile = await retryWithBackoff(
+        () => juhexbotAdapter.getProfile(),
+        { maxRetries: 3, initialDelayMs: 2000 }
+      )
+      profileState = {
+        username: userProfile.username,
+        nickname: userProfile.nickname,
+        avatar: userProfile.avatar,
+        degraded: false
+      }
+      juhexbotAdapter['config'].clientUsername = userProfile.username
+      logger.info({ username: userProfile.username, nickname: userProfile.nickname }, 'User profile fetched')
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to fetch profile after retries, starting in degraded mode')
+    }
 
     const ossService = new OssService({
       region: env.alicloudOssRegion,
@@ -82,7 +102,7 @@ async function main() {
       databaseService,
       dataLakeService,
       juhexbotAdapter,
-      userProfile.username,
+      profileState.username,
       ossService,
       emojiService,
       { enqueue: (msgId: string, conversationId: string) => emojiQueue.enqueue(msgId, conversationId) } as any,
@@ -128,10 +148,8 @@ async function main() {
       juhexbotAdapter,
       get wsService() { return wsService },
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
-      userProfile: {  // 新增
-        username: userProfile.username,
-        nickname: userProfile.nickname,
-        avatar: userProfile.avatar
+      userProfile: {
+        getProfileState: () => profileState
       },
       auth: {
         passwordHash: env.AUTH_PASSWORD_HASH,
@@ -187,6 +205,7 @@ async function main() {
     async function gracefulShutdown(signal: string) {
       logger.info({ signal }, 'Shutting down gracefully...')
       try {
+        if (profileRetryTimer) clearTimeout(profileRetryTimer)
         archiveService.stop()
         contactSyncService.stopBackfillScheduler()
         wsService.close()
@@ -205,6 +224,41 @@ async function main() {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
     logger.info('Server is ready')
+
+    // 降级模式：后台重试获取 profile
+    if (profileState.degraded) {
+      startProfileRetry()
+    }
+
+    function startProfileRetry() {
+      const delays = [30_000, 60_000, 120_000] // 30s, 60s, 120s, then 5min
+      let retryIndex = 0
+
+      async function tryFetchProfile() {
+        try {
+          logger.info('Background profile retry...')
+          const userProfile = await juhexbotAdapter.getProfile()
+          profileState = {
+            username: userProfile.username,
+            nickname: userProfile.nickname,
+            avatar: userProfile.avatar,
+            degraded: false
+          }
+          juhexbotAdapter['config'].clientUsername = userProfile.username
+          logger.info({ username: userProfile.username }, 'Profile recovered from degraded mode')
+          wsService.broadcast('profile_status', { status: 'recovered', message: '用户信息已恢复' })
+        } catch (error) {
+          logger.warn({ err: error, retryIndex }, 'Background profile retry failed')
+          const delay = retryIndex < delays.length ? delays[retryIndex] : 300_000
+          retryIndex++
+          profileRetryTimer = setTimeout(tryFetchProfile, delay)
+        }
+      }
+
+      wsService.broadcast('profile_status', { status: 'degraded', message: '无法获取用户信息，部分功能受限' })
+      const delay = delays[0]
+      profileRetryTimer = setTimeout(tryFetchProfile, delay)
+    }
   } catch (error) {
     logger.fatal({ err: error }, 'Failed to start server')
     process.exit(1)

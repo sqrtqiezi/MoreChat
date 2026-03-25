@@ -11,6 +11,7 @@ import { conversationRoutes } from './routes/conversations.js'
 import { directoryRoutes } from './routes/directory.js'
 import { messageRoutes } from './routes/messages.js'
 import { meRoutes } from './routes/me.js'
+import type { ProfileState } from './routes/me.js'
 import type { ClientService } from './services/clientService.js'
 import type { ConversationService } from './services/conversationService.js'
 import type { MessageService } from './services/message.js'
@@ -35,11 +36,7 @@ export interface AppDependencies {
   juhexbotAdapter: JuhexbotAdapter
   wsService: WebSocketService
   clientGuid: string
-  userProfile: {  // 新增
-    username: string
-    nickname: string
-    avatar?: string
-  }
+  userProfile: { getProfileState: () => ProfileState }
   auth: {
     passwordHash: string
     jwtSecret: string
@@ -123,7 +120,7 @@ export function createApp(deps: AppDependencies) {
     clientGuid: deps.clientGuid
   }))
   app.route('/api/messages', messageRoutes({ messageService: deps.messageService, imageService: deps.imageService, emojiService: deps.emojiService, fileService: deps.fileService }))
-  app.route('/api/me', meRoutes(deps.userProfile))  // 新增
+  app.route('/api/me', meRoutes({ getProfileState: deps.userProfile.getProfileState }))
 
   // 生产环境：serve 前端静态文件
   if (deps.nodeEnv === 'production') {

@@ -1,9 +1,14 @@
 import { Hono } from 'hono'
 
-export interface MeRouteDeps {
+export interface ProfileState {
   username: string
   nickname: string
   avatar?: string
+  degraded: boolean
+}
+
+export interface MeRouteDeps {
+  getProfileState: () => ProfileState
 }
 
 export function meRoutes(deps: MeRouteDeps) {
@@ -11,12 +16,14 @@ export function meRoutes(deps: MeRouteDeps) {
 
   // GET /api/me - 获取当前登录用户信息
   router.get('/', (c) => {
+    const state = deps.getProfileState()
     return c.json({
       success: true,
       data: {
-        username: deps.username,
-        nickname: deps.nickname,
-        avatar: deps.avatar
+        username: state.username,
+        nickname: state.nickname,
+        avatar: state.avatar,
+        degraded: state.degraded
       }
     })
   })
