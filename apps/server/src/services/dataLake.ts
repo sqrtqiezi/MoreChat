@@ -118,7 +118,16 @@ export class DataLakeService {
 
     for (const [filePath, msgIds] of fileGroups) {
       const fullPath = path.join(this.config.path, filePath)
-      const content = await fs.readFile(fullPath, 'utf-8')
+      let content: string
+      try {
+        content = await fs.readFile(fullPath, 'utf-8')
+      } catch (err: any) {
+        if (err.code === 'ENOENT') {
+          // hot 文件已过期清理，跳过该文件组（相关消息返回 undefined）
+          continue
+        }
+        throw err
+      }
 
       if (msgIds.length === 0) {
         // 旧格式：单个 JSON 文件

@@ -227,6 +227,43 @@ describe('DataLakeService', () => {
 
   })
 
+  describe('ENOENT 容错', () => {
+    it('should return undefined for messages in missing hot files', async () => {
+      // 模拟 hot 文件已过期：key 指向不存在的文件
+      const missingKey = 'hot/conv_expired/2024-01-01.jsonl:msg_123'
+
+      const messages = await dataLake.getMessages([missingKey])
+
+      expect(messages).toHaveLength(1)
+      expect(messages[0]).toBeUndefined()
+    })
+
+    it('should return available messages when some hot files are missing', async () => {
+      // 先保存一条正常消息
+      const message = {
+        msg_id: 'test_ok',
+        from_username: 'user1',
+        to_username: 'user2',
+        content: 'Still here',
+        create_time: 1710115200,
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: ''
+      }
+      const validKey = await dataLake.saveMessage('conv_123', message)
+      const missingKey = 'hot/conv_expired/2024-01-01.jsonl:msg_gone'
+
+      const messages = await dataLake.getMessages([missingKey, validKey])
+
+      expect(messages).toHaveLength(2)
+      expect(messages[0]).toBeUndefined()
+      expect(messages[1]).toEqual(message)
+    })
+  })
+
   describe('旧格式兼容性', () => {
     it('should read old JSON format', async () => {
       const message = {
