@@ -159,6 +159,19 @@ describe('JuhexbotAdapter', () => {
       await expect(adapter.sendTextMessage('wxid_target', '你好')).rejects.toThrow('Client offline')
     })
 
+    it('should prefer msg_id over newMsgId when both present', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          baseResponse: { ret: 0, errMsg: {} },
+          msgId: 881222943,
+          newMsgId: '4877500997370050015',
+        })
+      })
+
+      const result = await adapter.sendTextMessage('wxid_target', 'test')
+      expect(result).toEqual({ msgId: '881222943' })
+    })
+
     it('should parse msg id from list[0].newMsgId response', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         json: () => Promise.resolve({
@@ -733,6 +746,32 @@ describe('JuhexbotAdapter', () => {
         thumbHeight: 100,
         fileCrc: 123
       })).rejects.toThrow('Image sent but response missing msgId')
+    })
+
+    it('should return newMsgId when present in baseResponse format', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          baseResponse: { ret: 0, errMsg: {} },
+          msgId: 881222943,
+          newMsgId: '4877500997370050015',
+        })
+      })
+
+      const result = await adapter.sendImageMessage({
+        toUsername: 'wxid_target',
+        fileId: 'file-id',
+        aesKey: 'aes-key',
+        fileSize: 100,
+        bigFileSize: 200,
+        thumbFileSize: 50,
+        fileMd5: 'md5',
+        thumbWidth: 100,
+        thumbHeight: 100,
+        fileCrc: 123
+      })
+
+      expect(result.msgId).toBe('881222943')
+      expect(result.newMsgId).toBe('4877500997370050015')
     })
   })
 

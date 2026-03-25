@@ -158,6 +158,21 @@ export class JuhexbotAdapter {
     }
   }
 
+  /**
+   * 从 juhexbot API 响应中提取 msgId（客户端 ID）。
+   * 优先 msg_id/msgId（与 webhook 回调一致），其次 newMsgId。
+   */
+  private extractMsgId(data: any): string | undefined {
+    const id =
+      data?.msg_id ??
+      data?.msgId ??
+      data?.list?.[0]?.msg_id ??
+      data?.list?.[0]?.msgId ??
+      data?.newMsgId ??
+      data?.list?.[0]?.newMsgId
+    return id != null ? String(id) : undefined
+  }
+
   async sendTextMessage(toUsername: string, content: string): Promise<{ msgId: string }> {
     const result = await this.sendRequest('/msg/send_text', {
       guid: this.config.clientGuid,
@@ -169,20 +184,13 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to send message')
     }
 
-    // API schema is inconsistent across versions; normalize message id from known fields.
-    const msgId =
-      result.data?.msg_id ??
-      result.data?.msgId ??
-      result.data?.newMsgId ??
-      result.data?.list?.[0]?.newMsgId ??
-      result.data?.list?.[0]?.msgId ??
-      result.data?.list?.[0]?.msg_id
+    const msgId = this.extractMsgId(result.data)
 
     if (!msgId) {
       throw new Error('Message sent but response missing msgId')
     }
 
-    return { msgId: String(msgId) }
+    return { msgId }
   }
 
   async sendReferMessage(params: {
@@ -215,19 +223,13 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to send refer message')
     }
 
-    const msgId =
-      result.data?.msg_id ??
-      result.data?.msgId ??
-      result.data?.newMsgId ??
-      result.data?.list?.[0]?.newMsgId ??
-      result.data?.list?.[0]?.msgId ??
-      result.data?.list?.[0]?.msg_id
+    const msgId = this.extractMsgId(result.data)
 
     if (!msgId) {
       throw new Error('Refer message sent but response missing msgId')
     }
 
-    return { msgId: String(msgId) }
+    return { msgId }
   }
 
   async setNotifyUrl(notifyUrl: string): Promise<void> {
@@ -383,7 +385,7 @@ export class JuhexbotAdapter {
     thumbWidth: number
     thumbHeight: number
     fileCrc: number
-  }): Promise<{ msgId: string }> {
+  }): Promise<{ msgId: string; newMsgId?: string }> {
     const result = await this.sendRequest('/msg/send_image', {
       guid: this.config.clientGuid,
       to_username: params.toUsername,
@@ -402,12 +404,16 @@ export class JuhexbotAdapter {
       throw new Error(result.errmsg || 'Failed to send image message')
     }
 
-    const msgId = result.data?.msg_id ?? result.data?.msgId
+    const msgId = this.extractMsgId(result.data)
     if (!msgId) {
       throw new Error('Image sent but response missing msgId')
     }
 
-    return { msgId: String(msgId) }
+    const newMsgId = result.data?.newMsgId ?? result.data?.list?.[0]?.newMsgId
+    return {
+      msgId,
+      newMsgId: newMsgId != null ? String(newMsgId) : undefined,
+    }
   }
 
   async downloadImage(aesKey: string, fileId: string, fileName: string, fileType: number = CDN_FILE_TYPE.IMAGE_MID): Promise<string> {
