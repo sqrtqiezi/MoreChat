@@ -353,7 +353,7 @@ export class MessageService {
     const thumbWidth = metadata.width || 0
     const thumbHeight = metadata.height || 0
 
-    const { msgId } = await this.adapter.sendImageMessage({
+    const { msgId, newMsgId } = await this.adapter.sendImageMessage({
       toUsername,
       fileId: cdnResult.fileId,
       aesKey: cdnResult.aesKey,
@@ -365,6 +365,39 @@ export class MessageService {
       thumbHeight,
       fileCrc: 0,
     })
+
+    // 保存到 DataLake + MessageIndex（图片 content 始终是 XML，不存在 type 49 的解析问题）
+    const imgContent = `<msg><img aeskey="${cdnResult.aesKey}" cdnmidimgurl="${cdnResult.fileId}" encryver="1" length="${cdnResult.fileSize}" hdlength="${cdnResult.fileSize}"/></msg>`
+    const createTime = Math.floor(Date.now() / 1000)
+    const isChatroom = conversation.type === 'group'
+
+    const chatMessage: ChatMessage = {
+      msg_id: msgId,
+      from_username: isChatroom ? toUsername : this.clientUsername,
+      to_username: toUsername,
+      content: imgContent,
+      create_time: createTime,
+      msg_type: 3,
+      chatroom_sender: isChatroom ? this.clientUsername : '',
+      desc: '',
+      is_chatroom_msg: isChatroom ? 1 : 0,
+      chatroom: isChatroom ? toUsername : '',
+      source: '',
+      new_msg_id: newMsgId,
+    }
+
+    const dataLakeKey = await this.dataLake.saveMessage(conversationId, chatMessage)
+    await this.db.createMessageIndex({
+      conversationId,
+      msgId,
+      msgType: 3,
+      fromUsername: chatMessage.from_username,
+      toUsername,
+      chatroomSender: isChatroom ? this.clientUsername : undefined,
+      createTime,
+      dataLakeKey,
+    })
+    await this.db.updateConversationLastMessage(conversationId, new Date(createTime * 1000))
 
     return { msgId }
   }

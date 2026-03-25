@@ -15,6 +15,7 @@ export interface ChatMessage {
   chatroom: string
   source: string
   is_recalled?: boolean
+  new_msg_id?: string
 }
 
 export interface DataLakeConfig {

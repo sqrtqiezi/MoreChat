@@ -221,7 +221,10 @@ describe('MessageService', () => {
         fileSize: 12345,
         fileMd5: 'test_md5'
       })
-      vi.spyOn(adapter, 'sendImageMessage').mockResolvedValue({ msgId: 'img_msg_123' })
+      vi.spyOn(adapter, 'sendImageMessage').mockResolvedValue({
+        msgId: 'img_msg_123',
+        newMsgId: '4877500997370050015'
+      })
 
       const contact = await db.createContact({
         username: 'wxid_target',
@@ -242,9 +245,17 @@ describe('MessageService', () => {
       expect(ossService.uploadImage).toHaveBeenCalledWith(imageBuffer, 'test.jpg')
       expect(adapter.uploadImageToCdn).toHaveBeenCalledWith('https://oss.example.com/image.jpg')
 
-      // 不再创建 MessageIndex
+      // 应该创建 MessageIndex
       const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
-      expect(indexes.length).toBe(0)
+      expect(indexes.length).toBe(1)
+      expect(indexes[0].msgId).toBe('img_msg_123')
+      expect(indexes[0].msgType).toBe(3)
+
+      // DataLake 应该包含 new_msg_id
+      const stored = await dataLake.getMessage(indexes[0].dataLakeKey)
+      expect(stored.new_msg_id).toBe('4877500997370050015')
+      expect(stored.msg_type).toBe(3)
+      expect(stored.content).toContain('test_aes_key')
     })
   })
 
