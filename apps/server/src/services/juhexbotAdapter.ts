@@ -159,18 +159,19 @@ export class JuhexbotAdapter {
   }
 
   /**
-   * 从 juhexbot API 响应中提取 msgId（客户端 ID）。
-   * 优先 msg_id/msgId（与 webhook 回调一致），其次 newMsgId。
+   * 从 juhexbot API 响应中提取 msgId（服务端 ID）。
+   * 优先 msg_id/msgId（与 webhook 回调一致），但忽略占位值 0，改用 newMsgId。
    */
   private extractMsgId(data: any): string | undefined {
-    const id =
-      data?.msg_id ??
-      data?.msgId ??
-      data?.list?.[0]?.msg_id ??
-      data?.list?.[0]?.msgId ??
-      data?.newMsgId ??
-      data?.list?.[0]?.newMsgId
-    return id != null ? String(id) : undefined
+    const msgId = data?.msg_id ?? data?.msgId ?? data?.list?.[0]?.msg_id ?? data?.list?.[0]?.msgId
+    const newMsgId = data?.newMsgId ?? data?.list?.[0]?.newMsgId
+
+    // 文本发送接口返回 msgId=0 是占位值，应使用 newMsgId（服务端 ID）
+    if (msgId != null && msgId !== 0) {
+      return String(msgId)
+    }
+
+    return newMsgId != null ? String(newMsgId) : undefined
   }
 
   async sendTextMessage(toUsername: string, content: string): Promise<{ msgId: string }> {

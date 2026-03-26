@@ -299,6 +299,37 @@ describe('MessageService', () => {
       await expect(messageService.sendMessage('not_exist', '你好')).rejects.toThrow('Conversation not found')
     })
 
+    it('should use newMsgId when adapter returns msgId=0 (production scenario)', async () => {
+      // 模拟真实线上返回：msgId=0 是占位值，newMsgId 是真实服务端 ID
+      vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: '1727263917659712525' })
+
+      const contact = await db.createContact({
+        username: 'wxid_target',
+        nickname: 'Target User',
+        type: 'friend'
+      })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      const result = await messageService.sendMessage(conversation.id, '测试消息')
+
+      // 应该使用 newMsgId 而不是 msgId=0
+      expect(result.msgId).toBe('1727263917659712525')
+
+      // MessageIndex 应该使用正确的 ID
+      const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
+      expect(indexes.length).toBe(1)
+      expect(indexes[0].msgId).toBe('1727263917659712525')
+
+      // DataLake 应该包含正确的消息
+      const stored = await dataLake.getMessage(indexes[0].dataLakeKey)
+      expect(stored.msg_id).toBe('1727263917659712525')
+    })
+
     it('should send refer message when replyToMsgId is provided', async () => {
       vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'text_123' })
       vi.spyOn(adapter, 'sendReferMessage').mockResolvedValue({ msgId: 'refer_456' })

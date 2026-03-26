@@ -189,6 +189,29 @@ describe('JuhexbotAdapter', () => {
       const result = await adapter.sendTextMessage('wxid_target', 'test')
       expect(result).toEqual({ msgId: '9116989704999965051' })
     })
+
+    it('should prefer newMsgId when msgId is 0 in list response', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          baseResponse: { ret: 0, errMsg: {} },
+          count: 1,
+          list: [
+            {
+              ret: 0,
+              msgId: 0,
+              clientMsgId: 264883882,
+              createTime: 1774363517,
+              serverTime: 1774363517,
+              type: 1,
+              newMsgId: '1727263917659712525'
+            }
+          ]
+        })
+      })
+
+      const result = await adapter.sendTextMessage('wxid_target', 'test')
+      expect(result).toEqual({ msgId: '1727263917659712525' })
+    })
   })
 
   describe('setNotifyUrl', () => {
