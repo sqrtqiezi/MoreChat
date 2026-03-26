@@ -329,6 +329,37 @@ export class MessageService {
       msgId = result.msgId
     }
 
+    // 4. 持久化到 DataLake + MessageIndex
+    const createTime = Math.floor(Date.now() / 1000)
+    const isChatroom = conversation.type === 'group'
+
+    const chatMessage: ChatMessage = {
+      msg_id: msgId,
+      from_username: isChatroom ? toUsername : this.clientUsername,
+      to_username: toUsername,
+      content,
+      create_time: createTime,
+      msg_type: 1,
+      chatroom_sender: isChatroom ? this.clientUsername : '',
+      desc: '',
+      is_chatroom_msg: isChatroom ? 1 : 0,
+      chatroom: isChatroom ? toUsername : '',
+      source: '',
+    }
+
+    const dataLakeKey = await this.dataLake.saveMessage(conversationId, chatMessage)
+    await this.db.createMessageIndex({
+      conversationId,
+      msgId,
+      msgType: 1,
+      fromUsername: chatMessage.from_username,
+      toUsername,
+      chatroomSender: isChatroom ? this.clientUsername : undefined,
+      createTime,
+      dataLakeKey,
+    })
+    await this.db.updateConversationLastMessage(conversationId, new Date(createTime * 1000))
+
     return { msgId }
   }
 

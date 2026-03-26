@@ -133,7 +133,7 @@ describe('MessageService', () => {
     expect(changes).toHaveLength(1)
   })
 
-  it('should allow webhook to process message after sendMessage (no dedup)', async () => {
+  it('should dedup webhook after sendMessage persists', async () => {
     vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'dup_123' })
 
     const contact = await db.createContact({
@@ -150,7 +150,7 @@ describe('MessageService', () => {
 
     await messageService.sendMessage(conversation.id, '测试')
 
-    // webhook 回传相同 msgId 的消息 — 应该正常处理
+    // webhook 回传相同 msgId 的消息 — 应该被去重跳过
     const webhookPayload = {
       guid: 'test-guid-123',
       notify_type: 1,
@@ -172,9 +172,10 @@ describe('MessageService', () => {
     const parsed = adapter.parseWebhookPayload(webhookPayload)
     const result = await messageService.handleIncomingMessage(parsed)
 
-    expect(result).not.toBeNull()
-    expect(result!.message.msgId).toBe('dup_123')
+    // 应该被去重，返回 null
+    expect(result).toBeNull()
 
+    // 只有一条记录
     const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
     expect(indexes.length).toBe(1)
   })
@@ -260,7 +261,7 @@ describe('MessageService', () => {
   })
 
   describe('sendMessage', () => {
-    it('should send text message via adapter and return msgId', async () => {
+    it('should send text message via adapter, persist to DataLake and return msgId', async () => {
       vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'sent_123' })
 
       const contact = await db.createContact({
@@ -280,9 +281,18 @@ describe('MessageService', () => {
       expect(result.msgId).toBe('sent_123')
       expect(adapter.sendTextMessage).toHaveBeenCalledWith('wxid_target', '你好')
 
-      // 不再创建 MessageIndex
+      // 应该创建 MessageIndex
       const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
-      expect(indexes.length).toBe(0)
+      expect(indexes.length).toBe(1)
+      expect(indexes[0].msgId).toBe('sent_123')
+      expect(indexes[0].msgType).toBe(1)
+      expect(indexes[0].fromUsername).toBe('test-guid-123')
+
+      // DataLake 应该包含消息
+      const stored = await dataLake.getMessage(indexes[0].dataLakeKey)
+      expect(stored.msg_id).toBe('sent_123')
+      expect(stored.msg_type).toBe(1)
+      expect(stored.content).toBe('你好')
     })
 
     it('should throw error when conversation not found', async () => {
@@ -381,6 +391,89 @@ describe('MessageService', () => {
           msgId: 'img_server_id',
         }),
       }))
+    })
+
+    it('should persist refer message to DataLake', async () => {
+      vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'text_123' })
+      vi.spyOn(adapter, 'sendReferMessage').mockResolvedValue({ msgId: 'refer_456' })
+
+      const target = await db.createContact({ username: 'wxid_target', nickname: 'Target User', type: 'friend' })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'private',
+        contactId: target.id
+      })
+
+      // 先通过 webhook 创建一条原始消息（来自 wxid_target）
+      const webhookPayload = {
+        guid: 'test-guid-123',
+        notify_type: 1,
+        data: {
+          msg_id: 'original_msg_123',
+          msg_type: 1,
+          from_username: 'wxid_target',
+          to_username: 'test-guid-123',
+          content: '原始消息',
+          create_time: Math.floor(Date.now() / 1000),
+          chatroom_sender: '',
+          chatroom: '',
+          desc: '',
+          is_chatroom_msg: 0,
+          source: ''
+        }
+      }
+      const parsed = adapter.parseWebhookPayload(webhookPayload)
+      await messageService.handleIncomingMessage(parsed)
+
+      // 发送引用消息
+      const result = await messageService.sendMessage(conversation.id, '回复内容', 'original_msg_123')
+
+      expect(result.msgId).toBe('refer_456')
+
+      // 应该有 2 条消息索引：原始消息 + 引用消息
+      const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
+      expect(indexes.length).toBe(2)
+
+      const referIndex = indexes.find(i => i.msgId === 'refer_456')
+      expect(referIndex).toBeDefined()
+      expect(referIndex!.msgType).toBe(1)
+
+      // DataLake 应该包含引用消息
+      const stored = await dataLake.getMessage(referIndex!.dataLakeKey)
+      expect(stored.msg_id).toBe('refer_456')
+      expect(stored.content).toBe('回复内容')
+    })
+
+    it('should persist group text message with correct from/chatroom fields', async () => {
+      vi.spyOn(adapter, 'sendTextMessage').mockResolvedValue({ msgId: 'group_msg_123' })
+
+      const group = await db.createGroup({
+        roomUsername: 'room@chatroom',
+        name: 'Test Group'
+      })
+      const client = await db.findClientByGuid('test-guid-123')
+      const conversation = await db.createConversation({
+        clientId: client!.id,
+        type: 'group',
+        groupId: group.id
+      })
+
+      const result = await messageService.sendMessage(conversation.id, '群消息')
+
+      expect(result.msgId).toBe('group_msg_123')
+      expect(adapter.sendTextMessage).toHaveBeenCalledWith('room@chatroom', '群消息')
+
+      const indexes = await db.getMessageIndexes(conversation.id, { limit: 10 })
+      expect(indexes.length).toBe(1)
+      expect(indexes[0].fromUsername).toBe('room@chatroom')
+      expect(indexes[0].chatroomSender).toBe('test-guid-123')
+
+      const stored = await dataLake.getMessage(indexes[0].dataLakeKey)
+      expect(stored.from_username).toBe('room@chatroom')
+      expect(stored.chatroom_sender).toBe('test-guid-123')
+      expect(stored.is_chatroom_msg).toBe(1)
+      expect(stored.chatroom).toBe('room@chatroom')
     })
   })
 })
