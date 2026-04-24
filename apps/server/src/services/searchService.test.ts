@@ -176,3 +176,197 @@ describe('SearchService', () => {
     expect(mockDataLake.getMessage).not.toHaveBeenCalled()
   })
 })
+
+describe('SearchService - Semantic Search', () => {
+  let searchService: SearchService
+  let mockDuckDB: DuckDBService
+  let mockTokenizer: Tokenizer
+  let mockDatabase: DatabaseService
+  let mockDataLake: DataLakeService
+  let mockEmbedding: { generateEmbedding: ReturnType<typeof vi.fn> }
+
+  beforeEach(() => {
+    mockDuckDB = {
+      searchFTS: vi.fn(),
+      searchVector: vi.fn(),
+    } as unknown as DuckDBService
+
+    mockTokenizer = {
+      tokenizeAndJoin: vi.fn(),
+    } as unknown as Tokenizer
+
+    mockDatabase = {
+      prisma: {
+        messageIndex: {
+          findMany: vi.fn(),
+        },
+      },
+    } as unknown as DatabaseService
+
+    mockDataLake = {
+      getMessage: vi.fn(),
+    } as unknown as DataLakeService
+
+    mockEmbedding = {
+      generateEmbedding: vi.fn(),
+    }
+
+    searchService = new SearchService(
+      mockDuckDB,
+      mockTokenizer,
+      mockDatabase,
+      mockDataLake,
+      mockEmbedding as any
+    )
+  })
+
+  it('should throw error if semantic search requested without EmbeddingService', async () => {
+    // Arrange
+    const serviceWithoutEmbedding = new SearchService(
+      mockDuckDB,
+      mockTokenizer,
+      mockDatabase,
+      mockDataLake
+    )
+    const query = { q: '测试', type: 'semantic' as const }
+
+    // Act & Assert
+    await expect(serviceWithoutEmbedding.search(query)).rejects.toThrow(
+      'EmbeddingService is required for semantic search'
+    )
+  })
+
+  it('should perform semantic search using vector embeddings', async () => {
+    // Arrange
+    const query = { q: '如何使用 AI', type: 'semantic' as const }
+    const mockEmbeddingVector = [0.1, 0.2, 0.3]
+
+    mockEmbedding.generateEmbedding.mockResolvedValue(mockEmbeddingVector)
+    vi.mocked(mockDuckDB.searchVector).mockResolvedValue([
+      { msgId: 'msg1', distance: 0.1, createTime: 1000000 },
+      { msgId: 'msg2', distance: 0.2, createTime: 1000001 },
+    ])
+    vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockResolvedValue([
+      {
+        msgId: 'msg1',
+        conversationId: 'conv1',
+        dataLakeKey: 'hot/conv1/2025-01-01.jsonl:msg1',
+        createTime: 1000000,
+        fromUsername: 'user1',
+        toUsername: 'user2',
+        msgType: 1,
+        isChatroomMsg: 0,
+        chatroom: null,
+        chatroomSender: null,
+      },
+    ] as never)
+    vi.mocked(mockDataLake.getMessage).mockResolvedValue({
+      msg_id: 'msg1',
+      content: 'AI 可以帮助你提高效率',
+      create_time: 1000000,
+      from_username: 'user1',
+      to_username: 'user2',
+      msg_type: 1,
+      chatroom_sender: '',
+      desc: '',
+      is_chatroom_msg: 0,
+      chatroom: '',
+      source: '',
+    })
+
+    // Act
+    const results = await searchService.search(query)
+
+    // Assert
+    expect(mockEmbedding.generateEmbedding).toHaveBeenCalledWith('如何使用 AI')
+    expect(mockDuckDB.searchVector).toHaveBeenCalledWith(mockEmbeddingVector, 20)
+    expect(results).toHaveLength(1)
+    expect(results[0].content).toBe('AI 可以帮助你提高效率')
+  })
+
+  it('should support hybrid search combining FTS and vector results', async () => {
+    // Arrange
+    const query = { q: '测试', type: 'hybrid' as const }
+    const mockEmbeddingVector = [0.1, 0.2, 0.3]
+
+    vi.mocked(mockTokenizer.tokenizeAndJoin).mockReturnValue('测试')
+    vi.mocked(mockDuckDB.searchFTS).mockResolvedValue([
+      { msgId: 'msg1', contentTokens: '测试', createTime: 1000000, fromUsername: 'user1', toUsername: 'user2' },
+    ])
+    mockEmbedding.generateEmbedding.mockResolvedValue(mockEmbeddingVector)
+    vi.mocked(mockDuckDB.searchVector).mockResolvedValue([
+      { msgId: 'msg2', distance: 0.1, createTime: 1000001 },
+      { msgId: 'msg3', distance: 0.2, createTime: 1000002 },
+    ])
+    vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockResolvedValue([
+      {
+        msgId: 'msg1',
+        conversationId: 'conv1',
+        dataLakeKey: 'hot/conv1/2025-01-01.jsonl:msg1',
+        createTime: 1000000,
+        fromUsername: 'user1',
+        toUsername: 'user2',
+        msgType: 1,
+        isChatroomMsg: 0,
+        chatroom: null,
+        chatroomSender: null,
+      },
+      {
+        msgId: 'msg2',
+        conversationId: 'conv1',
+        dataLakeKey: 'hot/conv1/2025-01-01.jsonl:msg2',
+        createTime: 1000001,
+        fromUsername: 'user1',
+        toUsername: 'user2',
+        msgType: 1,
+        isChatroomMsg: 0,
+        chatroom: null,
+        chatroomSender: null,
+      },
+    ] as never)
+    vi.mocked(mockDataLake.getMessage)
+      .mockResolvedValueOnce({
+        msg_id: 'msg1',
+        content: '测试内容1',
+        create_time: 1000000,
+        from_username: 'user1',
+        to_username: 'user2',
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: '',
+      })
+      .mockResolvedValueOnce({
+        msg_id: 'msg2',
+        content: '测试内容2',
+        create_time: 1000001,
+        from_username: 'user1',
+        to_username: 'user2',
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: '',
+      })
+
+    // Act
+    const results = await searchService.search(query)
+
+    // Assert
+    expect(mockTokenizer.tokenizeAndJoin).toHaveBeenCalledWith('测试')
+    expect(mockDuckDB.searchFTS).toHaveBeenCalledWith('测试')
+    expect(mockEmbedding.generateEmbedding).toHaveBeenCalledWith('测试')
+    expect(mockDuckDB.searchVector).toHaveBeenCalledWith(mockEmbeddingVector, 20)
+    expect(mockDatabase.prisma.messageIndex.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          msgId: { in: ['msg1', 'msg2', 'msg3'] },
+        }),
+      })
+    )
+    expect(results).toHaveLength(2)
+  })
+})
