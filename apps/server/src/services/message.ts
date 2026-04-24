@@ -7,6 +7,7 @@ import type { EmojiDownloadQueue } from './emojiDownloadQueue.js'
 import type { FileService } from './fileService.js'
 import type { DuckDBService } from './duckdbService.js'
 import type { Tokenizer } from './tokenizer.js'
+import type { EmbeddingQueue } from './embeddingQueue.js'
 import { processMessageContent, parseRecallXml } from './messageContentProcessor.js'
 import { logger } from '../lib/logger.js'
 import sharp from 'sharp'
@@ -54,7 +55,8 @@ export class MessageService {
     private emojiQueue?: EmojiDownloadQueue,
     private fileService?: FileService,
     private duckdb?: DuckDBService,
-    private tokenizer?: Tokenizer
+    private tokenizer?: Tokenizer,
+    private embeddingQueue?: EmbeddingQueue
   ) {}
 
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
@@ -137,6 +139,19 @@ export class MessageService {
         })
       } catch (error) {
         logger.warn({ err: error, msgId: message.msgId }, 'Failed to index message to DuckDB FTS')
+      }
+    }
+
+    // 异步生成向量嵌入（仅文本消息）
+    if (this.embeddingQueue && message.msgType === 1 && message.content) {
+      try {
+        this.embeddingQueue.enqueue({
+          msgId: message.msgId,
+          content: message.content,
+          createTime: message.createTime
+        })
+      } catch (error) {
+        logger.warn({ err: error, msgId: message.msgId }, 'Failed to enqueue vector generation')
       }
     }
 
@@ -392,6 +407,19 @@ export class MessageService {
         })
       } catch (error) {
         logger.warn({ err: error, msgId }, 'Failed to index sent message to DuckDB FTS')
+      }
+    }
+
+    // 异步生成向量嵌入
+    if (this.embeddingQueue && content) {
+      try {
+        this.embeddingQueue.enqueue({
+          msgId,
+          content,
+          createTime
+        })
+      } catch (error) {
+        logger.warn({ err: error, msgId }, 'Failed to enqueue vector generation for sent message')
       }
     }
 
