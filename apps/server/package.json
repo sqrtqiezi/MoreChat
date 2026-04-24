@@ -20,7 +20,8 @@
     "db:seed": "tsx scripts/seed-test-data.ts",
     "db:cleanup:member-only-contacts": "node scripts/cleanup-member-only-contacts.js",
     "hash-password": "tsx scripts/hash-password.ts",
-    "migrate:fts": "tsx scripts/migrate-fts.ts"
+    "migrate:fts": "tsx scripts/migrate-fts.ts",
+    "migrate:vectors": "tsx scripts/migrate-vectors.ts"
   },
   "dependencies": {
     "@duckdb/node-api": "1.4.4-r.3",
