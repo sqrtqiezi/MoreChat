@@ -93,4 +93,72 @@ describe('DuckDBService', () => {
     const results = await service.searchFTS('不存在的关键词xyz')
     expect(results.length).toBe(0)
   })
+
+  describe('Vector Search', () => {
+    it('should insert and search vectors', async () => {
+      service = new DuckDBService({ dbPath: testDbPath })
+      await service.initialize()
+
+      // 插入向量记录
+      const embedding1 = new Array(512).fill(0).map((_, i) => i / 512)
+      const embedding2 = new Array(512).fill(0).map((_, i) => (511 - i) / 512)
+
+      await service.insertVector({
+        msgId: 'vec001',
+        embedding: embedding1,
+        createTime: 1700000010,
+      })
+
+      await service.insertVector({
+        msgId: 'vec002',
+        embedding: embedding2,
+        createTime: 1700000020,
+      })
+
+      // 搜索向量
+      const results = await service.searchVector(embedding1, 2)
+      expect(results.length).toBe(2)
+      expect(results[0].msgId).toBe('vec001')
+      expect(results[0].distance).toBeLessThan(0.01)
+    })
+
+    it('should handle duplicate vector msgId gracefully', async () => {
+      service = new DuckDBService({ dbPath: testDbPath })
+      await service.initialize()
+
+      const embedding = new Array(512).fill(0.5)
+      const record = {
+        msgId: 'vec_dup',
+        embedding,
+        createTime: 1700000030,
+      }
+
+      await service.insertVector(record)
+      await expect(service.insertVector(record)).resolves.not.toThrow()
+
+      const results = await service.searchVector(embedding, 10)
+      expect(results.filter((r) => r.msgId === 'vec_dup').length).toBe(1)
+    })
+
+    it('should return top K results ordered by distance', async () => {
+      service = new DuckDBService({ dbPath: testDbPath })
+      await service.initialize()
+
+      const queryVector = new Array(512).fill(0).map((_, i) => i / 512)
+
+      for (let i = 0; i < 5; i++) {
+        const embedding = new Array(512).fill(0).map((_, j) => (j + i * 10) / 512)
+        await service.insertVector({
+          msgId: `vec_${i}`,
+          embedding,
+          createTime: 1700000000 + i,
+        })
+      }
+
+      const results = await service.searchVector(queryVector, 3)
+      expect(results.length).toBe(3)
+      expect(results[0].distance).toBeLessThanOrEqual(results[1].distance)
+      expect(results[1].distance).toBeLessThanOrEqual(results[2].distance)
+    })
+  })
 })

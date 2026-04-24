@@ -24,6 +24,18 @@ export interface FTSSearchResult {
   toUsername: string
 }
 
+export interface VectorRecord {
+  msgId: string
+  embedding: number[]
+  createTime: number
+}
+
+export interface VectorSearchResult {
+  msgId: string
+  distance: number
+  createTime: number
+}
+
 export class DuckDBService {
   private instance: DuckDBInstance | null = null
   private connection: DuckDBConnection | null = null
@@ -57,6 +69,34 @@ export class DuckDBService {
         to_username VARCHAR
       )
     `)
+
+    try {
+      await this.connection!.run('INSTALL vss')
+      await this.connection!.run('LOAD vss')
+      logger.info('VSS 扩展加载成功')
+    } catch (error) {
+      logger.warn('VSS 扩展加载失败，向量搜索功能不可用', error)
+      return
+    }
+
+    await this.connection!.run(`
+      CREATE TABLE IF NOT EXISTS message_vectors (
+        msg_id VARCHAR PRIMARY KEY,
+        embedding FLOAT[512],
+        create_time BIGINT
+      )
+    `)
+
+    try {
+      await this.connection!.run(`
+        CREATE INDEX IF NOT EXISTS message_vectors_hnsw_idx
+        ON message_vectors USING HNSW (embedding)
+        WITH (metric = 'cosine')
+      `)
+      logger.info('HNSW 索引创建成功')
+    } catch (error) {
+      logger.warn('HNSW 索引创建失败', error)
+    }
   }
 
   async insertFTS(record: FTSRecord): Promise<void> {
@@ -85,6 +125,29 @@ export class DuckDBService {
     return this.readerToFTSResults(reader)
   }
 
+  async insertVector(record: VectorRecord): Promise<void> {
+    const embeddingStr = `[${record.embedding.join(',')}]::FLOAT[512]`
+    await this.connection!.run(
+      `INSERT INTO message_vectors (msg_id, embedding, create_time)
+       VALUES ($1, ${embeddingStr}, $2)
+       ON CONFLICT (msg_id) DO NOTHING`,
+      [record.msgId, BigInt(record.createTime)]
+    )
+  }
+
+  async searchVector(queryVector: number[], topK: number): Promise<VectorSearchResult[]> {
+    const queryStr = `[${queryVector.join(',')}]::FLOAT[512]`
+    const reader = await this.connection!.runAndReadAll(
+      `SELECT msg_id, array_cosine_distance(embedding, ${queryStr}) as distance, create_time
+       FROM message_vectors
+       ORDER BY distance ASC
+       LIMIT $1`,
+      [topK]
+    )
+
+    return this.readerToVectorResults(reader)
+  }
+
   async query(sql: string, params?: unknown[]): Promise<Record<string, unknown>[]> {
     const reader = await this.connection!.runAndReadAll(sql, params as never)
     const rows = reader.getRowObjectsJS()
@@ -111,6 +174,15 @@ export class DuckDBService {
       createTime: Number(row.create_time),
       fromUsername: String(row.from_username),
       toUsername: String(row.to_username),
+    }))
+  }
+
+  private readerToVectorResults(reader: import('@duckdb/node-api').DuckDBResultReader): VectorSearchResult[] {
+    const rows = reader.getRowObjectsJS()
+    return rows.map((row) => ({
+      msgId: String(row.msg_id),
+      distance: Number(row.distance),
+      createTime: Number(row.create_time),
     }))
   }
 }
