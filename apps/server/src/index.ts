@@ -16,6 +16,8 @@ import { OssService } from './services/ossService.js'
 import { EmojiService } from './services/emojiService.js'
 import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
 import { FileService } from './services/fileService.js'
+import { DuckDBService } from './services/duckdbService.js'
+import { Tokenizer } from './services/tokenizer.js'
 import { createApp } from './app.js'
 import { retryWithBackoff } from './lib/retry.js'
 import type { ProfileState } from './routes/me.js'
@@ -87,6 +89,14 @@ async function main() {
       endpoint: env.alicloudOssEndpoint,
     })
 
+    // 初始化 DuckDB 和 Tokenizer（用于全文搜索）
+    const duckdbService = new DuckDBService({ dbPath: 'data/search.duckdb' })
+    await duckdbService.initialize()
+    logger.info('DuckDB service initialized')
+
+    const tokenizer = new Tokenizer()
+    logger.info('Tokenizer initialized')
+
     // 2. 业务服务层
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
@@ -106,7 +116,9 @@ async function main() {
       ossService,
       emojiService,
       { enqueue: (msgId: string, conversationId: string) => emojiQueue.enqueue(msgId, conversationId) } as any,
-      { processFileMessage: (msgId: string, content: string) => fileServiceRef.processFileMessage(msgId, content) } as any
+      { processFileMessage: (msgId: string, content: string) => fileServiceRef.processFileMessage(msgId, content) } as any,
+      duckdbService,
+      tokenizer
     )
 
     const imageService = new ImageService(
@@ -210,6 +222,8 @@ async function main() {
         contactSyncService.stopBackfillScheduler()
         wsService.close()
         logger.info('WebSocket connections closed')
+        await duckdbService.close()
+        logger.info('DuckDB disconnected')
         await databaseService.disconnect()
         logger.info('Database disconnected')
         logger.info('Shutdown complete')

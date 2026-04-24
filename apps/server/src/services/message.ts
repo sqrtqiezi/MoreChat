@@ -5,6 +5,8 @@ import type { OssService } from './ossService.js'
 import type { EmojiService } from './emojiService.js'
 import type { EmojiDownloadQueue } from './emojiDownloadQueue.js'
 import type { FileService } from './fileService.js'
+import type { DuckDBService } from './duckdbService.js'
+import type { Tokenizer } from './tokenizer.js'
 import { processMessageContent, parseRecallXml } from './messageContentProcessor.js'
 import { logger } from '../lib/logger.js'
 import sharp from 'sharp'
@@ -48,9 +50,11 @@ export class MessageService {
     private adapter: JuhexbotAdapter,
     private clientUsername: string,
     private ossService: OssService,
-    private emojiService: EmojiService,
-    private emojiQueue: EmojiDownloadQueue,
-    private fileService?: FileService
+    private emojiService?: EmojiService,
+    private emojiQueue?: EmojiDownloadQueue,
+    private fileService?: FileService,
+    private duckdb?: DuckDBService,
+    private tokenizer?: Tokenizer
   ) {}
 
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
@@ -119,6 +123,22 @@ export class MessageService {
       createTime: message.createTime,
       dataLakeKey
     })
+
+    // 索引到 DuckDB FTS（仅文本消息）
+    if (this.duckdb && this.tokenizer && message.msgType === 1 && message.content) {
+      try {
+        const contentTokens = this.tokenizer.tokenizeAndJoin(message.content)
+        await this.duckdb.insertFTS({
+          msgId: message.msgId,
+          contentTokens,
+          createTime: message.createTime,
+          fromUsername: message.fromUsername,
+          toUsername: message.toUsername
+        })
+      } catch (error) {
+        logger.warn({ err: error, msgId: message.msgId }, 'Failed to index message to DuckDB FTS')
+      }
+    }
 
     // 更新会话最后消息时间
     await this.db.updateConversationLastMessage(conversation.id, new Date(message.createTime * 1000))
@@ -358,6 +378,23 @@ export class MessageService {
       createTime,
       dataLakeKey,
     })
+
+    // 索引到 DuckDB FTS
+    if (this.duckdb && this.tokenizer && content) {
+      try {
+        const contentTokens = this.tokenizer.tokenizeAndJoin(content)
+        await this.duckdb.insertFTS({
+          msgId,
+          contentTokens,
+          createTime,
+          fromUsername: chatMessage.from_username,
+          toUsername
+        })
+      } catch (error) {
+        logger.warn({ err: error, msgId }, 'Failed to index sent message to DuckDB FTS')
+      }
+    }
+
     await this.db.updateConversationLastMessage(conversationId, new Date(createTime * 1000))
 
     return { msgId }
