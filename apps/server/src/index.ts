@@ -18,6 +18,7 @@ import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
 import { FileService } from './services/fileService.js'
 import { DuckDBService } from './services/duckdbService.js'
 import { Tokenizer } from './services/tokenizer.js'
+import { SearchService } from './services/searchService.js'
 import { createApp } from './app.js'
 import { retryWithBackoff } from './lib/retry.js'
 import type { ProfileState } from './routes/me.js'
@@ -101,6 +102,8 @@ async function main() {
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
     const directoryService = new DirectoryService(databaseService)
+    const searchService = new SearchService(duckdbService, tokenizer, databaseService, dataLakeService)
+    logger.info('SearchService initialized')
 
     // 初始化 EmojiService
     const emojiService = new EmojiService(databaseService, juhexbotAdapter, ossService)
@@ -159,6 +162,7 @@ async function main() {
       contactSyncService,
       juhexbotAdapter,
       get wsService() { return wsService },
+      searchService,
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
       userProfile: {
         getProfileState: () => profileState
