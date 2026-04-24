@@ -25,6 +25,7 @@
   "dependencies": {
     "@duckdb/node-api": "1.4.4-r.3",
     "@hono/node-server": "^1.11.4",
+    "@huggingface/transformers": "^4.2.0",
     "@morechat/types": "workspace:*",
     "@prisma/client": "^5.0.0",
     "ali-oss": "^6.23.0",
