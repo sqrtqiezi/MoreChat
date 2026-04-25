@@ -22,7 +22,8 @@
     "hash-password": "tsx scripts/hash-password.ts",
     "migrate:fts": "tsx scripts/migrate-fts.ts",
     "migrate:vectors": "tsx scripts/migrate-vectors.ts",
-    "migrate:tags": "tsx scripts/migrate-tags.ts"
+    "migrate:tags": "tsx scripts/migrate-tags.ts",
+    "migrate:semantic-tags": "tsx scripts/migrate-semantic-tags.ts"
   },
   "dependencies": {
     "@duckdb/node-api": "1.4.4-r.3",
