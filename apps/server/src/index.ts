@@ -22,6 +22,8 @@ import { SearchService } from './services/searchService.js'
 import { EmbeddingService } from './services/embeddingService.js'
 import { EmbeddingQueue } from './services/embeddingQueue.js'
 import { RuleEngine } from './services/ruleEngine.js'
+import { KnowledgeQueue } from './services/knowledgeQueue.js'
+import { SemanticImportanceService } from './services/semanticImportanceService.js'
 import { createApp } from './app.js'
 import { retryWithBackoff } from './lib/retry.js'
 import type { ProfileState } from './routes/me.js'
@@ -109,6 +111,34 @@ async function main() {
     const embeddingQueue = new EmbeddingQueue(embeddingService, duckdbService)
     logger.info('EmbeddingQueue initialized')
 
+    // 初始化 KnowledgeQueue 和 SemanticImportanceService（用于语义重要性分析）
+    const knowledgeQueue = new KnowledgeQueue()
+    const semanticImportanceService = new SemanticImportanceService(embeddingService)
+    await semanticImportanceService.initialize()
+    logger.info('SemanticImportanceService initialized')
+
+    // 注册语义重要性分析处理器
+    knowledgeQueue.registerHandler('semantic-importance', async (task) => {
+      try {
+        const tags = await semanticImportanceService.analyze(task.data.content)
+        if (tags.length > 0) {
+          const tagData = tags.map(t => ({
+            msgId: task.msgId,
+            tag: t.tag,
+            source: t.source
+          }))
+          await databaseService.prisma.messageTag.createMany({
+            data: tagData,
+            skipDuplicates: true
+          })
+          logger.info({ msgId: task.msgId, tags: tags.map(t => t.tag) }, 'Applied semantic tags')
+        }
+      } catch (error) {
+        logger.error({ err: error, msgId: task.msgId }, 'Failed to process semantic importance task')
+      }
+    })
+    logger.info('KnowledgeQueue initialized')
+
     // 2. 业务服务层
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
@@ -135,7 +165,8 @@ async function main() {
       duckdbService,
       tokenizer,
       embeddingQueue,
-      ruleEngine
+      ruleEngine,
+      knowledgeQueue
     )
 
     const imageService = new ImageService(

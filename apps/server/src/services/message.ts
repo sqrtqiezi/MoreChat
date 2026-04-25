@@ -9,6 +9,7 @@ import type { DuckDBService } from './duckdbService.js'
 import type { Tokenizer } from './tokenizer.js'
 import type { EmbeddingQueue } from './embeddingQueue.js'
 import type { RuleEngine } from './ruleEngine.js'
+import type { KnowledgeQueue } from './knowledgeQueue.js'
 import { processMessageContent, parseRecallXml } from './messageContentProcessor.js'
 import { logger } from '../lib/logger.js'
 import sharp from 'sharp'
@@ -58,7 +59,8 @@ export class MessageService {
     private duckdb?: DuckDBService,
     private tokenizer?: Tokenizer,
     private embeddingQueue?: EmbeddingQueue,
-    private ruleEngine?: RuleEngine
+    private ruleEngine?: RuleEngine,
+    private knowledgeQueue?: KnowledgeQueue
   ) {}
 
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
@@ -145,6 +147,7 @@ export class MessageService {
     }
 
     // 规则引擎评估（仅文本消息）
+    let ruleTagsCount = 0
     if (this.ruleEngine && message.msgType === 1 && message.content) {
       try {
         const currentUsername = this.adapter.getCurrentUsername()
@@ -158,9 +161,23 @@ export class MessageService {
         })
         if (tags.length > 0) {
           await this.ruleEngine.applyTags(tags)
+          ruleTagsCount = tags.length
         }
       } catch (error) {
         logger.warn({ err: error, msgId: message.msgId }, 'Failed to evaluate message rules')
+      }
+    }
+
+    // 语义重要性分析（仅未被规则标记的文本消息）
+    if (this.knowledgeQueue && message.msgType === 1 && message.content && ruleTagsCount === 0) {
+      try {
+        await this.knowledgeQueue.enqueue({
+          type: 'semantic-importance',
+          msgId: message.msgId,
+          data: { content: message.content }
+        })
+      } catch (error) {
+        logger.warn({ err: error, msgId: message.msgId }, 'Failed to enqueue semantic importance analysis')
       }
     }
 
