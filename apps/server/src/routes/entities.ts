@@ -64,7 +64,7 @@ export function entitiesRoutes(deps: EntitiesRouteDeps) {
         take: limit,
       })
 
-      const data = grouped.map((item) => ({
+      const data = grouped.map((item: { type: string; value: string; _count: { value: number } }) => ({
         type: item.type,
         value: item.value,
         count: item._count.value,
