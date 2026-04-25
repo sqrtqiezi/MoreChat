@@ -69,6 +69,20 @@ export interface GatewayRequest<T = any> {
   data: T
 }
 
+function summarizePayload(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { valueType: typeof payload }
+  }
+
+  const record = payload as Record<string, unknown>
+  return {
+    keys: Object.keys(record).slice(0, 10),
+    errcode: record.errcode ?? record.err_code,
+    errmsg: record.err_msg ?? record.msg,
+    hasData: Object.prototype.hasOwnProperty.call(record, 'data')
+  }
+}
+
 export class JuhexbotAdapter {
   private config: JuhexbotConfig
 
@@ -127,14 +141,20 @@ export class JuhexbotAdapter {
   async sendRequest<T>(path: string, data: T): Promise<{ errcode: number; errmsg: string; data: any }> {
     const fullPath = path.startsWith('/') ? path : `/${path}`
     const request = this.buildGatewayRequest(fullPath, data)
-    logger.info({ path: fullPath, apiUrl: this.config.apiUrl, requestBody: request }, 'juhexbot API request')
+    logger.info(
+      { path: fullPath, apiUrl: this.config.apiUrl, requestKeys: Object.keys(request), payloadSummary: summarizePayload(data) },
+      'juhexbot API request'
+    )
     const response = await fetch(this.config.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request)
     })
     const result = await response.json() as any
-    logger.info({ path: fullPath, httpStatus: response.status, rawResponse: result }, 'juhexbot API response')
+    logger.info(
+      { path: fullPath, httpStatus: response.status, responseSummary: summarizePayload(result) },
+      'juhexbot API response'
+    )
     // juhexbot API 返回字段不统一，统一为 errcode/errmsg
     // 有些接口用 errcode/err_code，有些用 baseResponse.ret
     const errcode = result.errcode ?? result.err_code ?? result.baseResponse?.ret ?? -1
@@ -142,7 +162,7 @@ export class JuhexbotAdapter {
     const respData = result.data ?? result
     const normalized = { errcode, errmsg, data: respData }
     if (normalized.errcode !== 0) {
-      logger.warn({ path: fullPath, result, errcode: normalized.errcode, errmsg: normalized.errmsg }, 'juhexbot API error')
+      logger.warn({ path: fullPath, errcode: normalized.errcode, errmsg: normalized.errmsg }, 'juhexbot API error')
     }
     return normalized
   }
@@ -450,7 +470,7 @@ export class JuhexbotAdapter {
 
     const result = await response.json() as any
 
-    logger.info({ fileName, fileType, result }, 'Cloud download API response')
+    logger.info({ fileName, fileType, responseSummary: summarizePayload(result) }, 'Cloud download API response')
 
     if (result.errcode !== 0) {
       const err = new Error(result.errmsg || `Cloud API error: ${result.errcode}`)
