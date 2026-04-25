@@ -23,7 +23,8 @@
     "migrate:fts": "tsx scripts/migrate-fts.ts",
     "migrate:vectors": "tsx scripts/migrate-vectors.ts",
     "migrate:tags": "tsx scripts/migrate-tags.ts",
-    "migrate:semantic-tags": "tsx scripts/migrate-semantic-tags.ts"
+    "migrate:semantic-tags": "tsx scripts/migrate-semantic-tags.ts",
+    "migrate:entities": "tsx scripts/migrate-entities.ts"
   },
   "dependencies": {
     "@duckdb/node-api": "1.4.4-r.3",
