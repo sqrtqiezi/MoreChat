@@ -12,6 +12,7 @@ import { directoryRoutes } from './routes/directory.js'
 import { messageRoutes } from './routes/messages.js'
 import { meRoutes } from './routes/me.js'
 import { searchRoutes } from './routes/search.js'
+import { rulesRoutes } from './routes/rules.js'
 import type { ProfileState } from './routes/me.js'
 import type { ClientService } from './services/clientService.js'
 import type { ConversationService } from './services/conversationService.js'
@@ -24,6 +25,8 @@ import type { EmojiService } from './services/emojiService.js'
 import type { FileService } from './services/fileService.js'
 import type { DirectoryService } from './services/directoryService.js'
 import type { SearchService } from './services/searchService.js'
+import type { DatabaseService } from './services/database.js'
+import type { RuleEngine } from './services/ruleEngine.js'
 import { logger } from './lib/logger.js'
 
 export interface AppDependencies {
@@ -38,6 +41,8 @@ export interface AppDependencies {
   juhexbotAdapter: JuhexbotAdapter
   wsService: WebSocketService
   searchService: SearchService
+  db?: DatabaseService
+  ruleEngine?: RuleEngine
   clientGuid: string
   userProfile: { getProfileState: () => ProfileState }
   auth: {
@@ -125,6 +130,10 @@ export function createApp(deps: AppDependencies) {
   app.route('/api/messages', messageRoutes({ messageService: deps.messageService, imageService: deps.imageService, emojiService: deps.emojiService, fileService: deps.fileService }))
   app.route('/api/me', meRoutes({ getProfileState: deps.userProfile.getProfileState }))
   app.route('/api/search', searchRoutes({ searchService: deps.searchService }))
+
+  if (deps.db && deps.ruleEngine) {
+    app.route('/api/rules', rulesRoutes({ db: deps.db, ruleEngine: deps.ruleEngine }))
+  }
 
   // 生产环境：serve 前端静态文件
   if (deps.nodeEnv === 'production') {
