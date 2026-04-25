@@ -36,8 +36,12 @@ export class EmbeddingService {
       logger.info('Embedding model loaded successfully');
     } catch (error) {
       logger.error({ err: error }, 'Failed to load embedding model');
-      throw error;
+      this.extractor = null;
     }
+  }
+
+  isAvailable(): boolean {
+    return this.extractor !== null;
   }
 
   async generateEmbedding(text: string): Promise<number[]> {

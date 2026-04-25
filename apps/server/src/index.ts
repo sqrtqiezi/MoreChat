@@ -104,20 +104,29 @@ async function main() {
     const tokenizer = new Tokenizer()
     logger.info('Tokenizer initialized')
 
-    // 初始化 EmbeddingService 和 EmbeddingQueue（用于语义搜索）
-    const embeddingService = new EmbeddingService()
-    await embeddingService.initialize()
-    logger.info('EmbeddingService initialized')
-
-    const embeddingQueue = new EmbeddingQueue(embeddingService, duckdbService)
-    logger.info('EmbeddingQueue initialized')
-
-    // 初始化 KnowledgeQueue 和 SemanticImportanceService（用于语义重要性分析）
+    // 初始化 KnowledgeQueue（用于实体提取和语义重要性分析）
     const knowledgeQueue = new KnowledgeQueue()
-    const semanticImportanceService = new SemanticImportanceService(embeddingService)
-    await semanticImportanceService.initialize()
-    logger.info('SemanticImportanceService initialized')
     const ruleEngine = new RuleEngine(databaseService)
+    let embeddingService: EmbeddingService | undefined
+    let embeddingQueue: EmbeddingQueue | undefined
+    let semanticImportanceService: SemanticImportanceService | undefined
+
+    // 初始化 EmbeddingService 和 EmbeddingQueue（用于语义搜索）
+    const candidateEmbeddingService = new EmbeddingService()
+    await candidateEmbeddingService.initialize()
+    if (candidateEmbeddingService.isAvailable()) {
+      embeddingService = candidateEmbeddingService
+      logger.info('EmbeddingService initialized')
+
+      embeddingQueue = new EmbeddingQueue(embeddingService, duckdbService)
+      logger.info('EmbeddingQueue initialized')
+
+      semanticImportanceService = new SemanticImportanceService(embeddingService)
+      await semanticImportanceService.initialize()
+      logger.info('SemanticImportanceService initialized')
+    } else {
+      logger.warn('Embedding features disabled because the model could not be loaded')
+    }
 
     // 初始化 EntityExtractorService（用于实体提取）
     const entityExtractorService = new EntityExtractorService(databaseService)
@@ -125,22 +134,26 @@ async function main() {
     logger.info('EntityExtractorService initialized')
 
     // 注册语义重要性分析处理器
-    knowledgeQueue.registerHandler('semantic-importance', async (task) => {
-      try {
-        const tags = await semanticImportanceService.analyze(task.data.content)
-        if (tags.length > 0) {
-          const tagData = tags.map(t => ({
-            msgId: task.msgId,
-            tag: t.tag,
-            source: t.source
-          }))
-          await ruleEngine.applyTags(tagData)
-          logger.info({ msgId: task.msgId, tags: tags.map(t => t.tag) }, 'Applied semantic tags')
+    if (semanticImportanceService) {
+      knowledgeQueue.registerHandler('semantic-importance', async (task) => {
+        try {
+          const tags = await semanticImportanceService.analyze(task.data.content)
+          if (tags.length > 0) {
+            const tagData = tags.map(t => ({
+              msgId: task.msgId,
+              tag: t.tag,
+              source: t.source
+            }))
+            await ruleEngine.applyTags(tagData)
+            logger.info({ msgId: task.msgId, tags: tags.map(t => t.tag) }, 'Applied semantic tags')
+          }
+        } catch (error) {
+          logger.error({ err: error, msgId: task.msgId }, 'Failed to process semantic importance task')
         }
-      } catch (error) {
-        logger.error({ err: error, msgId: task.msgId }, 'Failed to process semantic importance task')
-      }
-    })
+      })
+    } else {
+      logger.warn('Semantic importance handler disabled because embeddings are unavailable')
+    }
 
     // 注册实体提取处理器
     knowledgeQueue.registerHandler('entity-extraction', async (task) => {
