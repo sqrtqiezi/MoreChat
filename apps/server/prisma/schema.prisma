@@ -195,3 +195,85 @@ model FileCache {
   @@map("file_cache")
   @@index([status])
 }
+
+// 消息标签（重要、待办、决策等）
+model MessageTag {
+  id        String   @id @default(cuid())
+  msgId     String
+  tag       String   // "important", "todo", "decision", "question"
+  source    String   // "rule:watchlist", "rule:keyword", "rule:mention", "ai:semantic"
+  createdAt DateTime @default(now())
+
+  @@index([msgId])
+  @@index([tag])
+  @@unique([msgId, tag, source])
+}
+
+// 提取的实体
+model MessageEntity {
+  id        String   @id @default(cuid())
+  msgId     String
+  type      String   // "person", "project", "date", "amount", "action_item"
+  value     String
+  createdAt DateTime @default(now())
+
+  @@index([msgId])
+  @@index([type])
+  @@index([value])
+}
+
+// 摘要条目
+model DigestEntry {
+  id             String   @id @default(cuid())
+  conversationId String
+  startTime      Int
+  endTime        Int
+  summary        String
+  messageCount   Int
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([startTime])
+}
+
+// 话题
+model Topic {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  messageCount Int      @default(0)
+  firstSeenAt  Int
+  lastSeenAt   Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages TopicMessage[]
+
+  @@index([lastSeenAt])
+}
+
+// 话题与消息关联
+model TopicMessage {
+  id      String @id @default(cuid())
+  topicId String
+  msgId   String
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, msgId])
+  @@index([topicId])
+  @@index([msgId])
+}
+
+// 重要性规则配置
+model ImportanceRule {
+  id        String   @id @default(cuid())
+  type      String   // "watchlist", "keyword", "mention"
+  value     String   // 联系人username / 关键词 / "@me"
+  priority  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, isActive])
+}
