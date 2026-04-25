@@ -8,6 +8,7 @@ import type { FileService } from './fileService.js'
 import type { DuckDBService } from './duckdbService.js'
 import type { Tokenizer } from './tokenizer.js'
 import type { EmbeddingQueue } from './embeddingQueue.js'
+import type { RuleEngine } from './ruleEngine.js'
 import { processMessageContent, parseRecallXml } from './messageContentProcessor.js'
 import { logger } from '../lib/logger.js'
 import sharp from 'sharp'
@@ -56,7 +57,8 @@ export class MessageService {
     private fileService?: FileService,
     private duckdb?: DuckDBService,
     private tokenizer?: Tokenizer,
-    private embeddingQueue?: EmbeddingQueue
+    private embeddingQueue?: EmbeddingQueue,
+    private ruleEngine?: RuleEngine
   ) {}
 
   async handleIncomingMessage(parsed: ParsedWebhookPayload): Promise<IncomingMessageResult | RecallResult | null> {
@@ -139,6 +141,26 @@ export class MessageService {
         })
       } catch (error) {
         logger.warn({ err: error, msgId: message.msgId }, 'Failed to index message to DuckDB FTS')
+      }
+    }
+
+    // 规则引擎评估（仅文本消息）
+    if (this.ruleEngine && message.msgType === 1 && message.content) {
+      try {
+        const currentUsername = this.adapter.getCurrentUsername()
+        const tags = await this.ruleEngine.evaluateMessage({
+          msgId: message.msgId,
+          fromUsername: message.fromUsername,
+          toUsername: message.toUsername,
+          content: message.content,
+          msgType: message.msgType,
+          currentUsername
+        })
+        if (tags.length > 0) {
+          await this.ruleEngine.applyTags(tags)
+        }
+      } catch (error) {
+        logger.warn({ err: error, msgId: message.msgId }, 'Failed to evaluate message rules')
       }
     }
 

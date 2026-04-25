@@ -21,6 +21,7 @@ import { Tokenizer } from './services/tokenizer.js'
 import { SearchService } from './services/searchService.js'
 import { EmbeddingService } from './services/embeddingService.js'
 import { EmbeddingQueue } from './services/embeddingQueue.js'
+import { RuleEngine } from './services/ruleEngine.js'
 import { createApp } from './app.js'
 import { retryWithBackoff } from './lib/retry.js'
 import type { ProfileState } from './routes/me.js'
@@ -113,6 +114,7 @@ async function main() {
     const conversationService = new ConversationService(databaseService, dataLakeService)
     const directoryService = new DirectoryService(databaseService)
     const searchService = new SearchService(duckdbService, tokenizer, databaseService, dataLakeService, embeddingService)
+    const ruleEngine = new RuleEngine(databaseService)
     logger.info('SearchService initialized')
 
     // 初始化 EmojiService
@@ -132,7 +134,8 @@ async function main() {
       { processFileMessage: (msgId: string, content: string) => fileServiceRef.processFileMessage(msgId, content) } as any,
       duckdbService,
       tokenizer,
-      embeddingQueue
+      embeddingQueue,
+      ruleEngine
     )
 
     const imageService = new ImageService(

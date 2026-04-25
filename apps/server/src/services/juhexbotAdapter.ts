@@ -111,6 +111,10 @@ export class JuhexbotAdapter {
     return parsed.message.fromUsername
   }
 
+  getCurrentUsername(): string | undefined {
+    return this.config.clientUsername
+  }
+
   buildGatewayRequest<T>(path: string, data: T): GatewayRequest<T> {
     return {
       app_key: this.config.appKey,
