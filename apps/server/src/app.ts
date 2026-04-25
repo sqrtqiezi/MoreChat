@@ -13,6 +13,7 @@ import { messageRoutes } from './routes/messages.js'
 import { meRoutes } from './routes/me.js'
 import { searchRoutes } from './routes/search.js'
 import { rulesRoutes } from './routes/rules.js'
+import { entitiesRoutes } from './routes/entities.js'
 import type { ProfileState } from './routes/me.js'
 import type { ClientService } from './services/clientService.js'
 import type { ConversationService } from './services/conversationService.js'
@@ -133,6 +134,10 @@ export function createApp(deps: AppDependencies) {
 
   if (deps.db && deps.ruleEngine) {
     app.route('/api/rules', rulesRoutes({ db: deps.db, ruleEngine: deps.ruleEngine }))
+  }
+
+  if (deps.db) {
+    app.route('/api/entities', entitiesRoutes({ db: deps.db }))
   }
 
   // 生产环境：serve 前端静态文件
