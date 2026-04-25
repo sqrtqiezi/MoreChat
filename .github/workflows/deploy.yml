@@ -156,7 +156,19 @@ jobs:
 
             # 数据库迁移
             echo "🗄️ Running database migration..."
-            npx prisma migrate deploy
+            migrate_output="$(npx prisma migrate deploy 2>&1)" || migrate_status=$?
+            echo "$migrate_output"
+            if [ "${migrate_status:-0}" -ne 0 ]; then
+              if printf '%s' "$migrate_output" | grep -q '20260424000000_add_knowledge_models' \
+                && printf '%s' "$migrate_output" | grep -q 'duplicate column name: lastSyncAt'; then
+                echo "⚠️ Detected pre-existing knowledge schema changes, reconciling Prisma state..."
+                npx prisma db push --skip-generate
+                npx prisma migrate resolve --applied 20260424000000_add_knowledge_models
+                npx prisma migrate deploy
+              else
+                exit "${migrate_status:-1}"
+              fi
+            fi
             cd ../..
 
             # 重启服务
