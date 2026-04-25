@@ -132,6 +132,7 @@ jobs:
 
             # 安装生产依赖
             echo "📦 Installing production dependencies..."
+            export ONNXRUNTIME_NODE_INSTALL="skip"
             pnpm install --prod --frozen-lockfile
 
             # 生成 Prisma Client
