@@ -101,4 +101,23 @@ describe('KnowledgeQueue', () => {
     expect(queue.getQueueSize()).toBe(0)
     expect(handler).toHaveBeenCalledTimes(2)
   })
+
+  it('should process semantic-importance task with registered handler', async () => {
+    const handler = vi.fn().mockResolvedValue(undefined)
+    queue.registerHandler('semantic-importance', handler)
+
+    await queue.enqueue({
+      type: 'semantic-importance',
+      msgId: 'msg-semantic-1',
+      data: { content: '请今天完成预算表' }
+    })
+
+    await queue.waitForIdle()
+
+    expect(handler).toHaveBeenCalledWith({
+      type: 'semantic-importance',
+      msgId: 'msg-semantic-1',
+      data: { content: '请今天完成预算表' }
+    })
+  })
 })
