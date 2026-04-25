@@ -14,9 +14,13 @@ export class EmbeddingService {
     }
 
     try {
+      const wasmBackend = env.backends.onnx?.wasm
+
       // Force WASM backend (disable onnxruntime-node)
-      env.backends.onnx.wasm.proxy = false;
-      env.backends.onnx.wasm.numThreads = 1;
+      if (wasmBackend) {
+        wasmBackend.proxy = false;
+        wasmBackend.numThreads = 1;
+      }
       env.allowLocalModels = false;
       env.useBrowserCache = false;
 
@@ -31,7 +35,7 @@ export class EmbeddingService {
       });
       logger.info('Embedding model loaded successfully');
     } catch (error) {
-      logger.error('Failed to load embedding model', { error });
+      logger.error({ err: error }, 'Failed to load embedding model');
       throw error;
     }
   }
@@ -50,7 +54,7 @@ export class EmbeddingService {
       const embedding = Array.from(output.data as Float32Array);
       return embedding;
     } catch (error) {
-      logger.error('Failed to generate embedding', { error, text });
+      logger.error({ err: error, text }, 'Failed to generate embedding');
       throw error;
     }
   }

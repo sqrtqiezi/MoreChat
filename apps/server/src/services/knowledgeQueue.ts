@@ -35,7 +35,7 @@ export class KnowledgeQueue {
       try {
         await handler(task)
       } catch (error) {
-        logger.error(`Error processing task ${task.msgId}:`, error)
+        logger.error({ err: error, msgId: task.msgId, type: task.type }, 'Error processing task')
       }
     })
   }

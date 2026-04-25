@@ -211,7 +211,7 @@ export class MessageService {
     await this.db.updateConversationLastMessage(conversation.id, new Date(message.createTime * 1000))
 
     // 处理表情消息
-    if (message.msgType === 47) {
+    if (message.msgType === 47 && this.emojiService && this.emojiQueue) {
       await this.emojiService.processEmojiMessage(message.msgId, message.content)
       this.emojiQueue.enqueue(message.msgId, conversation.id)
     }

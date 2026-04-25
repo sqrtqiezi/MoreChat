@@ -38,10 +38,10 @@ export class EmbeddingQueue {
         })
         logger.debug(`向量生成成功: ${task.msgId}`)
       } catch (error) {
-        logger.error(`向量生成失败: ${task.msgId}`, error)
+        logger.error({ err: error, msgId: task.msgId }, '向量生成失败')
       }
     }).catch((error) => {
-      logger.error(`队列任务执行失败: ${task.msgId}`, error)
+      logger.error({ err: error, msgId: task.msgId }, '队列任务执行失败')
     })
   }
 

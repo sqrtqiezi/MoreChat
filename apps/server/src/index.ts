@@ -117,6 +117,7 @@ async function main() {
     const semanticImportanceService = new SemanticImportanceService(embeddingService)
     await semanticImportanceService.initialize()
     logger.info('SemanticImportanceService initialized')
+    const ruleEngine = new RuleEngine(databaseService)
 
     // 初始化 EntityExtractorService（用于实体提取）
     const entityExtractorService = new EntityExtractorService(databaseService)
@@ -133,10 +134,7 @@ async function main() {
             tag: t.tag,
             source: t.source
           }))
-          await databaseService.prisma.messageTag.createMany({
-            data: tagData,
-            skipDuplicates: true
-          })
+          await ruleEngine.applyTags(tagData)
           logger.info({ msgId: task.msgId, tags: tags.map(t => t.tag) }, 'Applied semantic tags')
         }
       } catch (error) {
@@ -149,14 +147,16 @@ async function main() {
       try {
         const entities = await entityExtractorService.extract(task.data.content)
         if (entities.length > 0) {
-          const entityData = entities.map(e => ({
-            msgId: task.msgId,
-            type: e.type,
-            value: e.value
-          }))
+          const entityData = Array.from(new Map(entities.map((entity) => [
+            `${task.msgId}:${entity.type}:${entity.value}`,
+            {
+              msgId: task.msgId,
+              type: entity.type,
+              value: entity.value,
+            },
+          ])).values())
           await databaseService.prisma.messageEntity.createMany({
             data: entityData,
-            skipDuplicates: true
           })
           logger.info({ msgId: task.msgId, count: entities.length }, 'Extracted entities')
         }
@@ -171,7 +171,6 @@ async function main() {
     const conversationService = new ConversationService(databaseService, dataLakeService)
     const directoryService = new DirectoryService(databaseService)
     const searchService = new SearchService(duckdbService, tokenizer, databaseService, dataLakeService, embeddingService)
-    const ruleEngine = new RuleEngine(databaseService)
     logger.info('SearchService initialized')
 
     // 初始化 EmojiService

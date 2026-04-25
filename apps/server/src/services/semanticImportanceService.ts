@@ -45,7 +45,7 @@ export class SemanticImportanceService {
 
       logger.info('SemanticImportanceService initialized successfully')
     } catch (error) {
-      logger.error('Failed to initialize SemanticImportanceService', { error })
+      logger.error({ err: error }, 'Failed to initialize SemanticImportanceService')
       throw error
     }
   }
@@ -70,7 +70,7 @@ export class SemanticImportanceService {
 
       return tags
     } catch (error) {
-      logger.error('Failed to analyze message', { error, content })
+      logger.error({ err: error, content }, 'Failed to analyze message')
       throw error
     }
   }
@@ -94,4 +94,3 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
   return dot / denom
 }
-

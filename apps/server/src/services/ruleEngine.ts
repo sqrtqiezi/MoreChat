@@ -28,6 +28,10 @@ export interface MessageTagData {
 
 const RULE_CACHE_TTL_MS = 60_000
 
+function buildTagKey(tag: MessageTagData): string {
+  return `${tag.msgId}:${tag.tag}:${tag.source}`
+}
+
 export class RuleEngine {
   private rulesCache: ImportanceRuleRecord[] | null = null
   private cacheExpiresAt = 0
@@ -70,14 +74,35 @@ export class RuleEngine {
     }
 
     try {
+      const uniqueTags = Array.from(new Map(tags.map((tag) => [buildTagKey(tag), tag])).values())
+      const existingTags = await this.db.prisma.messageTag.findMany({
+        where: {
+          OR: uniqueTags.map((tag) => ({
+            msgId: tag.msgId,
+            tag: tag.tag,
+            source: tag.source,
+          })),
+        },
+        select: {
+          msgId: true,
+          tag: true,
+          source: true,
+        },
+      })
+      const existingKeys = new Set(existingTags.map(buildTagKey))
+      const newTags = uniqueTags.filter((tag) => !existingKeys.has(buildTagKey(tag)))
+
+      if (newTags.length === 0) {
+        return 0
+      }
+
       const result = await this.db.prisma.messageTag.createMany({
-        data: tags,
-        skipDuplicates: true,
+        data: newTags,
       })
 
       return result.count
     } catch (error) {
-      logger.error(`写入消息标签失败: ${JSON.stringify(tags.map((tag) => tag.msgId))}`, error)
+      logger.error({ err: error, msgIds: tags.map((tag) => tag.msgId) }, '写入消息标签失败')
       throw error
     }
   }
@@ -104,7 +129,7 @@ export class RuleEngine {
       this.cacheExpiresAt = now + RULE_CACHE_TTL_MS
       return rules
     } catch (error) {
-      logger.error('加载重要性规则失败', error)
+      logger.error({ err: error }, '加载重要性规则失败')
       throw error
     }
   }

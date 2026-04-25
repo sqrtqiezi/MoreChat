@@ -54,7 +54,7 @@ export class DuckDBService {
       await this.createSchema()
       logger.info('DuckDB 服务初始化完成')
     } catch (error) {
-      logger.error('DuckDB 初始化失败', error)
+      logger.error({ err: error }, 'DuckDB 初始化失败')
       throw error
     }
   }
@@ -75,7 +75,7 @@ export class DuckDBService {
       await this.connection!.run('LOAD vss')
       logger.info('VSS 扩展加载成功')
     } catch (error) {
-      logger.warn('VSS 扩展加载失败，向量搜索功能不可用', error)
+      logger.warn({ err: error }, 'VSS 扩展加载失败，向量搜索功能不可用')
       return
     }
 
@@ -95,7 +95,7 @@ export class DuckDBService {
       `)
       logger.info('HNSW 索引创建成功')
     } catch (error) {
-      logger.warn('HNSW 索引创建失败', error)
+      logger.warn({ err: error }, 'HNSW 索引创建失败')
     }
   }
 

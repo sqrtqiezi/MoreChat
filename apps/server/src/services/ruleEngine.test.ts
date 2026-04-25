@@ -16,6 +16,7 @@ describe('RuleEngine', () => {
           findMany: vi.fn(),
         },
         messageTag: {
+          findMany: vi.fn(),
           createMany: vi.fn(),
         },
       },
@@ -182,19 +183,26 @@ describe('RuleEngine', () => {
   })
 
   describe('applyTags', () => {
-    it('应该在有标签时调用 createMany 并跳过重复', async () => {
+    it('应该只写入不存在的标签', async () => {
+      vi.mocked(mockDb.prisma.messageTag.findMany).mockResolvedValue([
+        { msgId: 'msg1', tag: 'important', source: 'rule:watchlist' },
+      ])
       vi.mocked(mockDb.prisma.messageTag.createMany).mockResolvedValue({ count: 1 })
 
       const tags = [
         { msgId: 'msg1', tag: 'important', source: 'rule:watchlist' },
+        { msgId: 'msg1', tag: 'important', source: 'rule:watchlist' },
+        { msgId: 'msg1', tag: 'important', source: 'rule:keyword' },
       ]
 
       const count = await ruleEngine.applyTags(tags)
 
       expect(count).toBe(1)
+      expect(mockDb.prisma.messageTag.findMany).toHaveBeenCalled()
       expect(mockDb.prisma.messageTag.createMany).toHaveBeenCalledWith({
-        data: tags,
-        skipDuplicates: true,
+        data: [
+          { msgId: 'msg1', tag: 'important', source: 'rule:keyword' },
+        ],
       })
     })
 
