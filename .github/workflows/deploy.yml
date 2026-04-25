@@ -209,12 +209,9 @@ jobs:
             find "${PM2_HOME:-$HOME/.pm2}/logs" -maxdepth 1 -type f -name 'morechat-*.log' -exec truncate -s 0 {} \; || true
 
             echo "🔄 Restarting service..."
-            if pm2 list | grep -q morechat; then
-              pm2 restart morechat --update-env
-            else
-              pm2 start ecosystem.config.cjs
-              pm2 save
-            fi
+            pm2 delete morechat || true
+            pm2 start ecosystem.config.cjs --only morechat
+            pm2 save
 
             # 健康检查
             echo "🏥 Health check..."
