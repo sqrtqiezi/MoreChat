@@ -181,6 +181,19 @@ export class MessageService {
       }
     }
 
+    // 实体提取（所有文本消息）
+    if (this.knowledgeQueue && message.msgType === 1 && message.content) {
+      try {
+        await this.knowledgeQueue.enqueue({
+          type: 'entity-extraction',
+          msgId: message.msgId,
+          data: { content: message.content }
+        })
+      } catch (error) {
+        logger.warn({ err: error, msgId: message.msgId }, 'Failed to enqueue entity extraction')
+      }
+    }
+
     // 异步生成向量嵌入（仅文本消息）
     if (this.embeddingQueue && message.msgType === 1 && message.content) {
       try {

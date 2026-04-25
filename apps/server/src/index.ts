@@ -24,6 +24,7 @@ import { EmbeddingQueue } from './services/embeddingQueue.js'
 import { RuleEngine } from './services/ruleEngine.js'
 import { KnowledgeQueue } from './services/knowledgeQueue.js'
 import { SemanticImportanceService } from './services/semanticImportanceService.js'
+import { EntityExtractorService } from './services/entityExtractorService.js'
 import { createApp } from './app.js'
 import { retryWithBackoff } from './lib/retry.js'
 import type { ProfileState } from './routes/me.js'
@@ -117,6 +118,11 @@ async function main() {
     await semanticImportanceService.initialize()
     logger.info('SemanticImportanceService initialized')
 
+    // 初始化 EntityExtractorService（用于实体提取）
+    const entityExtractorService = new EntityExtractorService(databaseService)
+    await entityExtractorService.refreshContacts()
+    logger.info('EntityExtractorService initialized')
+
     // 注册语义重要性分析处理器
     knowledgeQueue.registerHandler('semantic-importance', async (task) => {
       try {
@@ -135,6 +141,27 @@ async function main() {
         }
       } catch (error) {
         logger.error({ err: error, msgId: task.msgId }, 'Failed to process semantic importance task')
+      }
+    })
+
+    // 注册实体提取处理器
+    knowledgeQueue.registerHandler('entity-extraction', async (task) => {
+      try {
+        const entities = await entityExtractorService.extract(task.data.content)
+        if (entities.length > 0) {
+          const entityData = entities.map(e => ({
+            msgId: task.msgId,
+            type: e.type,
+            value: e.value
+          }))
+          await databaseService.prisma.messageEntity.createMany({
+            data: entityData,
+            skipDuplicates: true
+          })
+          logger.info({ msgId: task.msgId, count: entities.length }, 'Extracted entities')
+        }
+      } catch (error) {
+        logger.error({ err: error, msgId: task.msgId }, 'Failed to process entity extraction task')
       }
     })
     logger.info('KnowledgeQueue initialized')
