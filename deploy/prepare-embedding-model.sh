@@ -4,8 +4,8 @@
 
 set -e
 
-MODEL_ID="onnx-community/bge-small-zh-v1.5-ONNX"
-TARGET_DIR="deploy-package/models/bge-small-zh-v1.5"
+MODEL_ID="${MODEL_ID:-onnx-community/bge-small-zh-v1.5-ONNX}"
+TARGET_DIR="${MODEL_DIR:-deploy-package/models/bge-small-zh-v1.5}"
 
 echo "=== 准备嵌入模型 ==="
 echo "模型: $MODEL_ID"

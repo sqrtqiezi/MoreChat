@@ -32,6 +32,18 @@ jobs:
       - name: Generate Prisma Client
         run: cd apps/server && pnpm prisma generate
 
+      - name: Setup Python for embedding model
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download embedding model
+        run: |
+          pip install huggingface_hub
+          MODEL_ID="onnx-community/bge-small-zh-v1.5-ONNX" \
+          MODEL_DIR="$PWD/deploy-package/models/bge-small-zh-v1.5" \
+          bash deploy/prepare-embedding-model.sh
+
       - name: Create deployment package
         run: |
           mkdir -p deploy-package
@@ -106,6 +118,16 @@ jobs:
             rm -rf apps/server/scripts
             mv server-scripts apps/server/scripts
 
+            # 设置嵌入模型
+            if [ -d models/bge-small-zh-v1.5 ]; then
+              echo "📦 Setting up embedding model..."
+              mkdir -p /opt/morechat/models
+              rm -rf /opt/morechat/models/bge-small-zh-v1.5
+              mv models/bge-small-zh-v1.5 /opt/morechat/models/bge-small-zh-v1.5
+            else
+              echo "⚠️ Embedding model directory not found in deployment package"
+            fi
+
             # 生成 .env 文件
             echo "⚙️ Configuring environment..."
             export DATABASE_URL="${DATABASE_URL}"
@@ -128,7 +150,17 @@ jobs:
             export ALICLOUD_OSS_ACCESS_KEY_ID="${ALICLOUD_OSS_ACCESS_KEY_ID}"
             export ALICLOUD_OSS_ACCESS_KEY_SECRET="${ALICLOUD_OSS_ACCESS_KEY_SECRET}"
             export ALICLOUD_OSS_ENDPOINT="${ALICLOUD_OSS_ENDPOINT}"
+            export EMBEDDING_ENABLED="true"
+            export EMBEDDING_MODEL_PATH="/opt/morechat/models/bge-small-zh-v1.5"
             bash init-env.sh
+
+            # 追加嵌入模型配置
+            cat >> apps/server/.env << 'EMBED_EOF'
+
+# Embedding
+EMBEDDING_ENABLED=true
+EMBEDDING_MODEL_PATH=/opt/morechat/models/bge-small-zh-v1.5
+EMBED_EOF
 
             # 安装生产依赖
             echo "📦 Installing production dependencies..."
@@ -246,3 +278,5 @@ jobs:
           ALICLOUD_OSS_ACCESS_KEY_ID: ${{ secrets.ENV_ALICLOUD_OSS_ACCESS_KEY_ID }}
           ALICLOUD_OSS_ACCESS_KEY_SECRET: ${{ secrets.ENV_ALICLOUD_OSS_ACCESS_KEY_SECRET }}
           ALICLOUD_OSS_ENDPOINT: ${{ secrets.ENV_ALICLOUD_OSS_ENDPOINT }}
+          EMBEDDING_ENABLED: "true"
+          EMBEDDING_MODEL_PATH: "/opt/morechat/models/bge-small-zh-v1.5"
