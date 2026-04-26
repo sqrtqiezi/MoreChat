@@ -211,6 +211,8 @@ jobs:
                     'CREATE INDEX IF NOT EXISTS "TopicMessage_msgId_idx" ON "TopicMessage"("msgId");' \
                     'CREATE UNIQUE INDEX IF NOT EXISTS "TopicMessage_topicId_msgId_key" ON "TopicMessage"("topicId", "msgId");' \
                     'CREATE INDEX IF NOT EXISTS "ImportanceRule_type_isActive_idx" ON "ImportanceRule"("type", "isActive");' \
+                    'CREATE UNIQUE INDEX IF NOT EXISTS "Conversation_clientId_groupId_key" ON "Conversation"("clientId", "groupId");' \
+                    'CREATE UNIQUE INDEX IF NOT EXISTS "Conversation_clientId_contactId_key" ON "Conversation"("clientId", "contactId");' \
                     'CREATE INDEX IF NOT EXISTS "MessageIndex_fromUsername_idx" ON "MessageIndex"("fromUsername");' \
                     'CREATE INDEX IF NOT EXISTS "MessageIndex_toUsername_idx" ON "MessageIndex"("toUsername");' \
                     > "$reconcile_sql"
