@@ -87,6 +87,34 @@ describe('search routes', () => {
       )
     })
 
+    it('should parse important=false as false', async () => {
+      vi.mocked(mockSearchService.search).mockResolvedValue([])
+
+      const res = await app.request('/api/search?q=hello&important=false')
+
+      expect(res.status).toBe(200)
+      expect(mockSearchService.search).toHaveBeenCalledWith(
+        expect.objectContaining({
+          q: 'hello',
+          important: false,
+        })
+      )
+    })
+
+    it('should parse important=true as true', async () => {
+      vi.mocked(mockSearchService.search).mockResolvedValue([])
+
+      const res = await app.request('/api/search?q=hello&important=true')
+
+      expect(res.status).toBe(200)
+      expect(mockSearchService.search).toHaveBeenCalledWith(
+        expect.objectContaining({
+          q: 'hello',
+          important: true,
+        })
+      )
+    })
+
     it('should return 500 on service error', async () => {
       vi.mocked(mockSearchService.search).mockRejectedValue(new Error('DB error'))
 

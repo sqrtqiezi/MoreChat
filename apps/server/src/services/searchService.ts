@@ -40,7 +40,11 @@ export class SearchService {
   ) {}
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
+    const limit = query.limit ?? 20
+    const offset = query.offset ?? 0
+    const rankedCandidateCount = limit + offset
     let msgIds: string[] = []
+    let preserveCandidateOrder = false
     const keywordSearch = async (): Promise<string[]> => {
       const tokens = this.tokenizer.tokenizeAndJoin(query.q)
       const ftsResults = await this.duckdb.searchFTS(tokens)
@@ -56,8 +60,9 @@ export class SearchService {
         msgIds = await keywordSearch()
       } else {
         const embedding = await this.embedding.generateEmbedding(query.q)
-        const vectorResults = await this.duckdb.searchVector(embedding, query.limit ?? 20)
+        const vectorResults = await this.duckdb.searchVector(embedding, rankedCandidateCount)
         msgIds = vectorResults.map((r) => r.msgId)
+        preserveCandidateOrder = true
       }
     } else if (query.type === 'hybrid') {
       if (!this.embedding) {
@@ -67,12 +72,13 @@ export class SearchService {
         const tokens = this.tokenizer.tokenizeAndJoin(query.q)
         const ftsResults = await this.duckdb.searchFTS(tokens)
         const embedding = await this.embedding.generateEmbedding(query.q)
-        const vectorResults = await this.duckdb.searchVector(embedding, query.limit ?? 20)
+        const vectorResults = await this.duckdb.searchVector(embedding, rankedCandidateCount)
 
         const msgIdSet = new Set<string>()
         ftsResults.forEach((r) => msgIdSet.add(r.msgId))
         vectorResults.forEach((r) => msgIdSet.add(r.msgId))
         msgIds = Array.from(msgIdSet)
+        preserveCandidateOrder = true
       }
     }
 
@@ -89,11 +95,13 @@ export class SearchService {
         },
         select: { msgId: true },
       })
-      const importantMsgIds = importantTags.map((tag: { msgId: string }) => tag.msgId)
-      if (importantMsgIds.length === 0) {
+      const importantMsgIdSet = new Set(
+        importantTags.map((tag: { msgId: string }) => tag.msgId)
+      )
+      msgIds = msgIds.filter((msgId) => importantMsgIdSet.has(msgId))
+      if (msgIds.length === 0) {
         return []
       }
-      msgIds = importantMsgIds
     }
 
     const where: Record<string, unknown> = {
@@ -113,20 +121,34 @@ export class SearchService {
     }
 
     // Step 3: 从 SQLite MessageIndex 过滤
-    const indexRecords = await this.db.prisma.messageIndex.findMany({
-      where,
-      take: query.limit ?? 20,
-      skip: query.offset ?? 0,
-      orderBy: { createTime: 'desc' },
-    })
+    const indexRecords = await this.db.prisma.messageIndex.findMany(
+      preserveCandidateOrder
+        ? { where }
+        : {
+            where,
+            take: limit,
+            skip: offset,
+            orderBy: { createTime: 'desc' },
+          }
+    )
 
     if (indexRecords.length === 0) {
       return []
     }
 
+    const orderedIndexRecords = preserveCandidateOrder
+      ? (() => {
+          const recordsByMsgId = new Map(indexRecords.map((record) => [record.msgId, record]))
+          return msgIds
+            .map((msgId) => recordsByMsgId.get(msgId))
+            .filter((record): record is (typeof indexRecords)[number] => record !== undefined)
+            .slice(offset, offset + limit)
+        })()
+      : indexRecords
+
     // Step 4: 从 DataLake 获取完整消息内容
     const results: SearchResult[] = []
-    for (const record of indexRecords) {
+    for (const record of orderedIndexRecords) {
       try {
         const msg = await this.dataLake.getMessage(record.dataLakeKey)
         results.push({

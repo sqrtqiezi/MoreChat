@@ -10,6 +10,19 @@ interface SearchRouteDeps {
   searchService: SearchService
 }
 
+const booleanQuerySchema = z.preprocess((value) => {
+  if (value === undefined) {
+    return undefined
+  }
+  if (value === 'true' || value === true) {
+    return true
+  }
+  if (value === 'false' || value === false) {
+    return false
+  }
+  return value
+}, z.boolean().optional())
+
 const searchQuerySchema = z.object({
   q: z.string().min(1, 'Query cannot be empty'),
   type: z.enum(['keyword', 'semantic', 'hybrid']).default('keyword'),
@@ -17,7 +30,7 @@ const searchQuerySchema = z.object({
   group: z.string().optional(),
   after: z.coerce.number().optional(),
   before: z.coerce.number().optional(),
-  important: z.coerce.boolean().optional(),
+  important: booleanQuerySchema,
   limit: z.coerce.number().max(100).default(20),
   offset: z.coerce.number().default(0),
 })
