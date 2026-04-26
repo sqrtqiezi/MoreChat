@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { useChatStore } from '../stores/chatStore'
+import { useKnowledgeStore } from '../stores/knowledgeStore'
 
 const mockUseMessages = vi.fn()
 const chatWindowRenderIds: Array<string | null> = []
@@ -61,6 +63,7 @@ describe('KnowledgePage routing', () => {
     window.history.pushState({}, '', '/')
     chatWindowRenderIds.length = 0
     mockUseMessages.mockReset()
+    useKnowledgeStore.getState().reset()
     useChatStore.setState({
       selectedConversationId: null,
       isSidebarCollapsed: false,
@@ -72,7 +75,24 @@ describe('KnowledgePage routing', () => {
   it('renders knowledge page on root route', async () => {
     render(<App />)
 
-    expect(await screen.findByRole('textbox', { name: /搜索/i })).toBeInTheDocument()
+    expect(await screen.findByRole('textbox', { name: '搜索消息' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '知识库导航' })).toBeInTheDocument()
+    expect(screen.getByText('搜索微信历史消息')).toBeInTheDocument()
+  })
+
+  it('updates knowledge store from the search controls', async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.type(await screen.findByRole('textbox', { name: '搜索消息' }), '项目复盘')
+    await user.click(screen.getByRole('button', { name: '语义' }))
+    await user.click(screen.getByRole('checkbox', { name: '仅重要消息' }))
+    await user.click(screen.getByRole('button', { name: '搜索' }))
+
+    expect(useKnowledgeStore.getState().query).toBe('项目复盘')
+    expect(useKnowledgeStore.getState().mode).toBe('semantic')
+    expect(useKnowledgeStore.getState().filters.important).toBe(true)
   })
 
   it('uses the URL conversation immediately and syncs the store once', async () => {
