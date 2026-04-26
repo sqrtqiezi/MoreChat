@@ -1,8 +1,14 @@
 # MoreChat 知识库重构设计
 
 **日期：** 2026-04-24  
-**状态：** 设计阶段  
+**状态：** 总体设计，细化方案见分阶段 specs  
 **目标：** 将 MoreChat 从"微信 Web 客户端"重构为"微信消息知识库"
+
+> 注：本文档是知识库重构的总纲。摘要生成与知识提炼已在
+> `docs/superpowers/specs/2026-04-26-phase2d-digest-knowledge-extraction-design.md`
+> 细化；主题聚类已在
+> `docs/superpowers/specs/2026-04-26-phase2e-topic-clustering-design.md`
+> 细化。若本文与分阶段 spec 冲突，以分阶段 spec 为准。
 
 ---
 
@@ -213,8 +219,8 @@ const results = await duckdb.all(
 3. **向量嵌入生成** — 本地模型生成消息文本的 embedding，写入 DuckDB VSS
 4. **语义重要性分析** — 本地小模型对未被规则命中的消息做轻量分类（是否包含待办、决策、问题等）
 5. **实体提取** — 本地模型提取人名、项目名、日期、金额等结构化信息
-6. **摘要生成（云端）** — 对标记为重要的消息所在的对话段落，调用云端 LLM 生成摘要
-7. **主题聚类** — 定时任务，基于向量相似度将相关消息归类到话题下
+6. **摘要生成（云端）** — 对标记为重要的消息所在的对话段落，调用云端 LLM 生成窗口摘要，并进一步提炼结构化知识
+7. **主题聚类** — 以 `KnowledgeCard` 为主要输入进行增量聚类，再将原始消息回填到话题下
 
 ### 4.3 手动触发
 
@@ -234,9 +240,14 @@ const results = await duckdb.all(
                  ├─→ 向量嵌入生成 → DuckDB VSS
                  ├─→ 语义分类 (本地) → MessageTag
                  ├─→ 实体提取 (本地) → MessageEntity
-                 └─→ 摘要生成 (云端, 仅重要消息) → DigestEntry
+                 └─→ 摘要生成 (云端, 仅重要消息) → DigestEntry → KnowledgeCard
 
-定时任务 ─→ 主题聚类 → Topic + TopicMessage
+KnowledgeCard 生成/更新
+    │
+    └─ 入队 ─→ 主题聚类 → Topic + TopicKnowledgeCard
+                      └─→ 消息回填 → TopicMessage
+
+定时任务 ─→ 主题修正 / 过期处理
 ```
 
 ---
@@ -280,26 +291,63 @@ model DigestEntry {
   endTime        Int
   summary        String
   messageCount   Int
+  sourceKind     String
+  triggerMsgId   String?
+  status         String
+  errorMessage   String?
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  knowledgeCard KnowledgeCard?
 
   @@index([conversationId])
   @@index([startTime])
+  @@unique([conversationId, startTime, endTime, sourceKind])
+}
+
+// 从摘要中提炼出的结构化知识卡片
+model KnowledgeCard {
+  id             String   @id @default(cuid())
+  digestEntryId  String   @unique
+  conversationId String
+  title          String
+  summary        String
+  decisions      String
+  actionItems    String
+  risks          String
+  participants   String
+  timeAnchors    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  digestEntry DigestEntry @relation(fields: [digestEntryId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
 }
 
 // 话题
 model Topic {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  messageCount Int     @default(0)
-  firstSeenAt  Int
-  lastSeenAt   Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  kind             String
+  status           String
+  title            String
+  summary          String
+  description      String?
+  keywords         String
+  messageCount     Int      @default(0)
+  participantCount Int      @default(0)
+  sourceCardCount  Int      @default(0)
+  clusterKey       String?
+  firstSeenAt      Int
+  lastSeenAt       Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  messages TopicMessage[]
+  messages       TopicMessage[]
+  knowledgeCards TopicKnowledgeCard[]
 
   @@index([lastSeenAt])
+  @@index([status, lastSeenAt])
 }
 
 // 话题与消息关联
@@ -313,6 +361,22 @@ model TopicMessage {
   @@unique([topicId, msgId])
   @@index([topicId])
   @@index([msgId])
+}
+
+// 话题与知识卡片关联
+model TopicKnowledgeCard {
+  id              String   @id @default(cuid())
+  topicId         String
+  knowledgeCardId String
+  score           Float
+  rank            Int
+  createdAt       DateTime @default(now())
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, knowledgeCardId])
+  @@index([topicId])
+  @@index([knowledgeCardId])
 }
 
 // 重要性规则配置
@@ -386,7 +450,7 @@ EmojiCache  — 表情包缓存，随 EmojiService 一起移除
    - 未读/已读状态
 
 3. **话题视图**
-   - 展示 AI 聚类出的话题
+   - 展示时段主题（window topics），后续可在其上聚合成长寿主题
    - 每个话题显示：标题、消息数量、时间跨度、参与人
    - 点击进入话题详情，查看相关消息
 
@@ -583,7 +647,7 @@ GET  /api/emoji/:msgId
 ## 十、测试策略
 
 - **搜索引擎层**：集成测试，验证 DuckDB FTS 索引写入/查询和 VSS 向量搜索
-- **知识处理管道**：规则引擎用单元测试覆盖，AI 部分用 mock 测试接口契约
+- **知识处理管道**：规则引擎用单元测试覆盖；摘要生成、知识提炼、主题聚类分别验证幂等、降级和异步链路
 - **前端**：保持现有组件测试模式，新增搜索和 Feed 视图测试
 - **端到端**：消息从 webhook → 存储 → 索引 → 搜索返回，验证完整链路
 
@@ -607,8 +671,8 @@ GET  /api/emoji/:msgId
 3. 实现重要消息 Feed API
 4. 实现异步处理队列
 5. 集成本地 AI 模型（语义分类、实体提取）
-6. 集成云端 LLM（摘要生成）
-7. 实现主题聚类
+6. 集成云端 LLM（窗口摘要 + 结构化知识提炼）
+7. 实现基于 `KnowledgeCard` 的增量主题聚类与消息回填
 
 ### 阶段三：前端重构
 1. 新建知识库布局（搜索中心）
