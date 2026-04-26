@@ -30,6 +30,8 @@ interface EnvConfig {
   alicloudOssAccessKeyId: string
   alicloudOssAccessKeySecret: string
   alicloudOssEndpoint: string
+  EMBEDDING_ENABLED: boolean
+  EMBEDDING_MODEL_PATH?: string
 }
 
 function loadEnv(): EnvConfig {
@@ -70,6 +72,8 @@ function loadEnv(): EnvConfig {
     throw new Error(`NODE_ENV must be one of: development, production, test`)
   }
 
+  const embeddingEnabled = process.env.EMBEDDING_ENABLED !== 'false'
+
   return {
     DATABASE_URL: process.env.DATABASE_URL!,
     DATA_LAKE_TYPE: dataLakeType as 'filesystem' | 's3' | 'minio',
@@ -90,7 +94,9 @@ function loadEnv(): EnvConfig {
     alicloudOssBucket: process.env.ALICLOUD_OSS_BUCKET!,
     alicloudOssAccessKeyId: process.env.ALICLOUD_OSS_ACCESS_KEY_ID!,
     alicloudOssAccessKeySecret: process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET!,
-    alicloudOssEndpoint: process.env.ALICLOUD_OSS_ENDPOINT!
+    alicloudOssEndpoint: process.env.ALICLOUD_OSS_ENDPOINT!,
+    EMBEDDING_ENABLED: embeddingEnabled,
+    EMBEDDING_MODEL_PATH: process.env.EMBEDDING_MODEL_PATH
   }
 }
 

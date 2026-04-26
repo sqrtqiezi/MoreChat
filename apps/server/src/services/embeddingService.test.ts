@@ -3,10 +3,47 @@
 // NOTE: These tests are skipped in CI due to onnxruntime-node architecture issues
 // The service is validated through integration tests in production
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+
+const { mockPipeline, mockTransformersEnv, mockAppEnv } = vi.hoisted(() => ({
+  mockPipeline: vi.fn(),
+  mockTransformersEnv: {
+    backends: {
+      onnx: {
+        wasm: { proxy: false, numThreads: 1 },
+        executionProviders: ['wasm']
+      }
+    },
+    allowLocalModels: false,
+    useBrowserCache: false
+  },
+  mockAppEnv: {
+    EMBEDDING_ENABLED: true,
+    EMBEDDING_MODEL_PATH: undefined as string | undefined
+  }
+}));
+
+// Mock transformers.js to avoid onnxruntime-node loading issues
+vi.mock('@huggingface/transformers', () => ({
+  pipeline: mockPipeline,
+  env: mockTransformersEnv
+}));
+
+// Mock env module
+vi.mock('../lib/env.js', () => ({
+  env: mockAppEnv
+}));
+
 import { EmbeddingService } from './embeddingService.js';
 
 describe('EmbeddingService', () => {
+  beforeEach(() => {
+    mockPipeline.mockReset();
+    mockPipeline.mockResolvedValue(vi.fn());
+    mockAppEnv.EMBEDDING_ENABLED = true;
+    delete process.env.EMBEDDING_MODEL_PATH;
+  });
+
   it('should instantiate without errors', () => {
     const service = new EmbeddingService();
     expect(service).toBeDefined();
@@ -15,6 +52,44 @@ describe('EmbeddingService', () => {
   it('should throw error when generating embedding before initialization', async () => {
     const service = new EmbeddingService();
     await expect(service.generateEmbedding('test')).rejects.toThrow('EmbeddingService not initialized');
+  });
+
+  it('should prefer local model path when EMBEDDING_MODEL_PATH is set', async () => {
+    const originalPath = process.env.EMBEDDING_MODEL_PATH;
+    process.env.EMBEDDING_MODEL_PATH = '/opt/morechat/models/bge-small-zh-v1.5';
+
+    try {
+      const service = new EmbeddingService();
+      await service.initialize();
+
+      expect(mockPipeline).toHaveBeenCalledWith('feature-extraction', '/opt/morechat/models/bge-small-zh-v1.5', {
+        device: 'wasm'
+      });
+    } finally {
+      if (originalPath) {
+        process.env.EMBEDDING_MODEL_PATH = originalPath;
+      } else {
+        delete process.env.EMBEDDING_MODEL_PATH;
+      }
+    }
+  });
+
+  it('should fallback to remote model ID when EMBEDDING_MODEL_PATH is not set', async () => {
+    const originalPath = process.env.EMBEDDING_MODEL_PATH;
+    delete process.env.EMBEDDING_MODEL_PATH;
+
+    try {
+      const service = new EmbeddingService();
+      await service.initialize();
+
+      expect(mockPipeline).toHaveBeenCalledWith('feature-extraction', 'Xenova/bge-small-zh-v1.5', {
+        device: 'wasm'
+      });
+    } finally {
+      if (originalPath) {
+        process.env.EMBEDDING_MODEL_PATH = originalPath;
+      }
+    }
   });
 });
 

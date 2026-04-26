@@ -3,13 +3,23 @@
 
 import { pipeline, type FeatureExtractionPipeline, env } from '@huggingface/transformers';
 import { logger } from '../lib/logger.js';
+import { env as appEnv } from '../lib/env.js';
 
 export class EmbeddingService {
   private extractor: FeatureExtractionPipeline | null = null;
   private readonly modelId = 'Xenova/bge-small-zh-v1.5';
 
+  private getModelSource(): string {
+    return process.env.EMBEDDING_MODEL_PATH || this.modelId;
+  }
+
   async initialize(): Promise<void> {
     if (this.extractor) {
+      return;
+    }
+
+    if (!appEnv.EMBEDDING_ENABLED) {
+      logger.info('Embedding service disabled via EMBEDDING_ENABLED=false');
       return;
     }
 
@@ -21,7 +31,7 @@ export class EmbeddingService {
         wasmBackend.proxy = false;
         wasmBackend.numThreads = 1;
       }
-      env.allowLocalModels = false;
+      env.allowLocalModels = true;
       env.useBrowserCache = false;
 
       // Disable onnxruntime-node backend
@@ -29,8 +39,9 @@ export class EmbeddingService {
         (env.backends.onnx as any).executionProviders = ['wasm'];
       }
 
-      logger.info(`Loading embedding model: ${this.modelId}`);
-      this.extractor = await pipeline('feature-extraction', this.modelId, {
+      const modelSource = this.getModelSource();
+      logger.info(`Loading embedding model: ${modelSource}`);
+      this.extractor = await pipeline('feature-extraction', modelSource, {
         device: 'wasm'
       });
       logger.info('Embedding model loaded successfully');
