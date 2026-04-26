@@ -15,15 +15,16 @@ export function ChatPage() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const conversationId = searchParams.get('conversationId');
+  const effectiveConversationId = conversationId ?? selectedConversationId;
 
   useEffect(() => {
-    if (conversationId) {
+    if (conversationId && conversationId !== selectedConversationId) {
       selectConversation(conversationId);
     }
-  }, [conversationId, selectConversation]);
+  }, [conversationId, selectedConversationId, selectConversation]);
 
   // useMessages for the selected conversation (to get appendMessage)
-  const { appendMessage } = useMessages(selectedConversationId);
+  const { appendMessage } = useMessages(effectiveConversationId);
 
   const handleWebSocketMessage = useCallback(
     (data: any) => {
@@ -31,7 +32,7 @@ export function ChatPage() {
         const { conversationId, message } = data.data || {};
         if (!conversationId || !message) return;
 
-        if (conversationId === selectedConversationId) {
+        if (conversationId === effectiveConversationId) {
           // 当前会话：追加消息到缓存
           const mapped = mapMessage(message as ApiMessage, conversationId, contactNameCache);
           appendMessage(mapped);
@@ -65,16 +66,16 @@ export function ChatPage() {
         queryClient.invalidateQueries({ queryKey: ['directory'] });
       }
     },
-    [selectedConversationId, queryClient, appendMessage]
+    [effectiveConversationId, queryClient, appendMessage]
   );
 
   const handleReconnect = useCallback(() => {
-    if (selectedConversationId) {
-      queryClient.invalidateQueries({ queryKey: ['messages', selectedConversationId] });
+    if (effectiveConversationId) {
+      queryClient.invalidateQueries({ queryKey: ['messages', effectiveConversationId] });
     }
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
     queryClient.invalidateQueries({ queryKey: ['directory'] });
-  }, [selectedConversationId, queryClient]);
+  }, [effectiveConversationId, queryClient]);
 
   const { isConnected } = useWebSocket({
     onMessage: handleWebSocketMessage,
@@ -84,7 +85,7 @@ export function ChatPage() {
   return (
     <div className="h-screen flex">
       <Sidebar />
-      <ChatWindow selectedConversationId={selectedConversationId} />
+      <ChatWindow selectedConversationId={effectiveConversationId} />
       {!isConnected && (
         <div className="fixed bottom-4 right-4 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg shadow-lg text-sm">
           正在重新连接...
