@@ -25,6 +25,8 @@ import { RuleEngine } from './services/ruleEngine.js'
 import { KnowledgeQueue } from './services/knowledgeQueue.js'
 import { SemanticImportanceService } from './services/semanticImportanceService.js'
 import { EntityExtractorService } from './services/entityExtractorService.js'
+import { LlmClient } from './services/llmClient.js'
+import { DigestService } from './services/digestService.js'
 import { createApp } from './app.js'
 import { retryWithBackoff } from './lib/retry.js'
 import type { ProfileState } from './routes/me.js'
@@ -146,6 +148,14 @@ async function main() {
             }))
             await ruleEngine.applyTags(tagData)
             logger.info({ msgId: task.msgId, tags: tags.map(t => t.tag) }, 'Applied semantic tags')
+
+            if (env.DIGEST_ENABLED && tags.some((t) => t.tag === 'important')) {
+              await knowledgeQueue.enqueue({
+                type: 'digest-generation',
+                msgId: task.msgId,
+                data: {}
+              })
+            }
           }
         } catch (error) {
           logger.error({ err: error, msgId: task.msgId }, 'Failed to process semantic importance task')
@@ -178,6 +188,34 @@ async function main() {
       }
     })
     logger.info('KnowledgeQueue initialized')
+
+    // 初始化云端 LLM 与 DigestService（缺配置时优雅关闭）
+    let digestService: DigestService | undefined
+    if (env.DIGEST_ENABLED) {
+      const llmClient = LlmClient.tryCreate({
+        baseUrl: env.LLM_BASE_URL,
+        apiKey: env.LLM_API_KEY,
+        model: env.LLM_MODEL,
+      })
+      if (llmClient) {
+        digestService = new DigestService(databaseService, dataLakeService, llmClient)
+        knowledgeQueue.registerHandler('digest-generation', async (task) => {
+          try {
+            const result = await digestService!.generateForImportantMessage(task.msgId)
+            if (result) {
+              logger.info({ msgId: task.msgId, digestId: result.id }, 'Generated digest')
+            }
+          } catch (error) {
+            logger.warn({ err: error, msgId: task.msgId }, 'Failed to process digest task')
+          }
+        })
+        logger.info({ baseUrl: env.LLM_BASE_URL, model: env.LLM_MODEL }, 'DigestService initialized')
+      } else {
+        logger.warn('Digest features disabled because LLM_BASE_URL/LLM_API_KEY/LLM_MODEL is not fully configured')
+      }
+    } else {
+      logger.warn('Digest features disabled by DIGEST_ENABLED=false')
+    }
 
     // 2. 业务服务层
     const clientService = new ClientService(juhexbotAdapter)
