@@ -3,6 +3,15 @@ import { SearchBar } from '../components/knowledge/SearchBar'
 import { SearchResultsPane } from '../components/knowledge/SearchResultsPane'
 import { useSearch } from '../hooks/useSearch'
 import { useKnowledgeStore } from '../stores/knowledgeStore'
+import type { SearchMode } from '../types'
+
+function getAllowedMode(mode: SearchMode, important: boolean): SearchMode {
+  if (important && mode !== 'keyword') {
+    return 'keyword'
+  }
+
+  return mode
+}
 
 export function KnowledgePage() {
   const search = useSearch()
@@ -20,8 +29,13 @@ export function KnowledgePage() {
         mode={mode}
         importantOnly={Boolean(filters.important)}
         onSubmit={setQuery}
-        onModeChange={setMode}
-        onImportantChange={(important) => setFilters({ important })}
+        onModeChange={(nextMode) => setMode(getAllowedMode(nextMode, Boolean(filters.important)))}
+        onImportantChange={(important) => {
+          setFilters({ important })
+          if (important) {
+            setMode('keyword')
+          }
+        }}
       />
       <div className="flex min-h-0 flex-1">
         <SearchResultsPane search={search} />

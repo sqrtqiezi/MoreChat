@@ -296,7 +296,7 @@ describe('SearchService - Semantic Search', () => {
     )
   })
 
-  it('should throw error if semantic search requested without EmbeddingService', async () => {
+  it('falls back to keyword search when semantic search is requested without EmbeddingService', async () => {
     // Arrange
     const serviceWithoutEmbedding = new SearchService(
       mockDuckDB,
@@ -305,11 +305,47 @@ describe('SearchService - Semantic Search', () => {
       mockDataLake
     )
     const query = { q: '测试', type: 'semantic' as const }
+    vi.mocked(mockTokenizer.tokenizeAndJoin).mockReturnValue('测试')
+    vi.mocked(mockDuckDB.searchFTS).mockResolvedValue([
+      { msgId: 'msg1', contentTokens: '测试', createTime: 1000000, fromUsername: 'user1', toUsername: 'user2' },
+    ])
+    vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockResolvedValue([
+      {
+        msgId: 'msg1',
+        conversationId: 'conv1',
+        dataLakeKey: 'hot/conv1/2025-01-01.jsonl:msg1',
+        createTime: 1000000,
+        fromUsername: 'user1',
+        toUsername: 'user2',
+        msgType: 1,
+        isChatroomMsg: 0,
+        chatroom: null,
+        chatroomSender: null,
+      },
+    ] as never)
+    vi.mocked(mockDataLake.getMessage).mockResolvedValue({
+      msg_id: 'msg1',
+      content: '测试内容',
+      create_time: 1000000,
+      from_username: 'user1',
+      to_username: 'user2',
+      msg_type: 1,
+      chatroom_sender: '',
+      desc: '',
+      is_chatroom_msg: 0,
+      chatroom: '',
+      source: '',
+    })
 
-    // Act & Assert
-    await expect(serviceWithoutEmbedding.search(query)).rejects.toThrow(
-      'EmbeddingService is required for semantic search'
-    )
+    // Act
+    const results = await serviceWithoutEmbedding.search(query)
+
+    // Assert
+    expect(mockTokenizer.tokenizeAndJoin).toHaveBeenCalledWith('测试')
+    expect(mockDuckDB.searchFTS).toHaveBeenCalledWith('测试')
+    expect(mockDuckDB.searchVector).not.toHaveBeenCalled()
+    expect(results).toHaveLength(1)
+    expect(results[0]?.msgId).toBe('msg1')
   })
 
   it('should perform semantic search using vector embeddings', async () => {
@@ -444,5 +480,58 @@ describe('SearchService - Semantic Search', () => {
       })
     )
     expect(results).toHaveLength(2)
+  })
+
+  it('falls back to keyword search when hybrid search is requested without EmbeddingService', async () => {
+    // Arrange
+    const serviceWithoutEmbedding = new SearchService(
+      mockDuckDB,
+      mockTokenizer,
+      mockDatabase,
+      mockDataLake
+    )
+    const query = { q: '混合测试', type: 'hybrid' as const }
+
+    vi.mocked(mockTokenizer.tokenizeAndJoin).mockReturnValue('混合测试')
+    vi.mocked(mockDuckDB.searchFTS).mockResolvedValue([
+      { msgId: 'msg2', contentTokens: '混合测试', createTime: 1000001, fromUsername: 'user3', toUsername: 'user4' },
+    ])
+    vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockResolvedValue([
+      {
+        msgId: 'msg2',
+        conversationId: 'conv2',
+        dataLakeKey: 'hot/conv2/2025-01-01.jsonl:msg2',
+        createTime: 1000001,
+        fromUsername: 'user3',
+        toUsername: 'user4',
+        msgType: 1,
+        isChatroomMsg: 0,
+        chatroom: null,
+        chatroomSender: null,
+      },
+    ] as never)
+    vi.mocked(mockDataLake.getMessage).mockResolvedValue({
+      msg_id: 'msg2',
+      content: '混合回退结果',
+      create_time: 1000001,
+      from_username: 'user3',
+      to_username: 'user4',
+      msg_type: 1,
+      chatroom_sender: '',
+      desc: '',
+      is_chatroom_msg: 0,
+      chatroom: '',
+      source: '',
+    })
+
+    // Act
+    const results = await serviceWithoutEmbedding.search(query)
+
+    // Assert
+    expect(mockTokenizer.tokenizeAndJoin).toHaveBeenCalledWith('混合测试')
+    expect(mockDuckDB.searchFTS).toHaveBeenCalledWith('混合测试')
+    expect(mockDuckDB.searchVector).not.toHaveBeenCalled()
+    expect(results).toHaveLength(1)
+    expect(results[0]?.msgId).toBe('msg2')
   })
 })

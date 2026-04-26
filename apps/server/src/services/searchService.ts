@@ -41,42 +41,43 @@ export class SearchService {
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
     let msgIds: string[] = []
+    const keywordSearch = async (): Promise<string[]> => {
+      const tokens = this.tokenizer.tokenizeAndJoin(query.q)
+      const ftsResults = await this.duckdb.searchFTS(tokens)
+      return ftsResults.map((result) => result.msgId)
+    }
 
     // Step 1: 根据搜索类型获取候选消息 ID
     if (query.type === 'keyword') {
-      const tokens = this.tokenizer.tokenizeAndJoin(query.q)
-      const ftsResults = await this.duckdb.searchFTS(tokens)
-      if (ftsResults.length === 0) {
-        return []
-      }
-      msgIds = ftsResults.map((r) => r.msgId)
+      msgIds = await keywordSearch()
     } else if (query.type === 'semantic') {
       if (!this.embedding) {
-        throw new Error('EmbeddingService is required for semantic search')
+        logger.warn('EmbeddingService unavailable for semantic search, falling back to keyword search')
+        msgIds = await keywordSearch()
+      } else {
+        const embedding = await this.embedding.generateEmbedding(query.q)
+        const vectorResults = await this.duckdb.searchVector(embedding, query.limit ?? 20)
+        msgIds = vectorResults.map((r) => r.msgId)
       }
-      const embedding = await this.embedding.generateEmbedding(query.q)
-      const vectorResults = await this.duckdb.searchVector(embedding, query.limit ?? 20)
-      if (vectorResults.length === 0) {
-        return []
-      }
-      msgIds = vectorResults.map((r) => r.msgId)
     } else if (query.type === 'hybrid') {
       if (!this.embedding) {
-        throw new Error('EmbeddingService is required for hybrid search')
-      }
-      const tokens = this.tokenizer.tokenizeAndJoin(query.q)
-      const ftsResults = await this.duckdb.searchFTS(tokens)
-      const embedding = await this.embedding.generateEmbedding(query.q)
-      const vectorResults = await this.duckdb.searchVector(embedding, query.limit ?? 20)
+        logger.warn('EmbeddingService unavailable for hybrid search, falling back to keyword search')
+        msgIds = await keywordSearch()
+      } else {
+        const tokens = this.tokenizer.tokenizeAndJoin(query.q)
+        const ftsResults = await this.duckdb.searchFTS(tokens)
+        const embedding = await this.embedding.generateEmbedding(query.q)
+        const vectorResults = await this.duckdb.searchVector(embedding, query.limit ?? 20)
 
-      const msgIdSet = new Set<string>()
-      ftsResults.forEach((r) => msgIdSet.add(r.msgId))
-      vectorResults.forEach((r) => msgIdSet.add(r.msgId))
-      msgIds = Array.from(msgIdSet)
-
-      if (msgIds.length === 0) {
-        return []
+        const msgIdSet = new Set<string>()
+        ftsResults.forEach((r) => msgIdSet.add(r.msgId))
+        vectorResults.forEach((r) => msgIdSet.add(r.msgId))
+        msgIds = Array.from(msgIdSet)
       }
+    }
+
+    if (msgIds.length === 0) {
+      return []
     }
 
     // Step 2: 构建结构化过滤条件
