@@ -37,16 +37,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Download embedding model
+      - name: Create deployment package
         run: |
+          mkdir -p deploy-package
           pip install huggingface_hub
           MODEL_ID="onnx-community/bge-small-zh-v1.5-ONNX" \
           MODEL_DIR="$PWD/deploy-package/models/bge-small-zh-v1.5" \
           bash deploy/prepare-embedding-model.sh
-
-      - name: Create deployment package
-        run: |
-          mkdir -p deploy-package
           cp -r apps/server/dist deploy-package/
           cp -r apps/server/scripts deploy-package/server-scripts
           cp -r apps/web/dist deploy-package/web-dist
