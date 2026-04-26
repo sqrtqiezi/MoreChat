@@ -42,3 +42,24 @@ EOF
 echo ""
 echo "=== 模型准备完成 ==="
 echo "模型位置: $TARGET_DIR"
+
+echo "=== 模型目录内容 ==="
+ls -la "$TARGET_DIR" || true
+if [ -d "$TARGET_DIR/onnx" ]; then
+  ls -la "$TARGET_DIR/onnx" || true
+fi
+
+echo "=== 校验关键文件 ==="
+missing=0
+for f in "config.json" "tokenizer.json" "onnx/model.onnx"; do
+  if [ ! -f "$TARGET_DIR/$f" ]; then
+    echo "缺失文件: $TARGET_DIR/$f"
+    missing=1
+  fi
+done
+
+if [ "$missing" -ne 0 ]; then
+  echo "嵌入模型下载结果不完整，终止部署。"
+  exit 1
+fi
+echo "嵌入模型校验通过"

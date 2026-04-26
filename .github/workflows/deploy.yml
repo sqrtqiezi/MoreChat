@@ -44,6 +44,8 @@ jobs:
           MODEL_ID="onnx-community/bge-small-zh-v1.5-ONNX" \
           MODEL_DIR="$PWD/deploy-package/models/bge-small-zh-v1.5" \
           bash deploy/prepare-embedding-model.sh
+          echo "=== Deployment package model tree ==="
+          find deploy-package/models -maxdepth 3 -type f | sort
           cp -r apps/server/dist deploy-package/
           cp -r apps/server/scripts deploy-package/server-scripts
           cp -r apps/web/dist deploy-package/web-dist
@@ -123,6 +125,8 @@ jobs:
               mv models/bge-small-zh-v1.5 /opt/morechat/models/bge-small-zh-v1.5
             else
               echo "⚠️ Embedding model directory not found in deployment package"
+              echo "Available top-level dirs:"
+              ls -la | head -20
             fi
 
             # 生成 .env 文件
