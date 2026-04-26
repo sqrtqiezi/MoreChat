@@ -3,7 +3,11 @@ import { knowledgeApi } from '../api/knowledge';
 import { useKnowledgeStore } from '../stores/knowledgeStore';
 
 export function useSearch() {
-  const { query, mode, filters } = useKnowledgeStore();
+  const { query, mode, filters } = useKnowledgeStore((state) => ({
+    query: state.query,
+    mode: state.mode,
+    filters: state.filters,
+  }));
 
   return useQuery({
     queryKey: ['knowledge-search', query, mode, filters],
@@ -18,4 +22,3 @@ export function useSearch() {
     enabled: query.trim().length > 0,
   });
 }
-
