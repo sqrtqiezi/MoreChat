@@ -14,6 +14,7 @@ import { meRoutes } from './routes/me.js'
 import { searchRoutes } from './routes/search.js'
 import { rulesRoutes } from './routes/rules.js'
 import { entitiesRoutes } from './routes/entities.js'
+import { digestRoutes } from './routes/digest.js'
 import type { ProfileState } from './routes/me.js'
 import type { ClientService } from './services/clientService.js'
 import type { ConversationService } from './services/conversationService.js'
@@ -28,6 +29,7 @@ import type { DirectoryService } from './services/directoryService.js'
 import type { SearchService } from './services/searchService.js'
 import type { DatabaseService } from './services/database.js'
 import type { RuleEngine } from './services/ruleEngine.js'
+import type { DigestService } from './services/digestService.js'
 import { logger } from './lib/logger.js'
 
 export interface AppDependencies {
@@ -44,6 +46,7 @@ export interface AppDependencies {
   searchService: SearchService
   db?: DatabaseService
   ruleEngine?: RuleEngine
+  digestService?: DigestService
   clientGuid: string
   userProfile: { getProfileState: () => ProfileState }
   auth: {
@@ -139,6 +142,8 @@ export function createApp(deps: AppDependencies) {
   if (deps.db) {
     app.route('/api/entities', entitiesRoutes({ db: deps.db }))
   }
+
+  app.route('/api/digest', digestRoutes({ digestService: deps.digestService }))
 
   // 生产环境：serve 前端静态文件
   if (deps.nodeEnv === 'production') {

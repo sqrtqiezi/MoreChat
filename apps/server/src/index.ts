@@ -285,6 +285,7 @@ async function main() {
       juhexbotAdapter,
       get wsService() { return wsService },
       searchService,
+      digestService,
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
       userProfile: {
         getProfileState: () => profileState
