@@ -2,7 +2,7 @@ const sections = ['Search', 'Topics', 'Chat'] as const
 
 export function KnowledgeSidebar() {
   return (
-    <aside className="w-full border-b border-stone-200 bg-stone-950 text-stone-100 lg:min-h-screen lg:w-64 lg:flex-none lg:border-b-0 lg:border-r">
+    <aside className="w-full border-b border-stone-200 bg-stone-950 text-stone-100 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:flex-none lg:self-start lg:border-b-0 lg:border-r">
       <div className="flex h-full flex-col px-4 py-5 sm:px-6 lg:px-5">
         <div className="mb-5">
           <p className="text-xs uppercase tracking-[0.3em] text-stone-400">Knowledge</p>
