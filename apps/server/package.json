@@ -41,6 +41,7 @@
     "hyparquet": "^1.25.1",
     "hyparquet-writer": "^0.13.0",
     "nodejieba": "^3.5.8",
+    "openai": "^6.34.0",
     "p-queue": "^9.1.2",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",

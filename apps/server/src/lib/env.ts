@@ -32,6 +32,10 @@ interface EnvConfig {
   alicloudOssEndpoint: string
   EMBEDDING_ENABLED: boolean
   EMBEDDING_MODEL_PATH?: string
+  LLM_BASE_URL?: string
+  LLM_API_KEY?: string
+  LLM_MODEL?: string
+  DIGEST_ENABLED: boolean
 }
 
 function loadEnv(): EnvConfig {
@@ -73,6 +77,7 @@ function loadEnv(): EnvConfig {
   }
 
   const embeddingEnabled = process.env.EMBEDDING_ENABLED !== 'false'
+  const digestEnabled = process.env.DIGEST_ENABLED !== 'false'
 
   return {
     DATABASE_URL: process.env.DATABASE_URL!,
@@ -96,7 +101,11 @@ function loadEnv(): EnvConfig {
     alicloudOssAccessKeySecret: process.env.ALICLOUD_OSS_ACCESS_KEY_SECRET!,
     alicloudOssEndpoint: process.env.ALICLOUD_OSS_ENDPOINT!,
     EMBEDDING_ENABLED: embeddingEnabled,
-    EMBEDDING_MODEL_PATH: process.env.EMBEDDING_MODEL_PATH
+    EMBEDDING_MODEL_PATH: process.env.EMBEDDING_MODEL_PATH,
+    LLM_BASE_URL: process.env.LLM_BASE_URL,
+    LLM_API_KEY: process.env.LLM_API_KEY,
+    LLM_MODEL: process.env.LLM_MODEL,
+    DIGEST_ENABLED: digestEnabled
   }
 }
 
