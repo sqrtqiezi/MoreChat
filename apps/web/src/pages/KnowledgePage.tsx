@@ -1,9 +1,11 @@
-import { KnowledgeEmptyState } from '../components/knowledge/KnowledgeEmptyState'
 import { KnowledgeLayout } from '../components/knowledge/KnowledgeLayout'
 import { SearchBar } from '../components/knowledge/SearchBar'
+import { SearchResultsPane } from '../components/knowledge/SearchResultsPane'
+import { useSearch } from '../hooks/useSearch'
 import { useKnowledgeStore } from '../stores/knowledgeStore'
 
 export function KnowledgePage() {
+  const search = useSearch()
   const query = useKnowledgeStore((state) => state.query)
   const mode = useKnowledgeStore((state) => state.mode)
   const filters = useKnowledgeStore((state) => state.filters)
@@ -21,7 +23,9 @@ export function KnowledgePage() {
         onModeChange={setMode}
         onImportantChange={(important) => setFilters({ important })}
       />
-      <KnowledgeEmptyState />
+      <div className="flex min-h-0 flex-1">
+        <SearchResultsPane search={search} />
+      </div>
     </KnowledgeLayout>
   )
 }

@@ -2,11 +2,14 @@ import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
+import { KnowledgePage } from './KnowledgePage'
 import { useChatStore } from '../stores/chatStore'
 import { useKnowledgeStore } from '../stores/knowledgeStore'
 
 const mockUseMessages = vi.fn()
+const mockUseSearch = vi.fn()
 const chatWindowRenderIds: Array<string | null> = []
 const mockQueryClient = {
   invalidateQueries: vi.fn(),
@@ -58,11 +61,20 @@ vi.mock('../hooks/useWebSocket', () => ({
   useWebSocket: () => ({ isConnected: true }),
 }))
 
+vi.mock('../hooks/useSearch', () => ({
+  useSearch: () => mockUseSearch(),
+}))
+
 describe('KnowledgePage routing', () => {
   beforeEach(() => {
     window.history.pushState({}, '', '/')
     chatWindowRenderIds.length = 0
     mockUseMessages.mockReset()
+    mockUseSearch.mockReset()
+    mockUseSearch.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    })
     useKnowledgeStore.getState().reset()
     useChatStore.setState({
       selectedConversationId: null,
@@ -103,6 +115,33 @@ describe('KnowledgePage routing', () => {
     expect(useKnowledgeStore.getState().query).toBe('项目复盘')
     expect(useKnowledgeStore.getState().mode).toBe('semantic')
     expect(useKnowledgeStore.getState().filters.important).toBe(true)
+  })
+
+  it('renders search results after query resolves', async () => {
+    mockUseSearch.mockReturnValue({
+      data: {
+        results: [
+          {
+            msgId: 'm1',
+            content: '预算今晚确认',
+            createTime: 1710000000,
+            fromUsername: 'alice',
+            conversationId: 'c1',
+          },
+        ],
+        total: 1,
+        query: '预算',
+      },
+      isLoading: false,
+    })
+
+    render(
+      <MemoryRouter>
+        <KnowledgePage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('预算今晚确认')).toBeInTheDocument()
   })
 
   it('uses the URL conversation immediately and syncs the store once', async () => {
