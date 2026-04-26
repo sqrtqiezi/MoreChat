@@ -233,7 +233,7 @@ describe('KnowledgePage routing', () => {
     expect(screen.getByRole('heading', { name: '预算' })).toBeInTheDocument()
   })
 
-  it('selects the result card and navigates to the source conversation', async () => {
+  it('selects the result card when clicking the wrapper and navigates with the source button', async () => {
     const user = userEvent.setup()
 
     useKnowledgeStore.setState({ query: '预算' })
@@ -256,7 +256,11 @@ describe('KnowledgePage routing', () => {
 
     renderKnowledgePage()
 
-    await user.click(await screen.findByText('预算今晚确认'))
+    const resultCard = (await screen.findByText('预算今晚确认')).closest('article')
+
+    expect(resultCard).not.toBeNull()
+
+    await user.click(resultCard!)
     expect(useKnowledgeStore.getState().selectedResultId).toBe('m1')
 
     await user.click(screen.getByRole('button', { name: '打开原始对话' }))

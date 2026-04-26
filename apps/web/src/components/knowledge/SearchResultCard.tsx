@@ -21,9 +21,20 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
   const selectedResultId = useKnowledgeStore((state) => state.selectedResultId)
   const selectResult = useKnowledgeStore((state) => state.selectResult)
   const isSelected = selectedResultId === result.msgId
+  const handleSelect = () => selectResult(result.msgId)
 
   return (
     <article
+      role="button"
+      tabIndex={0}
+      aria-label={`选择搜索结果：${result.content}`}
+      aria-pressed={isSelected}
+      onClick={handleSelect}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        handleSelect()
+      }}
       className={`rounded-3xl border p-5 text-left transition ${
         isSelected
           ? 'border-amber-300 bg-amber-50/80 shadow-sm'
@@ -31,12 +42,7 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
       }`}
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <button
-          type="button"
-          onClick={() => selectResult(result.msgId)}
-          aria-pressed={isSelected}
-          className="min-w-0 flex-1 text-left"
-        >
+        <div className="min-w-0 flex-1">
           <p className="line-clamp-4 text-sm leading-6 text-slate-900">{result.content}</p>
           <dl className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-3">
             <div>
@@ -54,7 +60,7 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
               </dd>
             </div>
           </dl>
-        </button>
+        </div>
         <button
           type="button"
           disabled={!result.conversationId}
