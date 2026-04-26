@@ -152,12 +152,7 @@ jobs:
             bash init-env.sh
 
             # 追加嵌入模型配置
-            cat >> apps/server/.env << 'EMBED_EOF'
-
-# Embedding
-EMBEDDING_ENABLED=true
-EMBEDDING_MODEL_PATH=/opt/morechat/models/bge-small-zh-v1.5
-EMBED_EOF
+            printf '%s\n' '' '# Embedding' 'EMBEDDING_ENABLED=true' 'EMBEDDING_MODEL_PATH=/opt/morechat/models/bge-small-zh-v1.5' >> apps/server/.env
 
             # 安装生产依赖
             echo "📦 Installing production dependencies..."
