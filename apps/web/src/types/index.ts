@@ -57,3 +57,32 @@ export interface DirectoryGroup {
   memberCount?: number;
   conversationId: string | null;
 }
+
+export type SearchMode = 'keyword' | 'semantic' | 'hybrid';
+
+export interface SearchFilters {
+  from?: string;
+  group?: string;
+  after?: number;
+  before?: number;
+  important?: boolean;
+}
+
+export interface SearchResultItem {
+  msgId: string;
+  content: string;
+  createTime: number;
+  fromUsername: string;
+  toUsername?: string;
+  conversationId?: string;
+}
+
+export interface TopicSummary {
+  id: string;
+  title: string;
+  summary: string;
+  messageCount: number;
+  participantCount: number;
+  lastSeenAt: number;
+  status: string;
+}
