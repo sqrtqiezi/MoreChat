@@ -3,12 +3,12 @@
 
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { DigestService } from '../services/digestService.js'
 import { DigestRangeTooSmallError } from '../services/digestService.js'
+import type { DigestWorkflowService } from '../services/digestWorkflowService.js'
 import { logger } from '../lib/logger.js'
 
 interface DigestRouteDeps {
-  digestService?: DigestService
+  digestWorkflowService?: DigestWorkflowService
 }
 
 const digestBodySchema = z
@@ -26,7 +26,7 @@ export function digestRoutes(deps: DigestRouteDeps) {
   const router = new Hono()
 
   router.post('/', async (c) => {
-    if (!deps.digestService) {
+    if (!deps.digestWorkflowService) {
       return c.json(
         {
           success: false,
@@ -58,8 +58,8 @@ export function digestRoutes(deps: DigestRouteDeps) {
     }
 
     try {
-      const digest = await deps.digestService.generateForRange(parsed.data)
-      return c.json({ success: true, data: digest })
+      const result = await deps.digestWorkflowService.generateManualDigest(parsed.data)
+      return c.json({ success: true, data: result.digest })
     } catch (error) {
       if (error instanceof DigestRangeTooSmallError) {
         return c.json(

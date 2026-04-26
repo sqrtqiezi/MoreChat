@@ -27,6 +27,9 @@ import { SemanticImportanceService } from './services/semanticImportanceService.
 import { EntityExtractorService } from './services/entityExtractorService.js'
 import { LlmClient } from './services/llmClient.js'
 import { DigestService } from './services/digestService.js'
+import { DigestWindowService } from './services/digestWindowService.js'
+import { KnowledgeExtractionService } from './services/knowledgeExtractionService.js'
+import { DigestWorkflowService } from './services/digestWorkflowService.js'
 import { createApp } from './app.js'
 import { retryWithBackoff } from './lib/retry.js'
 import type { ProfileState } from './routes/me.js'
@@ -190,7 +193,7 @@ async function main() {
     logger.info('KnowledgeQueue initialized')
 
     // 初始化云端 LLM 与 DigestService（缺配置时优雅关闭）
-    let digestService: DigestService | undefined
+    let digestWorkflowService: DigestWorkflowService | undefined
     if (env.DIGEST_ENABLED) {
       const llmClient = LlmClient.tryCreate({
         baseUrl: env.LLM_BASE_URL,
@@ -198,18 +201,21 @@ async function main() {
         model: env.LLM_MODEL,
       })
       if (llmClient) {
-        digestService = new DigestService(databaseService, dataLakeService, llmClient)
+        const digestWindowService = new DigestWindowService(databaseService, dataLakeService)
+        const digestService = new DigestService(digestWindowService, databaseService, llmClient)
+        const knowledgeExtractionService = new KnowledgeExtractionService(databaseService, llmClient)
+        digestWorkflowService = new DigestWorkflowService(digestService, knowledgeExtractionService)
         knowledgeQueue.registerHandler('digest-generation', async (task) => {
           try {
-            const result = await digestService!.generateForImportantMessage(task.msgId)
-            if (result) {
-              logger.info({ msgId: task.msgId, digestId: result.id }, 'Generated digest')
+            const result = await digestWorkflowService!.generateAutomaticDigest(task.msgId)
+            if (result.digest) {
+              logger.info({ msgId: task.msgId, digestId: result.digest.id }, 'Generated digest')
             }
           } catch (error) {
             logger.warn({ err: error, msgId: task.msgId }, 'Failed to process digest task')
           }
         })
-        logger.info({ baseUrl: env.LLM_BASE_URL, model: env.LLM_MODEL }, 'DigestService initialized')
+        logger.info({ baseUrl: env.LLM_BASE_URL, model: env.LLM_MODEL }, 'Digest workflow initialized')
       } else {
         logger.warn('Digest features disabled because LLM_BASE_URL/LLM_API_KEY/LLM_MODEL is not fully configured')
       }
@@ -285,7 +291,7 @@ async function main() {
       juhexbotAdapter,
       get wsService() { return wsService },
       searchService,
-      digestService,
+      digestWorkflowService,
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
       userProfile: {
         getProfileState: () => profileState

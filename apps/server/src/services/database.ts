@@ -140,6 +140,95 @@ export class DatabaseService {
       )
     `)
 
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "MessageTag" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "msgId" TEXT NOT NULL,
+        "tag" TEXT NOT NULL,
+        "source" TEXT NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "MessageEntity" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "msgId" TEXT NOT NULL,
+        "type" TEXT NOT NULL,
+        "value" TEXT NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "DigestEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "conversationId" TEXT NOT NULL,
+        "startTime" INTEGER NOT NULL,
+        "endTime" INTEGER NOT NULL,
+        "summary" TEXT NOT NULL,
+        "messageCount" INTEGER NOT NULL,
+        "sourceKind" TEXT NOT NULL DEFAULT 'manual',
+        "triggerMsgId" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'ready',
+        "errorMessage" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "KnowledgeCard" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "digestEntryId" TEXT NOT NULL,
+        "conversationId" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "summary" TEXT NOT NULL,
+        "decisions" TEXT NOT NULL,
+        "actionItems" TEXT NOT NULL,
+        "risks" TEXT NOT NULL,
+        "participants" TEXT NOT NULL,
+        "timeAnchors" TEXT NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "KnowledgeCard_digestEntryId_fkey" FOREIGN KEY ("digestEntryId") REFERENCES "DigestEntry" ("id") ON DELETE CASCADE
+      )
+    `)
+
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Topic" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "title" TEXT NOT NULL,
+        "description" TEXT,
+        "messageCount" INTEGER NOT NULL DEFAULT 0,
+        "firstSeenAt" INTEGER NOT NULL,
+        "lastSeenAt" INTEGER NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL
+      )
+    `)
+
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "TopicMessage" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "topicId" TEXT NOT NULL,
+        "msgId" TEXT NOT NULL,
+        CONSTRAINT "TopicMessage_topicId_fkey" FOREIGN KEY ("topicId") REFERENCES "Topic" ("id") ON DELETE CASCADE
+      )
+    `)
+
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ImportanceRule" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "type" TEXT NOT NULL,
+        "value" TEXT NOT NULL,
+        "priority" INTEGER NOT NULL DEFAULT 0,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
     // Migrations: add lastSyncAt columns if not exist
     if (!(await this.hasColumn('Contact', 'lastSyncAt'))) {
       await this.prisma.$executeRawUnsafe(`ALTER TABLE "Contact" ADD COLUMN "lastSyncAt" DATETIME`)
@@ -149,6 +238,23 @@ export class DatabaseService {
     }
     if (!(await this.hasColumn('MessageIndex', 'isRecalled'))) {
       await this.prisma.$executeRawUnsafe(`ALTER TABLE "MessageIndex" ADD COLUMN "isRecalled" BOOLEAN NOT NULL DEFAULT false`)
+    }
+    if (!(await this.hasColumn('DigestEntry', 'sourceKind'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "DigestEntry" ADD COLUMN "sourceKind" TEXT NOT NULL DEFAULT 'manual'`)
+    }
+    if (!(await this.hasColumn('DigestEntry', 'triggerMsgId'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "DigestEntry" ADD COLUMN "triggerMsgId" TEXT`)
+    }
+    if (!(await this.hasColumn('DigestEntry', 'status'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "DigestEntry" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'ready'`)
+    }
+    if (!(await this.hasColumn('DigestEntry', 'errorMessage'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "DigestEntry" ADD COLUMN "errorMessage" TEXT`)
+    }
+    if (!(await this.hasColumn('DigestEntry', 'updatedAt'))) {
+      await this.prisma.$executeRawUnsafe(
+        `ALTER TABLE "DigestEntry" ADD COLUMN "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`
+      )
     }
 
     // FileCache table
@@ -169,6 +275,34 @@ export class DatabaseService {
       )
     `)
     await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "file_cache_status_idx" ON "file_cache"("status")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessageTag_msgId_idx" ON "MessageTag"("msgId")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessageTag_tag_idx" ON "MessageTag"("tag")`)
+    await this.prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "MessageTag_msgId_tag_source_key" ON "MessageTag"("msgId", "tag", "source")`
+    )
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessageEntity_msgId_idx" ON "MessageEntity"("msgId")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessageEntity_type_idx" ON "MessageEntity"("type")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MessageEntity_value_idx" ON "MessageEntity"("value")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "DigestEntry_conversationId_idx" ON "DigestEntry"("conversationId")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "DigestEntry_startTime_idx" ON "DigestEntry"("startTime")`)
+    await this.prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "DigestEntry_conversationId_startTime_endTime_sourceKind_key" ON "DigestEntry"("conversationId", "startTime", "endTime", "sourceKind")`
+    )
+    await this.prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "KnowledgeCard_digestEntryId_key" ON "KnowledgeCard"("digestEntryId")`
+    )
+    await this.prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "KnowledgeCard_conversationId_idx" ON "KnowledgeCard"("conversationId")`
+    )
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Topic_lastSeenAt_idx" ON "Topic"("lastSeenAt")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "TopicMessage_topicId_idx" ON "TopicMessage"("topicId")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "TopicMessage_msgId_idx" ON "TopicMessage"("msgId")`)
+    await this.prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "TopicMessage_topicId_msgId_key" ON "TopicMessage"("topicId", "msgId")`
+    )
+    await this.prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "ImportanceRule_type_isActive_idx" ON "ImportanceRule"("type", "isActive")`
+    )
   }
 
   async disconnect() {

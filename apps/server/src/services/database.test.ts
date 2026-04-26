@@ -336,4 +336,37 @@ describe('DatabaseService', () => {
       expect(changes[0].changeType).toBe('recall')
     })
   })
+
+  describe('Knowledge models', () => {
+    it('should persist DigestEntry and KnowledgeCard records', async () => {
+      const digest = await db.prisma.digestEntry.create({
+        data: {
+          conversationId: 'conv_knowledge',
+          startTime: 100,
+          endTime: 200,
+          summary: '摘要内容',
+          messageCount: 3,
+          sourceKind: 'manual',
+          status: 'ready',
+        }
+      })
+
+      const card = await db.prisma.knowledgeCard.create({
+        data: {
+          digestEntryId: digest.id,
+          conversationId: digest.conversationId,
+          title: '预算讨论',
+          summary: '讨论预算审批与上线安排',
+          decisions: '[]',
+          actionItems: '[]',
+          risks: '[]',
+          participants: '[]',
+          timeAnchors: '[]',
+        }
+      })
+
+      expect(card.digestEntryId).toBe(digest.id)
+      expect(card.conversationId).toBe('conv_knowledge')
+    })
+  })
 })

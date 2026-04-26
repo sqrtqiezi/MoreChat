@@ -1,16 +1,33 @@
-// ABOUTME: DigestService 单元测试，覆盖手动摘要范围生成与重要消息自动摘要
-// ABOUTME: 通过 mock 数据库、DataLake 与 LlmClient 验证去重、范围校验与持久化
+// ABOUTME: DigestService unit tests covering digest window validation, idempotent persistence, and automatic digest flow
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { DigestService, DigestRangeTooSmallError } from './digestService.js'
 import type { LlmClient } from './llmClient.js'
 
-function makeMessageIndex(msgId: string, createTime: number, msgType = 1) {
+function makeDigestRecord(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'digest_1',
+    conversationId: 'conv_1',
+    startTime: 100,
+    endTime: 120,
+    summary: '讨论了项目预算。',
+    messageCount: 3,
+    sourceKind: 'manual',
+    triggerMsgId: null,
+    status: 'ready',
+    errorMessage: null,
+    createdAt: new Date('2026-04-26T00:00:00Z'),
+    updatedAt: new Date('2026-04-26T00:00:00Z'),
+    ...overrides,
+  }
+}
+
+function makeMessageIndex(msgId: string, createTime: number) {
   return {
     id: `idx_${msgId}`,
     msgId,
     conversationId: 'conv_1',
-    msgType,
+    msgType: 1,
     fromUsername: 'alice',
     toUsername: 'bob',
     chatroomSender: null,
@@ -20,25 +37,9 @@ function makeMessageIndex(msgId: string, createTime: number, msgType = 1) {
   }
 }
 
-function makeChatMessage(msgId: string, content: string, createTime: number, msgType = 1) {
-  return {
-    msg_id: msgId,
-    from_username: 'alice',
-    to_username: 'bob',
-    content,
-    create_time: createTime,
-    msg_type: msgType,
-    chatroom_sender: '',
-    desc: '',
-    is_chatroom_msg: 0,
-    chatroom: '',
-    source: '',
-  }
-}
-
 describe('DigestService', () => {
   let mockDb: any
-  let mockDataLake: any
+  let mockWindowService: any
   let mockLlm: any
   let service: DigestService
 
@@ -46,34 +47,31 @@ describe('DigestService', () => {
     mockDb = {
       prisma: {
         messageIndex: {
-          findMany: vi.fn(),
           findUnique: vi.fn(),
         },
         digestEntry: {
-          create: vi.fn(),
-          findFirst: vi.fn(),
+          upsert: vi.fn(),
         },
       },
     }
-    mockDataLake = {
-      getMessage: vi.fn(),
+    mockWindowService = {
+      buildWindow: vi.fn(),
     }
     mockLlm = {
       chat: vi.fn(),
     }
 
-    service = new DigestService(mockDb, mockDataLake, mockLlm as LlmClient)
+    service = new DigestService(mockWindowService, mockDb, mockLlm as LlmClient)
   })
 
   describe('generateForRange', () => {
     it('throws DigestRangeTooSmallError when fewer than 3 messages', async () => {
-      mockDb.prisma.messageIndex.findMany.mockResolvedValue([
-        makeMessageIndex('m1', 100),
-        makeMessageIndex('m2', 110),
-      ])
-      mockDataLake.getMessage.mockImplementation(async (key: string) => {
-        const msgId = key.replace('key_', '')
-        return makeChatMessage(msgId, '内容', 0)
+      mockWindowService.buildWindow.mockResolvedValue({
+        conversationId: 'conv_1',
+        startTime: 100,
+        endTime: 110,
+        messageCount: 2,
+        lines: ['alice: m1', 'alice: m2'],
       })
 
       await expect(
@@ -81,30 +79,21 @@ describe('DigestService', () => {
       ).rejects.toBeInstanceOf(DigestRangeTooSmallError)
 
       expect(mockLlm.chat).not.toHaveBeenCalled()
+      expect(mockDb.prisma.digestEntry.upsert).not.toHaveBeenCalled()
     })
 
-    it('summarizes messages, persists DigestEntry, and returns it', async () => {
-      mockDb.prisma.messageIndex.findMany.mockResolvedValue([
-        makeMessageIndex('m1', 100),
-        makeMessageIndex('m2', 110),
-        makeMessageIndex('m3', 120),
-      ])
-      mockDataLake.getMessage.mockImplementation(async (key: string) => {
-        const msgId = key.replace('key_', '')
-        return makeChatMessage(msgId, `${msgId}-内容`, 0)
-      })
-      mockLlm.chat.mockResolvedValue('讨论了项目预算。')
-
-      const persisted = {
-        id: 'digest_1',
+    it('summarizes messages, upserts DigestEntry, and returns it', async () => {
+      mockWindowService.buildWindow.mockResolvedValue({
         conversationId: 'conv_1',
         startTime: 100,
         endTime: 120,
-        summary: '讨论了项目预算。',
         messageCount: 3,
-        createdAt: new Date(),
-      }
-      mockDb.prisma.digestEntry.create.mockResolvedValue(persisted)
+        lines: ['alice: m1-内容', 'alice: [图片]', 'alice: m3-内容'],
+      })
+      mockLlm.chat.mockResolvedValue('讨论了项目预算。')
+
+      const persisted = makeDigestRecord()
+      mockDb.prisma.digestEntry.upsert.mockResolvedValue(persisted)
 
       const result = await service.generateForRange({
         conversationId: 'conv_1',
@@ -117,41 +106,129 @@ describe('DigestService', () => {
       expect(messages[0].role).toBe('system')
       expect(messages[1].role).toBe('user')
       expect(messages[1].content).toContain('m1-内容')
+      expect(messages[1].content).toContain('[图片]')
       expect(messages[1].content).toContain('m3-内容')
 
-      expect(mockDb.prisma.digestEntry.create).toHaveBeenCalledWith({
-        data: {
+      expect(mockDb.prisma.digestEntry.upsert).toHaveBeenCalledWith({
+        where: {
+          conversationId_startTime_endTime_sourceKind: {
+            conversationId: 'conv_1',
+            startTime: 100,
+            endTime: 120,
+            sourceKind: 'manual',
+          },
+        },
+        create: {
           conversationId: 'conv_1',
           startTime: 100,
           endTime: 120,
           summary: '讨论了项目预算。',
           messageCount: 3,
+          sourceKind: 'manual',
+          triggerMsgId: undefined,
+          status: 'ready',
+          errorMessage: null,
+        },
+        update: {
+          summary: '讨论了项目预算。',
+          messageCount: 3,
+          triggerMsgId: undefined,
+          status: 'ready',
+          errorMessage: null,
         },
       })
       expect(result).toEqual(persisted)
     })
 
-    it('renders non-text messages as placeholders', async () => {
-      mockDb.prisma.messageIndex.findMany.mockResolvedValue([
-        makeMessageIndex('m1', 100, 1),
-        makeMessageIndex('m2', 110, 3),
-        makeMessageIndex('m3', 120, 49),
-      ])
-      mockDataLake.getMessage.mockImplementation(async (key: string) => {
-        const msgId = key.replace('key_', '')
-        if (msgId === 'm1') return makeChatMessage('m1', '文本消息', 0, 1)
-        if (msgId === 'm2') return makeChatMessage('m2', '<xml/>', 0, 3)
-        return makeChatMessage('m3', '<xml/>', 0, 49)
+    it('supports auto sourceKind and triggerMsgId', async () => {
+      mockWindowService.buildWindow.mockResolvedValue({
+        conversationId: 'conv_1',
+        startTime: 3200,
+        endTime: 5000,
+        messageCount: 3,
+        lines: ['alice: a', 'alice: b', 'alice: c'],
       })
-      mockLlm.chat.mockResolvedValue('summary')
-      mockDb.prisma.digestEntry.create.mockResolvedValue({} as any)
+      mockLlm.chat.mockResolvedValue('自动摘要内容')
+      mockDb.prisma.digestEntry.upsert.mockResolvedValue(
+        makeDigestRecord({
+          sourceKind: 'auto',
+          triggerMsgId: 'm3',
+          summary: '自动摘要内容',
+          startTime: 3200,
+          endTime: 5000,
+        })
+      )
 
-      await service.generateForRange({ conversationId: 'conv_1', startTime: 0, endTime: 200 })
+      await service.generateForRange({
+        conversationId: 'conv_1',
+        startTime: 3200,
+        endTime: 5000,
+        sourceKind: 'auto',
+        triggerMsgId: 'm3',
+      })
 
-      const userContent = mockLlm.chat.mock.calls[0][0][1].content as string
-      expect(userContent).toContain('文本消息')
-      expect(userContent).toContain('[图片]')
-      expect(userContent).toContain('[应用消息]')
+      expect(mockDb.prisma.digestEntry.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            conversationId_startTime_endTime_sourceKind: {
+              conversationId: 'conv_1',
+              startTime: 3200,
+              endTime: 5000,
+              sourceKind: 'auto',
+            },
+          },
+          create: expect.objectContaining({
+            sourceKind: 'auto',
+            triggerMsgId: 'm3',
+          }),
+          update: expect.objectContaining({
+            triggerMsgId: 'm3',
+          }),
+        })
+      )
+    })
+
+    it('persists failed status when LLM generation fails', async () => {
+      mockWindowService.buildWindow.mockResolvedValue({
+        conversationId: 'conv_1',
+        startTime: 100,
+        endTime: 120,
+        messageCount: 3,
+        lines: ['alice: m1', 'alice: m2', 'alice: m3'],
+      })
+      mockLlm.chat.mockRejectedValue(new Error('llm down'))
+
+      await expect(
+        service.generateForRange({ conversationId: 'conv_1', startTime: 0, endTime: 200 })
+      ).rejects.toThrow('llm down')
+
+      expect(mockDb.prisma.digestEntry.upsert).toHaveBeenCalledWith({
+        where: {
+          conversationId_startTime_endTime_sourceKind: {
+            conversationId: 'conv_1',
+            startTime: 100,
+            endTime: 120,
+            sourceKind: 'manual',
+          },
+        },
+        create: {
+          conversationId: 'conv_1',
+          startTime: 100,
+          endTime: 120,
+          summary: '',
+          messageCount: 3,
+          sourceKind: 'manual',
+          triggerMsgId: undefined,
+          status: 'failed',
+          errorMessage: 'llm down',
+        },
+        update: {
+          messageCount: 3,
+          triggerMsgId: undefined,
+          status: 'failed',
+          errorMessage: 'llm down',
+        },
+      })
     })
   })
 
@@ -162,24 +239,18 @@ describe('DigestService', () => {
       const result = await service.generateForImportantMessage('missing')
 
       expect(result).toBeNull()
-      expect(mockLlm.chat).not.toHaveBeenCalled()
-    })
-
-    it('skips when an existing digest covers the same window', async () => {
-      mockDb.prisma.messageIndex.findUnique.mockResolvedValue(makeMessageIndex('m1', 5000))
-      mockDb.prisma.digestEntry.findFirst.mockResolvedValue({ id: 'existing' })
-
-      const result = await service.generateForImportantMessage('m1')
-
-      expect(result).toBeNull()
-      expect(mockLlm.chat).not.toHaveBeenCalled()
+      expect(mockWindowService.buildWindow).not.toHaveBeenCalled()
     })
 
     it('returns null silently when range is too small', async () => {
       mockDb.prisma.messageIndex.findUnique.mockResolvedValue(makeMessageIndex('m1', 5000))
-      mockDb.prisma.digestEntry.findFirst.mockResolvedValue(null)
-      mockDb.prisma.messageIndex.findMany.mockResolvedValue([makeMessageIndex('m1', 5000)])
-      mockDataLake.getMessage.mockResolvedValue(makeChatMessage('m1', 'hi', 5000))
+      mockWindowService.buildWindow.mockResolvedValue({
+        conversationId: 'conv_1',
+        startTime: 3200,
+        endTime: 5000,
+        messageCount: 1,
+        lines: ['alice: hi'],
+      })
 
       const result = await service.generateForImportantMessage('m1')
 
@@ -189,31 +260,35 @@ describe('DigestService', () => {
 
     it('runs full digest pipeline for an important message', async () => {
       mockDb.prisma.messageIndex.findUnique.mockResolvedValue(makeMessageIndex('m3', 5000))
-      mockDb.prisma.digestEntry.findFirst.mockResolvedValue(null)
-      mockDb.prisma.messageIndex.findMany.mockResolvedValue([
-        makeMessageIndex('m1', 4000),
-        makeMessageIndex('m2', 4500),
-        makeMessageIndex('m3', 5000),
-      ])
-      mockDataLake.getMessage.mockImplementation(async (key: string) => {
-        const id = key.replace('key_', '')
-        return makeChatMessage(id, `${id}-内容`, 0)
+      mockWindowService.buildWindow.mockResolvedValue({
+        conversationId: 'conv_1',
+        startTime: 4000,
+        endTime: 5000,
+        messageCount: 3,
+        lines: ['alice: m1', 'alice: m2', 'alice: m3'],
       })
       mockLlm.chat.mockResolvedValue('自动摘要内容')
-      mockDb.prisma.digestEntry.create.mockResolvedValue({ id: 'digest_auto' })
+      mockDb.prisma.digestEntry.upsert.mockResolvedValue(
+        makeDigestRecord({
+          id: 'digest_auto',
+          sourceKind: 'auto',
+          triggerMsgId: 'm3',
+          summary: '自动摘要内容',
+          startTime: 4000,
+          endTime: 5000,
+        })
+      )
 
       const result = await service.generateForImportantMessage('m3')
 
-      expect(result).toEqual({ id: 'digest_auto' })
-      expect(mockDb.prisma.messageIndex.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            conversationId: 'conv_1',
-            createTime: { gte: 5000 - 1800, lte: 5000 },
-            isRecalled: false,
-          }),
-        })
-      )
+      expect(result?.id).toBe('digest_auto')
+      expect(mockWindowService.buildWindow).toHaveBeenCalledWith({
+        conversationId: 'conv_1',
+        startTime: 5000 - 1800,
+        endTime: 5000,
+        sourceKind: 'auto',
+        triggerMsgId: 'm3',
+      })
     })
   })
 })

@@ -29,7 +29,7 @@ import type { DirectoryService } from './services/directoryService.js'
 import type { SearchService } from './services/searchService.js'
 import type { DatabaseService } from './services/database.js'
 import type { RuleEngine } from './services/ruleEngine.js'
-import type { DigestService } from './services/digestService.js'
+import type { DigestWorkflowService } from './services/digestWorkflowService.js'
 import { logger } from './lib/logger.js'
 
 export interface AppDependencies {
@@ -46,7 +46,7 @@ export interface AppDependencies {
   searchService: SearchService
   db?: DatabaseService
   ruleEngine?: RuleEngine
-  digestService?: DigestService
+  digestWorkflowService?: DigestWorkflowService
   clientGuid: string
   userProfile: { getProfileState: () => ProfileState }
   auth: {
@@ -143,7 +143,7 @@ export function createApp(deps: AppDependencies) {
     app.route('/api/entities', entitiesRoutes({ db: deps.db }))
   }
 
-  app.route('/api/digest', digestRoutes({ digestService: deps.digestService }))
+  app.route('/api/digest', digestRoutes({ digestWorkflowService: deps.digestWorkflowService }))
 
   // 生产环境：serve 前端静态文件
   if (deps.nodeEnv === 'production') {
