@@ -22,7 +22,7 @@ export function LoginForm() {
     setIsLoading(true);
     try {
       await login(password);
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (err: any) {
       const message = err?.response?.data?.error?.message || '登录失败，请重试';
       setError(message);

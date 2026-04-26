@@ -32,6 +32,9 @@ describe('SearchService', () => {
         messageIndex: {
           findMany: vi.fn(),
         },
+        messageTag: {
+          findMany: vi.fn(),
+        },
       },
     } as unknown as DatabaseService
 
@@ -175,6 +178,76 @@ describe('SearchService', () => {
     expect(results).toHaveLength(0)
     expect(mockDataLake.getMessage).not.toHaveBeenCalled()
   })
+
+  it('should filter keyword results to important messages when important is true', async () => {
+    // Arrange
+    const query = { q: '重要', type: 'keyword' as const, important: true }
+
+    vi.mocked(mockTokenizer.tokenizeAndJoin).mockReturnValue('重要')
+    vi.mocked(mockDuckDB.searchFTS).mockResolvedValue([
+      { msgId: 'msg1', contentTokens: '重要', createTime: 3000000, fromUsername: 'user1', toUsername: 'user2' },
+      { msgId: 'msg2', contentTokens: '重要', createTime: 3000001, fromUsername: 'user3', toUsername: 'user4' },
+    ])
+    vi.mocked(mockDatabase.prisma.messageTag.findMany).mockResolvedValue([
+      { msgId: 'msg2' },
+    ] as never)
+    vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockResolvedValue([
+      {
+        msgId: 'msg2',
+        conversationId: 'conv2',
+        dataLakeKey: 'hot/conv2/2025-01-01.jsonl:msg2',
+        createTime: 3000001,
+        fromUsername: 'user3',
+        toUsername: 'user4',
+        msgType: 1,
+        isChatroomMsg: 0,
+        chatroom: null,
+        chatroomSender: null,
+      },
+    ] as never)
+    vi.mocked(mockDataLake.getMessage).mockResolvedValue({
+      msg_id: 'msg2',
+      content: '真正重要的内容',
+      create_time: 3000001,
+      from_username: 'user3',
+      to_username: 'user4',
+      msg_type: 1,
+      chatroom_sender: '',
+      desc: '',
+      is_chatroom_msg: 0,
+      chatroom: '',
+      source: '',
+    })
+
+    // Act
+    const results = await searchService.search(query)
+
+    // Assert
+    expect(mockDatabase.prisma.messageTag.findMany).toHaveBeenCalledWith({
+      where: {
+        msgId: { in: ['msg1', 'msg2'] },
+        tag: 'important',
+      },
+      select: { msgId: true },
+    })
+    expect(mockDatabase.prisma.messageIndex.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          msgId: { in: ['msg2'] },
+        }),
+      })
+    )
+    expect(results).toEqual([
+      {
+        msgId: 'msg2',
+        content: '真正重要的内容',
+        createTime: 3000001,
+        fromUsername: 'user3',
+        toUsername: 'user4',
+        conversationId: 'conv2',
+      },
+    ])
+  })
 })
 
 describe('SearchService - Semantic Search', () => {
@@ -198,6 +271,9 @@ describe('SearchService - Semantic Search', () => {
     mockDatabase = {
       prisma: {
         messageIndex: {
+          findMany: vi.fn(),
+        },
+        messageTag: {
           findMany: vi.fn(),
         },
       },

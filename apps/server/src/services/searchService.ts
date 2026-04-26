@@ -80,6 +80,21 @@ export class SearchService {
     }
 
     // Step 2: 构建结构化过滤条件
+    if (query.important) {
+      const importantTags = await this.db.prisma.messageTag.findMany({
+        where: {
+          msgId: { in: msgIds },
+          tag: 'important',
+        },
+        select: { msgId: true },
+      })
+      const importantMsgIds = importantTags.map((tag: { msgId: string }) => tag.msgId)
+      if (importantMsgIds.length === 0) {
+        return []
+      }
+      msgIds = importantMsgIds
+    }
+
     const where: Record<string, unknown> = {
       msgId: { in: msgIds },
     }
