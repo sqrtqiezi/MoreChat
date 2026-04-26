@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ChatWindow } from '../components/chat/ChatWindow';
 import { useChatStore } from '../stores/chatStore';
@@ -10,7 +11,16 @@ import type { ApiMessage } from '../api/chat';
 
 export function ChatPage() {
   const selectedConversationId = useChatStore((state) => state.selectedConversationId);
+  const selectConversation = useChatStore((state) => state.selectConversation);
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const conversationId = searchParams.get('conversationId');
+
+  useEffect(() => {
+    if (conversationId) {
+      selectConversation(conversationId);
+    }
+  }, [conversationId, selectConversation]);
 
   // useMessages for the selected conversation (to get appendMessage)
   const { appendMessage } = useMessages(selectedConversationId);
