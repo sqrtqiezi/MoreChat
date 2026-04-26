@@ -26,8 +26,8 @@ describe('knowledgeStore', () => {
     useKnowledgeStore.getState().reset()
   })
 
-  it('defaults to hybrid mode', () => {
-    expect(useKnowledgeStore.getState().mode).toBe('hybrid')
+  it('defaults to keyword mode', () => {
+    expect(useKnowledgeStore.getState().mode).toBe('keyword')
   })
 
   it('shallow merges filters instead of replacing unspecified fields', () => {
@@ -59,7 +59,7 @@ describe('knowledgeStore', () => {
 
     expect(useKnowledgeStore.getState()).toMatchObject({
       query: '',
-      mode: 'hybrid',
+      mode: 'keyword',
       filters: {},
       selectedResultId: null,
     })

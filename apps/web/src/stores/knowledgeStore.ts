@@ -15,7 +15,7 @@ interface KnowledgeState {
 
 const initialState = {
   query: '',
-  mode: 'hybrid' as SearchMode,
+  mode: 'keyword' as SearchMode,
   filters: {},
   selectedResultId: null,
 };
@@ -28,4 +28,3 @@ export const useKnowledgeStore = create<KnowledgeState>()((set) => ({
   selectResult: (msgId) => set({ selectedResultId: msgId }),
   reset: () => set(initialState),
 }));
-

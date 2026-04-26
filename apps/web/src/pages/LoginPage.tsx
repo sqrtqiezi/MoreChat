@@ -7,10 +7,10 @@ export function LoginPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const navigate = useNavigate();
 
-  // Auto-redirect to /chat if already authenticated
+  // Auto-redirect to the knowledge landing page if already authenticated.
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/chat', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

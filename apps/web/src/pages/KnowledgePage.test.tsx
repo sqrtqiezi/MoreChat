@@ -199,6 +199,23 @@ describe('KnowledgePage routing', () => {
     expect(screen.queryByRole('heading', { name: '错误回显' })).not.toBeInTheDocument()
   })
 
+  it('renders an explicit error state when search fails', () => {
+    useKnowledgeStore.setState({ query: '预算' })
+    mockUseSearch.mockReturnValue({
+      data: undefined,
+      error: new Error('search failed'),
+      isError: true,
+      isLoading: false,
+    })
+
+    renderKnowledgePage()
+
+    expect(screen.getByRole('heading', { name: '预算' })).toBeInTheDocument()
+    expect(screen.getByText('搜索失败')).toBeInTheDocument()
+    expect(screen.getByText('知识库搜索暂时不可用，请稍后重试。')).toBeInTheDocument()
+    expect(screen.queryByText('未找到结果')).not.toBeInTheDocument()
+  })
+
   it('renders the success list for an active store query', async () => {
     useKnowledgeStore.setState({ query: '预算' })
     mockUseSearch.mockReturnValue({

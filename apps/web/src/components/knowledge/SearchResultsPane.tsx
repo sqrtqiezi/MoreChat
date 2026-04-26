@@ -85,7 +85,15 @@ export function SearchResultsPane({ search }: SearchResultsPaneProps) {
 
       {search.isLoading ? <ResultsSkeleton /> : null}
 
-      {!search.isLoading && results.length === 0 ? (
+      {!search.isLoading && search.error ? (
+        <EmptyPanel
+          eyebrow="Search Error"
+          title="搜索失败"
+          description="知识库搜索暂时不可用，请稍后重试。"
+        />
+      ) : null}
+
+      {!search.isLoading && !search.error && results.length === 0 ? (
         <EmptyPanel
           eyebrow="No Results"
           title="未找到结果"
@@ -93,7 +101,7 @@ export function SearchResultsPane({ search }: SearchResultsPaneProps) {
         />
       ) : null}
 
-      {!search.isLoading && results.length > 0 ? (
+      {!search.isLoading && !search.error && results.length > 0 ? (
         <div className="space-y-4 overflow-y-auto pb-6">
           {results.map((result) => (
             <SearchResultCard key={result.msgId} result={result} />
