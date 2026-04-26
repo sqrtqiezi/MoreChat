@@ -24,17 +24,37 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
 
   return (
     <article
-      onClick={() => selectResult(result.msgId)}
       className={`rounded-3xl border p-5 text-left transition ${
         isSelected
           ? 'border-amber-300 bg-amber-50/80 shadow-sm'
           : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
       }`}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <button
+          type="button"
+          onClick={() => selectResult(result.msgId)}
+          aria-pressed={isSelected}
+          className="min-w-0 flex-1 text-left"
+        >
           <p className="line-clamp-4 text-sm leading-6 text-slate-900">{result.content}</p>
-        </div>
+          <dl className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-3">
+            <div>
+              <dt className="text-xs uppercase tracking-[0.2em] text-stone-400">发送人</dt>
+              <dd className="mt-1 text-stone-700">{result.fromUsername}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-[0.2em] text-stone-400">时间</dt>
+              <dd className="mt-1 text-stone-700">{formatCreateTime(result.createTime)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-[0.2em] text-stone-400">对话</dt>
+              <dd className="mt-1 break-all text-stone-700">
+                {result.conversationId ?? '未关联对话'}
+              </dd>
+            </div>
+          </dl>
+        </button>
         <button
           type="button"
           disabled={!result.conversationId}
@@ -48,23 +68,6 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
           打开原始对话
         </button>
       </div>
-
-      <dl className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-3">
-        <div>
-          <dt className="text-xs uppercase tracking-[0.2em] text-stone-400">发送人</dt>
-          <dd className="mt-1 text-stone-700">{result.fromUsername}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.2em] text-stone-400">时间</dt>
-          <dd className="mt-1 text-stone-700">{formatCreateTime(result.createTime)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.2em] text-stone-400">对话</dt>
-          <dd className="mt-1 break-all text-stone-700">
-            {result.conversationId ?? '未关联对话'}
-          </dd>
-        </div>
-      </dl>
     </article>
   )
 }

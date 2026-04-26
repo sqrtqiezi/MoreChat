@@ -56,8 +56,7 @@ function EmptyPanel({
 
 export function SearchResultsPane({ search }: SearchResultsPaneProps) {
   const query = useKnowledgeStore((state) => state.query)
-  const effectiveQuery = search.data?.query ?? query
-  const trimmedQuery = effectiveQuery.trim()
+  const trimmedQuery = query.trim()
   const results = search.data?.results ?? []
 
   if (!trimmedQuery) {

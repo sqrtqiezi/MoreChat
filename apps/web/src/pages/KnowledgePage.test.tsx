@@ -10,6 +10,7 @@ import { useKnowledgeStore } from '../stores/knowledgeStore'
 
 const mockUseMessages = vi.fn()
 const mockUseSearch = vi.fn()
+const mockNavigate = vi.fn()
 const chatWindowRenderIds: Array<string | null> = []
 const mockQueryClient = {
   invalidateQueries: vi.fn(),
@@ -22,6 +23,15 @@ vi.mock('@tanstack/react-query', async () => {
   return {
     ...actual,
     useQueryClient: () => mockQueryClient,
+  }
+})
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
   }
 })
 
@@ -65,12 +75,21 @@ vi.mock('../hooks/useSearch', () => ({
   useSearch: () => mockUseSearch(),
 }))
 
+function renderKnowledgePage() {
+  return render(
+    <MemoryRouter>
+      <KnowledgePage />
+    </MemoryRouter>,
+  )
+}
+
 describe('KnowledgePage routing', () => {
   beforeEach(() => {
     window.history.pushState({}, '', '/')
     chatWindowRenderIds.length = 0
     mockUseMessages.mockReset()
     mockUseSearch.mockReset()
+    mockNavigate.mockReset()
     mockUseSearch.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -118,6 +137,7 @@ describe('KnowledgePage routing', () => {
   })
 
   it('renders search results after query resolves', async () => {
+    useKnowledgeStore.setState({ query: '预算' })
     mockUseSearch.mockReturnValue({
       data: {
         results: [
@@ -135,13 +155,112 @@ describe('KnowledgePage routing', () => {
       isLoading: false,
     })
 
-    render(
-      <MemoryRouter>
-        <KnowledgePage />
-      </MemoryRouter>,
-    )
+    renderKnowledgePage()
 
     expect(await screen.findByText('预算今晚确认')).toBeInTheDocument()
+  })
+
+  it('renders the empty-query state from store state', () => {
+    renderKnowledgePage()
+
+    expect(screen.getByText('搜索微信历史消息')).toBeInTheDocument()
+    expect(screen.queryByText('未找到结果')).not.toBeInTheDocument()
+  })
+
+  it('renders the loading state when a store query is active', () => {
+    useKnowledgeStore.setState({ query: '项目复盘' })
+    mockUseSearch.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    })
+
+    const { container } = renderKnowledgePage()
+
+    expect(screen.getByRole('heading', { name: '项目复盘' })).toBeInTheDocument()
+    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(3)
+    expect(screen.queryByText('未找到结果')).not.toBeInTheDocument()
+  })
+
+  it('renders the no-results state from the current store query instead of API echo data', () => {
+    useKnowledgeStore.setState({ query: '真实查询' })
+    mockUseSearch.mockReturnValue({
+      data: {
+        results: [],
+        total: 0,
+        query: '错误回显',
+      },
+      isLoading: false,
+    })
+
+    renderKnowledgePage()
+
+    expect(screen.getByRole('heading', { name: '真实查询' })).toBeInTheDocument()
+    expect(screen.getByText('未找到结果')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '错误回显' })).not.toBeInTheDocument()
+  })
+
+  it('renders the success list for an active store query', async () => {
+    useKnowledgeStore.setState({ query: '预算' })
+    mockUseSearch.mockReturnValue({
+      data: {
+        results: [
+          {
+            msgId: 'm1',
+            content: '预算今晚确认',
+            createTime: 1710000000,
+            fromUsername: 'alice',
+            conversationId: 'c1',
+          },
+          {
+            msgId: 'm2',
+            content: '预算表已经同步',
+            createTime: 1710000300,
+            fromUsername: 'bob',
+            conversationId: 'c2',
+          },
+        ],
+        total: 2,
+        query: '错误回显',
+      },
+      isLoading: false,
+    })
+
+    renderKnowledgePage()
+
+    expect(await screen.findByText('预算今晚确认')).toBeInTheDocument()
+    expect(screen.getByText('预算表已经同步')).toBeInTheDocument()
+    expect(screen.getByText('2 条结果')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '预算' })).toBeInTheDocument()
+  })
+
+  it('selects the result card and navigates to the source conversation', async () => {
+    const user = userEvent.setup()
+
+    useKnowledgeStore.setState({ query: '预算' })
+    mockUseSearch.mockReturnValue({
+      data: {
+        results: [
+          {
+            msgId: 'm1',
+            content: '预算今晚确认',
+            createTime: 1710000000,
+            fromUsername: 'alice',
+            conversationId: 'conversation-1',
+          },
+        ],
+        total: 1,
+        query: '预算',
+      },
+      isLoading: false,
+    })
+
+    renderKnowledgePage()
+
+    await user.click(await screen.findByText('预算今晚确认'))
+    expect(useKnowledgeStore.getState().selectedResultId).toBe('m1')
+
+    await user.click(screen.getByRole('button', { name: '打开原始对话' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/chat?conversationId=conversation-1')
   })
 
   it('uses the URL conversation immediately and syncs the store once', async () => {
