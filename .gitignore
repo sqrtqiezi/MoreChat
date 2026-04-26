@@ -54,6 +54,7 @@ apps/server/data/
 
 # Local superpowers plugin
 .superpowers/
+.worktrees/
 
 # Deploy artifacts
 deploy-package/
