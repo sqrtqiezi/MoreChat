@@ -102,6 +102,7 @@ describe('useSearch', () => {
       results: [],
       total: 0,
       query: 'budget',
+      appliedType: 'semantic',
     })
 
     useKnowledgeStore.setState({

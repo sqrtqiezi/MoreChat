@@ -1,5 +1,5 @@
 import client from './client';
-import type { SearchFilters, SearchMode, SearchResultItem, TopicSummary } from '../types';
+import type { SearchFilters, SearchMode, SearchResponse, TopicSummary } from '../types';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -7,12 +7,6 @@ interface ApiResponse<T> {
   error?: {
     message: string;
   };
-}
-
-interface SearchResponse {
-  results: SearchResultItem[];
-  total: number;
-  query: string;
 }
 
 export const knowledgeApi = {

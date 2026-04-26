@@ -172,6 +172,7 @@ describe('KnowledgePage routing', () => {
         ],
         total: 1,
         query: '预算',
+        appliedType: 'keyword',
       },
       isLoading: false,
     })
@@ -209,6 +210,7 @@ describe('KnowledgePage routing', () => {
         results: [],
         total: 0,
         query: '错误回显',
+        appliedType: 'keyword',
       },
       isLoading: false,
     })
@@ -259,6 +261,7 @@ describe('KnowledgePage routing', () => {
         ],
         total: 2,
         query: '错误回显',
+        appliedType: 'keyword',
       },
       isLoading: false,
     })
@@ -269,6 +272,33 @@ describe('KnowledgePage routing', () => {
     expect(screen.getByText('预算表已经同步')).toBeInTheDocument()
     expect(screen.getByText('2 条结果')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '预算' })).toBeInTheDocument()
+  })
+
+  it('renders a lightweight downgrade note when semantic search falls back to keyword mode', async () => {
+    useKnowledgeStore.setState({ query: '预算', mode: 'semantic' })
+    mockUseSearch.mockReturnValue({
+      data: {
+        results: [
+          {
+            msgId: 'm1',
+            content: '预算今晚确认',
+            createTime: 1710000000,
+            fromUsername: 'alice',
+            conversationId: 'c1',
+          },
+        ],
+        total: 1,
+        query: '预算',
+        appliedType: 'keyword',
+        downgradedFrom: 'semantic',
+      },
+      isLoading: false,
+    })
+
+    renderKnowledgePage()
+
+    expect(await screen.findByText('预算今晚确认')).toBeInTheDocument()
+    expect(screen.getByText('语义搜索当前不可用，已回退到关键词搜索。')).toBeInTheDocument()
   })
 
   it('selects the result card when clicking the wrapper and navigates with the source button', async () => {
@@ -288,6 +318,7 @@ describe('KnowledgePage routing', () => {
         ],
         total: 1,
         query: '预算',
+        appliedType: 'keyword',
       },
       isLoading: false,
     })

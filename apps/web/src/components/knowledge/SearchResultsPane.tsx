@@ -58,6 +58,14 @@ export function SearchResultsPane({ search }: SearchResultsPaneProps) {
   const query = useKnowledgeStore((state) => state.query)
   const trimmedQuery = query.trim()
   const results = search.data?.results ?? []
+  const downgradeMessage = (() => {
+    if (!search.data?.downgradedFrom) {
+      return null
+    }
+
+    const modeLabel = search.data.downgradedFrom === 'semantic' ? '语义' : '混合'
+    return `${modeLabel}搜索当前不可用，已回退到关键词搜索。`
+  })()
 
   if (!trimmedQuery) {
     return (
@@ -82,6 +90,12 @@ export function SearchResultsPane({ search }: SearchResultsPaneProps) {
           <p className="text-sm text-stone-500">{search.data.total} 条结果</p>
         ) : null}
       </div>
+
+      {downgradeMessage ? (
+        <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {downgradeMessage}
+        </p>
+      ) : null}
 
       {search.isLoading ? <ResultsSkeleton /> : null}
 

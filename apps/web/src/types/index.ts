@@ -77,6 +77,14 @@ export interface SearchResultItem {
   conversationId?: string;
 }
 
+export interface SearchResponse {
+  results: SearchResultItem[];
+  total: number;
+  query: string;
+  appliedType: SearchMode;
+  downgradedFrom?: Extract<SearchMode, 'semantic' | 'hybrid'>;
+}
+
 export interface TopicSummary {
   id: string;
   title: string;

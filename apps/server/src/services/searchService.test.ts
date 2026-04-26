@@ -94,13 +94,13 @@ describe('SearchService', () => {
     })
 
     // Act
-    const results = await searchService.search(query)
+    const response = await searchService.search(query)
 
     // Assert
     expect(mockTokenizer.tokenizeAndJoin).toHaveBeenCalledWith('你好')
     expect(mockDuckDB.searchFTS).toHaveBeenCalledWith('你好')
-    expect(results).toHaveLength(1)
-    expect(results[0]).toEqual({
+    expect(response.results).toHaveLength(1)
+    expect(response.results[0]).toEqual({
       msgId: 'msg1',
       content: '你好世界',
       createTime: 1000000,
@@ -108,6 +108,7 @@ describe('SearchService', () => {
       toUsername: 'user2',
       conversationId: 'conv1',
     })
+    expect(response.appliedType).toBe('keyword')
   })
 
   it('should combine keyword search with filters (from: user1)', async () => {
@@ -148,7 +149,7 @@ describe('SearchService', () => {
     })
 
     // Act
-    const results = await searchService.search(query)
+    const response = await searchService.search(query)
 
     // Assert
     expect(mockDatabase.prisma.messageIndex.findMany).toHaveBeenCalledWith(
@@ -159,8 +160,8 @@ describe('SearchService', () => {
         }),
       })
     )
-    expect(results).toHaveLength(1)
-    expect(results[0].fromUsername).toBe('user1')
+    expect(response.results).toHaveLength(1)
+    expect(response.results[0].fromUsername).toBe('user1')
   })
 
   it('should handle empty results', async () => {
@@ -172,11 +173,12 @@ describe('SearchService', () => {
     vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockResolvedValue([] as never)
 
     // Act
-    const results = await searchService.search(query)
+    const response = await searchService.search(query)
 
     // Assert
-    expect(results).toHaveLength(0)
+    expect(response.results).toHaveLength(0)
     expect(mockDataLake.getMessage).not.toHaveBeenCalled()
+    expect(response.appliedType).toBe('keyword')
   })
 
   it('should filter keyword results to important messages when important is true', async () => {
@@ -220,7 +222,7 @@ describe('SearchService', () => {
     })
 
     // Act
-    const results = await searchService.search(query)
+    const response = await searchService.search(query)
 
     // Assert
     expect(mockDatabase.prisma.messageTag.findMany).toHaveBeenCalledWith({
@@ -237,7 +239,7 @@ describe('SearchService', () => {
         }),
       })
     )
-    expect(results).toEqual([
+    expect(response.results).toEqual([
       {
         msgId: 'msg2',
         content: '真正重要的内容',
@@ -247,6 +249,50 @@ describe('SearchService', () => {
         conversationId: 'conv2',
       },
     ])
+    expect(response.appliedType).toBe('keyword')
+  })
+
+  it('throws when all DataLake fetches fail after matching indexed records were found', async () => {
+    const query = { q: '损坏', type: 'keyword' as const }
+
+    vi.mocked(mockTokenizer.tokenizeAndJoin).mockReturnValue('损坏')
+    vi.mocked(mockDuckDB.searchFTS).mockResolvedValue([
+      { msgId: 'msg1', contentTokens: '损坏', createTime: 3000000, fromUsername: 'user1', toUsername: 'user2' },
+      { msgId: 'msg2', contentTokens: '损坏', createTime: 3000001, fromUsername: 'user2', toUsername: 'user3' },
+    ])
+    vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockResolvedValue([
+      {
+        msgId: 'msg1',
+        conversationId: 'conv1',
+        dataLakeKey: 'hot/conv1/2025-01-01.jsonl:msg1',
+        createTime: 3000000,
+        fromUsername: 'user1',
+        toUsername: 'user2',
+        msgType: 1,
+        isChatroomMsg: 0,
+        chatroom: null,
+        chatroomSender: null,
+      },
+      {
+        msgId: 'msg2',
+        conversationId: 'conv1',
+        dataLakeKey: 'hot/conv1/2025-01-01.jsonl:msg2',
+        createTime: 3000001,
+        fromUsername: 'user2',
+        toUsername: 'user3',
+        msgType: 1,
+        isChatroomMsg: 0,
+        chatroom: null,
+        chatroomSender: null,
+      },
+    ] as never)
+    vi.mocked(mockDataLake.getMessage)
+      .mockRejectedValueOnce(new Error('missing msg1'))
+      .mockRejectedValueOnce(new Error('missing msg2'))
+
+    await expect(searchService.search(query)).rejects.toThrow(
+      'Failed to retrieve search results from DataLake'
+    )
   })
 })
 
@@ -338,14 +384,16 @@ describe('SearchService - Semantic Search', () => {
     })
 
     // Act
-    const results = await serviceWithoutEmbedding.search(query)
+    const response = await serviceWithoutEmbedding.search(query)
 
     // Assert
     expect(mockTokenizer.tokenizeAndJoin).toHaveBeenCalledWith('测试')
     expect(mockDuckDB.searchFTS).toHaveBeenCalledWith('测试')
     expect(mockDuckDB.searchVector).not.toHaveBeenCalled()
-    expect(results).toHaveLength(1)
-    expect(results[0]?.msgId).toBe('msg1')
+    expect(response.results).toHaveLength(1)
+    expect(response.results[0]?.msgId).toBe('msg1')
+    expect(response.appliedType).toBe('keyword')
+    expect(response.downgradedFrom).toBe('semantic')
   })
 
   it('should perform semantic search using vector embeddings', async () => {
@@ -387,13 +435,14 @@ describe('SearchService - Semantic Search', () => {
     })
 
     // Act
-    const results = await searchService.search(query)
+    const response = await searchService.search(query)
 
     // Assert
     expect(mockEmbedding.generateEmbedding).toHaveBeenCalledWith('如何使用 AI')
     expect(mockDuckDB.searchVector).toHaveBeenCalledWith(mockEmbeddingVector, 20)
-    expect(results).toHaveLength(1)
-    expect(results[0].content).toBe('AI 可以帮助你提高效率')
+    expect(response.results).toHaveLength(1)
+    expect(response.results[0].content).toBe('AI 可以帮助你提高效率')
+    expect(response.appliedType).toBe('semantic')
   })
 
   it('preserves semantic relevance order after index filtering and pagination', async () => {
@@ -472,10 +521,90 @@ describe('SearchService - Semantic Search', () => {
         source: '',
       })
 
-    const results = await searchService.search(query)
+    const response = await searchService.search(query)
 
     expect(mockDuckDB.searchVector).toHaveBeenCalledWith(mockEmbeddingVector, 3)
-    expect(results.map((result) => result.msgId)).toEqual(['msg1', 'msg2'])
+    expect(response.results.map((result) => result.msgId)).toEqual(['msg1', 'msg2'])
+  })
+
+  it('overfetches semantic vector candidates until structured filters can fill the requested page', async () => {
+    const query = { q: 'AI', type: 'semantic' as const, from: 'matcher', limit: 2, offset: 0 }
+    const mockEmbeddingVector = [0.1, 0.2, 0.3]
+
+    mockEmbedding.generateEmbedding.mockResolvedValue(mockEmbeddingVector)
+    vi.mocked(mockDuckDB.searchVector)
+      .mockResolvedValueOnce([
+        { msgId: 'msg1', distance: 0.01, createTime: 1000000 },
+        { msgId: 'msg2', distance: 0.02, createTime: 1000001 },
+      ])
+      .mockResolvedValueOnce([
+        { msgId: 'msg1', distance: 0.01, createTime: 1000000 },
+        { msgId: 'msg2', distance: 0.02, createTime: 1000001 },
+        { msgId: 'msg3', distance: 0.03, createTime: 1000002 },
+        { msgId: 'msg4', distance: 0.04, createTime: 1000003 },
+      ])
+    vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockImplementation(async (args: any) => {
+      const msgIds = args.where.msgId.in as string[]
+      return [
+        msgIds.includes('msg3') && {
+          msgId: 'msg3',
+          conversationId: 'conv1',
+          dataLakeKey: 'hot/conv1/2025-01-01.jsonl:msg3',
+          createTime: 1000002,
+          fromUsername: 'matcher',
+          toUsername: 'user3',
+          msgType: 1,
+          isChatroomMsg: 0,
+          chatroom: null,
+          chatroomSender: null,
+        },
+        msgIds.includes('msg4') && {
+          msgId: 'msg4',
+          conversationId: 'conv1',
+          dataLakeKey: 'hot/conv1/2025-01-01.jsonl:msg4',
+          createTime: 1000003,
+          fromUsername: 'matcher',
+          toUsername: 'user4',
+          msgType: 1,
+          isChatroomMsg: 0,
+          chatroom: null,
+          chatroomSender: null,
+        },
+      ].filter(Boolean) as never
+    })
+    vi.mocked(mockDataLake.getMessage)
+      .mockResolvedValueOnce({
+        msg_id: 'msg3',
+        content: '语义命中 3',
+        create_time: 1000002,
+        from_username: 'matcher',
+        to_username: 'user3',
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: '',
+      })
+      .mockResolvedValueOnce({
+        msg_id: 'msg4',
+        content: '语义命中 4',
+        create_time: 1000003,
+        from_username: 'matcher',
+        to_username: 'user4',
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: '',
+      })
+
+    const response = await searchService.search(query)
+
+    expect(mockDuckDB.searchVector).toHaveBeenNthCalledWith(1, mockEmbeddingVector, 2)
+    expect(mockDuckDB.searchVector).toHaveBeenNthCalledWith(2, mockEmbeddingVector, 4)
+    expect(response.results.map((result) => result.msgId)).toEqual(['msg3', 'msg4'])
   })
 
   it('should support hybrid search combining FTS and vector results', async () => {
@@ -547,7 +676,7 @@ describe('SearchService - Semantic Search', () => {
       })
 
     // Act
-    const results = await searchService.search(query)
+    const response = await searchService.search(query)
 
     // Assert
     expect(mockTokenizer.tokenizeAndJoin).toHaveBeenCalledWith('测试')
@@ -561,7 +690,8 @@ describe('SearchService - Semantic Search', () => {
         }),
       })
     )
-    expect(results).toHaveLength(2)
+    expect(response.results).toHaveLength(2)
+    expect(response.appliedType).toBe('hybrid')
   })
 
   it('preserves hybrid ranking order while filtering to important messages', async () => {
@@ -636,7 +766,7 @@ describe('SearchService - Semantic Search', () => {
         source: '',
       })
 
-    const results = await searchService.search(query)
+    const response = await searchService.search(query)
 
     expect(mockDatabase.prisma.messageTag.findMany).toHaveBeenCalledWith({
       where: {
@@ -645,7 +775,95 @@ describe('SearchService - Semantic Search', () => {
       },
       select: { msgId: true },
     })
-    expect(results.map((result) => result.msgId)).toEqual(['msg2', 'msg3'])
+    expect(response.results.map((result) => result.msgId)).toEqual(['msg2', 'msg3'])
+  })
+
+  it('overfetches hybrid vector candidates until important-filtered results can fill the page', async () => {
+    const query = { q: '测试', type: 'hybrid' as const, important: true, limit: 2, offset: 0 }
+    const mockEmbeddingVector = [0.1, 0.2, 0.3]
+
+    vi.mocked(mockTokenizer.tokenizeAndJoin).mockReturnValue('测试')
+    vi.mocked(mockDuckDB.searchFTS).mockResolvedValue([
+      { msgId: 'msg1', contentTokens: '测试', createTime: 1000000, fromUsername: 'user1', toUsername: 'user2' },
+    ])
+    mockEmbedding.generateEmbedding.mockResolvedValue(mockEmbeddingVector)
+    vi.mocked(mockDuckDB.searchVector)
+      .mockResolvedValueOnce([
+        { msgId: 'msg2', distance: 0.01, createTime: 1000001 },
+      ])
+      .mockResolvedValueOnce([
+        { msgId: 'msg2', distance: 0.01, createTime: 1000001 },
+        { msgId: 'msg3', distance: 0.02, createTime: 1000002 },
+        { msgId: 'msg4', distance: 0.03, createTime: 1000003 },
+      ])
+    vi.mocked(mockDatabase.prisma.messageTag.findMany).mockImplementation(async (args: any) => {
+      const msgIds = args.where.msgId.in as string[]
+      return msgIds
+        .filter((msgId) => msgId === 'msg3' || msgId === 'msg4')
+        .map((msgId) => ({ msgId })) as never
+    })
+    vi.mocked(mockDatabase.prisma.messageIndex.findMany).mockImplementation(async (args: any) => {
+      const msgIds = args.where.msgId.in as string[]
+      return [
+        msgIds.includes('msg3') && {
+          msgId: 'msg3',
+          conversationId: 'conv2',
+          dataLakeKey: 'hot/conv2/2025-01-01.jsonl:msg3',
+          createTime: 1000002,
+          fromUsername: 'user3',
+          toUsername: 'user4',
+          msgType: 1,
+          isChatroomMsg: 0,
+          chatroom: null,
+          chatroomSender: null,
+        },
+        msgIds.includes('msg4') && {
+          msgId: 'msg4',
+          conversationId: 'conv2',
+          dataLakeKey: 'hot/conv2/2025-01-01.jsonl:msg4',
+          createTime: 1000003,
+          fromUsername: 'user4',
+          toUsername: 'user5',
+          msgType: 1,
+          isChatroomMsg: 0,
+          chatroom: null,
+          chatroomSender: null,
+        },
+      ].filter(Boolean) as never
+    })
+    vi.mocked(mockDataLake.getMessage)
+      .mockResolvedValueOnce({
+        msg_id: 'msg3',
+        content: '混合命中 3',
+        create_time: 1000002,
+        from_username: 'user3',
+        to_username: 'user4',
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: '',
+      })
+      .mockResolvedValueOnce({
+        msg_id: 'msg4',
+        content: '混合命中 4',
+        create_time: 1000003,
+        from_username: 'user4',
+        to_username: 'user5',
+        msg_type: 1,
+        chatroom_sender: '',
+        desc: '',
+        is_chatroom_msg: 0,
+        chatroom: '',
+        source: '',
+      })
+
+    const response = await searchService.search(query)
+
+    expect(mockDuckDB.searchVector).toHaveBeenNthCalledWith(1, mockEmbeddingVector, 2)
+    expect(mockDuckDB.searchVector).toHaveBeenNthCalledWith(2, mockEmbeddingVector, 4)
+    expect(response.results.map((result) => result.msgId)).toEqual(['msg3', 'msg4'])
   })
 
   it('falls back to keyword search when hybrid search is requested without EmbeddingService', async () => {
@@ -691,13 +909,15 @@ describe('SearchService - Semantic Search', () => {
     })
 
     // Act
-    const results = await serviceWithoutEmbedding.search(query)
+    const response = await serviceWithoutEmbedding.search(query)
 
     // Assert
     expect(mockTokenizer.tokenizeAndJoin).toHaveBeenCalledWith('混合测试')
     expect(mockDuckDB.searchFTS).toHaveBeenCalledWith('混合测试')
     expect(mockDuckDB.searchVector).not.toHaveBeenCalled()
-    expect(results).toHaveLength(1)
-    expect(results[0]?.msgId).toBe('msg2')
+    expect(response.results).toHaveLength(1)
+    expect(response.results[0]?.msgId).toBe('msg2')
+    expect(response.appliedType).toBe('keyword')
+    expect(response.downgradedFrom).toBe('hybrid')
   })
 })

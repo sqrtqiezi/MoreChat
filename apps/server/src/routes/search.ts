@@ -50,14 +50,16 @@ export function searchRoutes(deps: SearchRouteDeps) {
         }, 400)
       }
 
-      const results = await deps.searchService.search(parsed.data)
+      const result = await deps.searchService.search(parsed.data)
 
       return c.json({
         success: true,
         data: {
-          results,
-          total: results.length,
+          results: result.results,
+          total: result.results.length,
           query: parsed.data.q,
+          appliedType: result.appliedType,
+          downgradedFrom: result.downgradedFrom,
         }
       })
     } catch (error) {
