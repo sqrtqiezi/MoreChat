@@ -25,6 +25,15 @@ import { RuleEngine } from './services/ruleEngine.js'
 import { KnowledgeQueue } from './services/knowledgeQueue.js'
 import { SemanticImportanceService } from './services/semanticImportanceService.js'
 import { EntityExtractorService } from './services/entityExtractorService.js'
+import { LlmClient } from './services/llmClient.js'
+import { DigestService } from './services/digestService.js'
+import { DigestWindowService } from './services/digestWindowService.js'
+import { KnowledgeExtractionService } from './services/knowledgeExtractionService.js'
+import { DigestWorkflowService } from './services/digestWorkflowService.js'
+import { TopicCandidateService } from './services/topicCandidateService.js'
+import { TopicClusteringService } from './services/topicClusteringService.js'
+import { TopicBackfillService } from './services/topicBackfillService.js'
+import { TopicRepairService } from './services/topicRepairService.js'
 import { createApp } from './app.js'
 import { retryWithBackoff } from './lib/retry.js'
 import type { ProfileState } from './routes/me.js'
@@ -146,6 +155,14 @@ async function main() {
             }))
             await ruleEngine.applyTags(tagData)
             logger.info({ msgId: task.msgId, tags: tags.map(t => t.tag) }, 'Applied semantic tags')
+
+            if (env.DIGEST_ENABLED && tags.some((t) => t.tag === 'important')) {
+              await knowledgeQueue.enqueue({
+                type: 'digest-generation',
+                msgId: task.msgId,
+                data: {}
+              })
+            }
           }
         } catch (error) {
           logger.error({ err: error, msgId: task.msgId }, 'Failed to process semantic importance task')
@@ -178,6 +195,86 @@ async function main() {
       }
     })
     logger.info('KnowledgeQueue initialized')
+
+    // 初始化云端 LLM 与 DigestService（缺配置时优雅关闭）
+    let digestWorkflowService: DigestWorkflowService | undefined
+    let topicClusteringService: TopicClusteringService | undefined
+    let topicBackfillService: TopicBackfillService | undefined
+    let topicRepairService: TopicRepairService | undefined
+    let topicRepairTimer: ReturnType<typeof setInterval> | undefined
+    if (env.DIGEST_ENABLED) {
+      const llmClient = LlmClient.tryCreate({
+        baseUrl: env.LLM_BASE_URL,
+        apiKey: env.LLM_API_KEY,
+        model: env.LLM_MODEL,
+      })
+      if (llmClient) {
+        if (embeddingService) {
+          const topicCandidateService = new TopicCandidateService(embeddingService)
+          topicClusteringService = new TopicClusteringService(databaseService, topicCandidateService)
+          topicBackfillService = new TopicBackfillService(databaseService)
+          topicRepairService = new TopicRepairService(databaseService)
+
+          knowledgeQueue.registerHandler('topic-clustering', async (task) => {
+            try {
+              const card = await databaseService.prisma.knowledgeCard.findUnique({
+                where: { id: task.data.knowledgeCardId as string },
+              })
+              if (!card) {
+                return
+              }
+
+              const result = await topicClusteringService!.clusterKnowledgeCard(card)
+              await topicBackfillService!.backfillTopicMessages({
+                topicIds: result.topicIds,
+                knowledgeCard: card,
+              })
+            } catch (error) {
+              logger.error(
+                { err: error, knowledgeCardId: task.data.knowledgeCardId },
+                'Failed to process topic clustering task'
+              )
+            }
+          })
+          logger.info('Topic clustering services initialized')
+        } else {
+          logger.warn('Topic clustering disabled because embeddings are unavailable')
+        }
+
+        const digestWindowService = new DigestWindowService(databaseService, dataLakeService)
+        const digestService = new DigestService(digestWindowService, databaseService, llmClient)
+        const knowledgeExtractionService = new KnowledgeExtractionService(databaseService, llmClient)
+        digestWorkflowService = new DigestWorkflowService(
+          digestService,
+          knowledgeExtractionService,
+          async (knowledgeCard) => {
+            if (!topicClusteringService) {
+              return
+            }
+            await knowledgeQueue.enqueue({
+              type: 'topic-clustering',
+              msgId: knowledgeCard.id,
+              data: { knowledgeCardId: knowledgeCard.id },
+            })
+          }
+        )
+        knowledgeQueue.registerHandler('digest-generation', async (task) => {
+          try {
+            const result = await digestWorkflowService!.generateAutomaticDigest(task.msgId)
+            if (result.digest) {
+              logger.info({ msgId: task.msgId, digestId: result.digest.id }, 'Generated digest')
+            }
+          } catch (error) {
+            logger.warn({ err: error, msgId: task.msgId }, 'Failed to process digest task')
+          }
+        })
+        logger.info({ baseUrl: env.LLM_BASE_URL, model: env.LLM_MODEL }, 'Digest workflow initialized')
+      } else {
+        logger.warn('Digest features disabled because LLM_BASE_URL/LLM_API_KEY/LLM_MODEL is not fully configured')
+      }
+    } else {
+      logger.warn('Digest features disabled by DIGEST_ENABLED=false')
+    }
 
     // 2. 业务服务层
     const clientService = new ClientService(juhexbotAdapter)
@@ -247,6 +344,7 @@ async function main() {
       juhexbotAdapter,
       get wsService() { return wsService },
       searchService,
+      digestWorkflowService,
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
       userProfile: {
         getProfileState: () => profileState
@@ -280,6 +378,17 @@ async function main() {
     archiveService.start()
     logger.info('Archive service started')
 
+    if (topicRepairService) {
+      topicRepairTimer = setInterval(() => {
+        topicRepairService!
+          .repairRecentTopics({ now: Math.floor(Date.now() / 1000) })
+          .catch((error) => {
+            logger.warn({ err: error }, 'Topic repair tick failed')
+          })
+      }, 30 * 60 * 1000)
+      logger.info('Topic repair scheduler started')
+    }
+
     // 8. 检查 juhexbot 状态
     try {
       const status = await clientService.getStatus()
@@ -306,6 +415,7 @@ async function main() {
       logger.info({ signal }, 'Shutting down gracefully...')
       try {
         if (profileRetryTimer) clearTimeout(profileRetryTimer)
+        if (topicRepairTimer) clearInterval(topicRepairTimer)
         archiveService.stop()
         contactSyncService.stopBackfillScheduler()
         wsService.close()

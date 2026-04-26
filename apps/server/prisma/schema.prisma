@@ -230,26 +230,63 @@ model DigestEntry {
   endTime        Int
   summary        String
   messageCount   Int
+  sourceKind     String   @default("manual")
+  triggerMsgId   String?
+  status         String   @default("ready")
+  errorMessage   String?
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  knowledgeCard KnowledgeCard?
 
   @@index([conversationId])
   @@index([startTime])
+  @@unique([conversationId, startTime, endTime, sourceKind])
+}
+
+// 从摘要中提炼出的结构化知识卡片
+model KnowledgeCard {
+  id             String   @id @default(cuid())
+  digestEntryId  String   @unique
+  conversationId String
+  title          String
+  summary        String
+  decisions      String
+  actionItems    String
+  risks          String
+  participants   String
+  timeAnchors    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  digestEntry DigestEntry @relation(fields: [digestEntryId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
 }
 
 // 话题
 model Topic {
-  id           String   @id @default(cuid())
-  title        String
-  description  String?
-  messageCount Int      @default(0)
-  firstSeenAt  Int
-  lastSeenAt   Int
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(cuid())
+  kind             String
+  status           String
+  title            String
+  summary          String
+  description      String?
+  keywords         String
+  messageCount     Int      @default(0)
+  participantCount Int      @default(0)
+  sourceCardCount  Int      @default(0)
+  clusterKey       String?
+  firstSeenAt      Int
+  lastSeenAt       Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  messages TopicMessage[]
+  messages       TopicMessage[]
+  knowledgeCards TopicKnowledgeCard[]
 
   @@index([lastSeenAt])
+  @@index([status, lastSeenAt])
 }
 
 // 话题与消息关联
@@ -263,6 +300,22 @@ model TopicMessage {
   @@unique([topicId, msgId])
   @@index([topicId])
   @@index([msgId])
+}
+
+// 话题与知识卡片关联
+model TopicKnowledgeCard {
+  id              String   @id @default(cuid())
+  topicId         String
+  knowledgeCardId String
+  score           Float
+  rank            Int
+  createdAt       DateTime @default(now())
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, knowledgeCardId])
+  @@index([topicId])
+  @@index([knowledgeCardId])
 }
 
 // 重要性规则配置

@@ -148,6 +148,7 @@ export class MessageService {
 
     // 规则引擎评估（仅文本消息）
     let ruleTagsCount = 0
+    let ruleHitImportant = false
     if (this.ruleEngine && message.msgType === 1 && message.content) {
       try {
         const currentUsername = this.adapter.getCurrentUsername()
@@ -162,9 +163,23 @@ export class MessageService {
         if (tags.length > 0) {
           await this.ruleEngine.applyTags(tags)
           ruleTagsCount = tags.length
+          ruleHitImportant = tags.some((t) => t.tag === 'important')
         }
       } catch (error) {
         logger.warn({ err: error, msgId: message.msgId }, 'Failed to evaluate message rules')
+      }
+    }
+
+    // 自动摘要：规则命中 important 即入队（语义命中由 handler 内部入队）
+    if (this.knowledgeQueue && ruleHitImportant) {
+      try {
+        await this.knowledgeQueue.enqueue({
+          type: 'digest-generation',
+          msgId: message.msgId,
+          data: {}
+        })
+      } catch (error) {
+        logger.warn({ err: error, msgId: message.msgId }, 'Failed to enqueue digest generation')
       }
     }
 

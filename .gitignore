@@ -51,3 +51,9 @@ tools/samples/*.json
 
 # Database
 apps/server/data/
+
+# Local superpowers plugin
+.superpowers/
+
+# Deploy artifacts
+deploy-package/

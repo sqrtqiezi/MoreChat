@@ -120,4 +120,23 @@ describe('KnowledgeQueue', () => {
       data: { content: '请今天完成预算表' }
     })
   })
+
+  it('should process topic-clustering task with registered handler', async () => {
+    const handler = vi.fn().mockResolvedValue(undefined)
+    queue.registerHandler('topic-clustering', handler)
+
+    await queue.enqueue({
+      type: 'topic-clustering',
+      msgId: 'card_1',
+      data: { knowledgeCardId: 'card_1' }
+    })
+
+    await queue.waitForIdle()
+
+    expect(handler).toHaveBeenCalledWith({
+      type: 'topic-clustering',
+      msgId: 'card_1',
+      data: { knowledgeCardId: 'card_1' }
+    })
+  })
 })

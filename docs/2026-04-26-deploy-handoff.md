@@ -147,7 +147,7 @@
 1. 将 embedding 模型改为随部署产物预置，或切换到显式关闭语义功能的生产配置。
 2. 为语义功能增加环境开关，例如 `EMBEDDING_ENABLED=false`。
 3. 处理 DuckDB HNSW persistence 配置，决定是启用实验持久化，还是在生产禁用该索引路径。
-4. 整理并压缩 deploy workflow，把本次”救火兼容逻辑”抽成独立脚本，降低 YAML 复杂度。
+4. 整理并压缩 deploy workflow，把本次“救火兼容逻辑”抽成独立脚本，降低 YAML 复杂度。
 5. 清理测试文件中的 lint warning，减少 CI 噪音。
 6. 生产环境不再依赖 Hugging Face 在线下载 embedding 模型；部署阶段预置 `onnx-community/bge-small-zh-v1.5-ONNX` 到 `/opt/morechat/models/bge-small-zh-v1.5`。
 7. 运行时必须优先使用 `EMBEDDING_MODEL_PATH`，并保留 `EMBEDDING_ENABLED=false` 的显式关闭能力。
