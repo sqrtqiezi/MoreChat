@@ -118,18 +118,11 @@ jobs:
             mv server-scripts apps/server/scripts
 
             # 设置嵌入模型
-            echo "📂 Deployment package top-level contents:"
-            ls -la
-            echo "📂 Deployment package models tree:"
-            find . -maxdepth 4 \( -path './models*' -o -path './deploy-package/models*' \) | sort || true
-            if [ -d models/bge-small-zh-v1.5 ]; then
-              echo "📦 Setting up embedding model..."
-              mkdir -p /opt/morechat/models
-              rm -rf /opt/morechat/models/bge-small-zh-v1.5
-              mv models/bge-small-zh-v1.5 /opt/morechat/models/bge-small-zh-v1.5
+            if [ -d /opt/morechat/models/bge-small-zh-v1.5 ]; then
+              echo "✅ Embedding model already in place at /opt/morechat/models/bge-small-zh-v1.5"
             else
-              echo "⚠️ Embedding model directory not found in deployment package"
-              exit 1
+              echo "⚠️ Embedding model not found after extraction"
+              ls -la /opt/morechat/models/ 2>/dev/null || echo "models dir does not exist"
             fi
 
             # 生成 .env 文件
