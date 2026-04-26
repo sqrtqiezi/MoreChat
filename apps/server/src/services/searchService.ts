@@ -132,7 +132,7 @@ export class SearchService {
     }
 
     // Step 3: 从 SQLite MessageIndex 过滤
-    const indexRecords = await this.filterRankedIndexRecords(msgIds, query)
+    const indexRecords = await this.filterRankedIndexRecords(msgIds, query, appliedType)
 
     if (indexRecords.length === 0) {
       return {
@@ -194,7 +194,11 @@ export class SearchService {
         return candidates
       }
 
-      const filteredRecords = await this.filterRankedIndexRecords(candidates, query)
+      const filteredRecords = await this.filterRankedIndexRecords(
+        candidates,
+        query,
+        query.type
+      )
       if (filteredRecords.length >= initialCount || candidates.length < candidateCount) {
         return candidates
       }
@@ -205,7 +209,8 @@ export class SearchService {
 
   private async filterRankedIndexRecords(
     msgIds: string[],
-    query: SearchQuery
+    query: SearchQuery,
+    effectiveType: SearchQuery['type']
   ): Promise<MessageIndexRecord[]> {
     const filteredMsgIds = query.important
       ? await this.filterImportantMessageIds(msgIds)
@@ -218,7 +223,7 @@ export class SearchService {
     const where = this.buildIndexWhereClause(filteredMsgIds, query)
     const indexRecords: MessageIndexRecord[] = await this.db.prisma.messageIndex.findMany({
       where,
-      ...(query.type === 'keyword'
+      ...(effectiveType === 'keyword'
         ? {
             take: query.limit ?? 20,
             skip: query.offset ?? 0,
@@ -227,7 +232,7 @@ export class SearchService {
         : {}),
     })
 
-    if (query.type === 'keyword') {
+    if (effectiveType === 'keyword') {
       return indexRecords
     }
 
