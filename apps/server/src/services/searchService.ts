@@ -36,6 +36,15 @@ export interface SearchResponse {
   downgradedFrom?: Extract<SearchQuery['type'], 'semantic' | 'hybrid'>
 }
 
+type MessageIndexRecord = {
+  msgId: string
+  dataLakeKey: string
+  createTime: number
+  fromUsername: string
+  toUsername: string | null
+  conversationId: string | null
+}
+
 export class SearchService {
   constructor(
     private duckdb: DuckDBService,
@@ -147,8 +156,8 @@ export class SearchService {
           content: msg.content,
           createTime: record.createTime,
           fromUsername: record.fromUsername,
-          toUsername: record.toUsername,
-          conversationId: record.conversationId,
+          toUsername: record.toUsername ?? undefined,
+          conversationId: record.conversationId ?? undefined,
         })
       } catch (err) {
         logger.warn(`无法从 DataLake 获取消息 ${record.msgId}: ${err}`)
@@ -194,7 +203,10 @@ export class SearchService {
     }
   }
 
-  private async filterRankedIndexRecords(msgIds: string[], query: SearchQuery) {
+  private async filterRankedIndexRecords(
+    msgIds: string[],
+    query: SearchQuery
+  ): Promise<MessageIndexRecord[]> {
     const filteredMsgIds = query.important
       ? await this.filterImportantMessageIds(msgIds)
       : msgIds
@@ -204,7 +216,7 @@ export class SearchService {
     }
 
     const where = this.buildIndexWhereClause(filteredMsgIds, query)
-    const indexRecords = await this.db.prisma.messageIndex.findMany({
+    const indexRecords: MessageIndexRecord[] = await this.db.prisma.messageIndex.findMany({
       where,
       ...(query.type === 'keyword'
         ? {
@@ -219,10 +231,12 @@ export class SearchService {
       return indexRecords
     }
 
-    const recordsByMsgId = new Map(indexRecords.map((record) => [record.msgId, record]))
+    const recordsByMsgId = new Map<string, MessageIndexRecord>(
+      indexRecords.map((record) => [record.msgId, record])
+    )
     return filteredMsgIds
       .map((msgId) => recordsByMsgId.get(msgId))
-      .filter((record): record is (typeof indexRecords)[number] => record !== undefined)
+      .filter((record): record is MessageIndexRecord => record !== undefined)
   }
 
   private async filterImportantMessageIds(msgIds: string[]): Promise<string[]> {

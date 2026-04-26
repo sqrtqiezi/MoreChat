@@ -127,17 +127,17 @@ describe('KnowledgePage routing', () => {
 
     await user.click(screen.getByRole('checkbox', { name: '仅重要消息' }))
     expect(useKnowledgeStore.getState().filters.important).toBe(true)
-    expect(useKnowledgeStore.getState().mode).toBe('keyword')
+    expect(useKnowledgeStore.getState().mode).toBe('semantic')
     expect(useKnowledgeStore.getState().query).toBe('')
 
     await user.click(screen.getByRole('button', { name: '搜索' }))
 
     expect(useKnowledgeStore.getState().query).toBe('项目复盘')
-    expect(useKnowledgeStore.getState().mode).toBe('keyword')
+    expect(useKnowledgeStore.getState().mode).toBe('semantic')
     expect(useKnowledgeStore.getState().filters.important).toBe(true)
   })
 
-  it('disables semantic and hybrid mode buttons while important-only is enabled', async () => {
+  it('keeps semantic and hybrid mode buttons available while important-only is enabled', async () => {
     const user = userEvent.setup()
 
     render(<App />)
@@ -147,14 +147,15 @@ describe('KnowledgePage routing', () => {
     const semanticButton = screen.getByRole('button', { name: '语义' })
     const hybridButton = screen.getByRole('button', { name: '混合' })
 
-    expect(semanticButton).toBeDisabled()
-    expect(hybridButton).toBeDisabled()
+    expect(semanticButton).toBeEnabled()
+    expect(hybridButton).toBeEnabled()
     expect(useKnowledgeStore.getState().mode).toBe('keyword')
 
     await user.click(semanticButton)
-    await user.click(hybridButton)
+    expect(useKnowledgeStore.getState().mode).toBe('semantic')
 
-    expect(useKnowledgeStore.getState().mode).toBe('keyword')
+    await user.click(hybridButton)
+    expect(useKnowledgeStore.getState().mode).toBe('hybrid')
   })
 
   it('renders search results after query resolves', async () => {

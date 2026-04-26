@@ -63,21 +63,17 @@ export function SearchBar({
         <div className="flex flex-wrap gap-2">
           {modeOptions.map((option) => {
             const isActive = option.value === mode
-            const isDisabled = importantOnly && option.value !== 'keyword'
 
             return (
               <button
                 key={option.value}
                 type="button"
                 aria-pressed={isActive}
-                disabled={isDisabled}
                 onClick={() => onModeChange(option.value)}
                 className={`rounded-full px-4 py-2 text-sm transition ${
                   isActive
                     ? 'bg-stone-900 text-stone-50'
                     : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                } ${
-                  isDisabled ? 'cursor-not-allowed opacity-50 hover:bg-stone-100' : ''
                 }`}
               >
                 {option.label}
