@@ -76,7 +76,7 @@ export class TopicClusteringService {
     })
 
     const scoredTopics = await Promise.all(
-      topics.map(async (topic) => ({
+      topics.map(async (topic: TopicLike) => ({
         topic,
         score: cosineSimilarity(candidate.embedding, await this.buildTopicEmbedding(topic)),
       }))

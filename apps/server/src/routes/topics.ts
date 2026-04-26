@@ -56,7 +56,7 @@ export function topicsRoutes(deps: TopicsRouteDeps) {
 
       const indexes = await deps.db.prisma.messageIndex.findMany({
         where: {
-          msgId: { in: rows.map((row) => row.msgId) },
+          msgId: { in: rows.map((row: { msgId: string }) => row.msgId) },
         },
         orderBy: { createTime: 'asc' },
       })
