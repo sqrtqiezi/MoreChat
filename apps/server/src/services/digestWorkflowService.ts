@@ -18,7 +18,8 @@ export interface AutomaticDigestWorkflowResult {
 export class DigestWorkflowService {
   constructor(
     private readonly digestService: DigestService,
-    private readonly knowledgeExtractionService: KnowledgeExtractionService
+    private readonly knowledgeExtractionService: KnowledgeExtractionService,
+    private readonly onKnowledgeCardCreated?: (knowledgeCard: KnowledgeCardRecord) => Promise<void>
   ) {}
 
   async generateManualDigest(input: GenerateRangeInput): Promise<DigestWorkflowResult> {
@@ -47,7 +48,15 @@ export class DigestWorkflowService {
 
   private async tryExtract(digest: DigestRecord): Promise<KnowledgeCardRecord | null> {
     try {
-      return await this.knowledgeExtractionService.extractFromDigest(digest)
+      const knowledgeCard = await this.knowledgeExtractionService.extractFromDigest(digest)
+      if (this.onKnowledgeCardCreated) {
+        try {
+          await this.onKnowledgeCardCreated(knowledgeCard)
+        } catch (error) {
+          logger.warn({ err: error, knowledgeCardId: knowledgeCard.id }, 'Failed to enqueue topic clustering')
+        }
+      }
+      return knowledgeCard
     } catch (error) {
       logger.warn({ err: error, digestId: digest.id }, 'Failed to extract structured knowledge from digest')
       return null

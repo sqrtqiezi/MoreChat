@@ -34,6 +34,7 @@ const knowledgeCard = {
 describe('DigestWorkflowService', () => {
   let mockDigestService: any
   let mockKnowledgeExtractionService: any
+  let mockOnKnowledgeCardCreated: any
   let service: DigestWorkflowService
 
   beforeEach(() => {
@@ -44,7 +45,12 @@ describe('DigestWorkflowService', () => {
     mockKnowledgeExtractionService = {
       extractFromDigest: vi.fn(),
     }
-    service = new DigestWorkflowService(mockDigestService, mockKnowledgeExtractionService)
+    mockOnKnowledgeCardCreated = vi.fn().mockResolvedValue(undefined)
+    service = new DigestWorkflowService(
+      mockDigestService,
+      mockKnowledgeExtractionService,
+      mockOnKnowledgeCardCreated
+    )
   })
 
   it('runs digest generation and knowledge extraction for manual ranges', async () => {
@@ -64,6 +70,7 @@ describe('DigestWorkflowService', () => {
       sourceKind: 'manual',
     })
     expect(mockKnowledgeExtractionService.extractFromDigest).toHaveBeenCalledWith(digestRecord)
+    expect(mockOnKnowledgeCardCreated).toHaveBeenCalledWith(knowledgeCard)
     expect(result.digest).toEqual(digestRecord)
     expect(result.knowledgeCard).toEqual(knowledgeCard)
   })
@@ -80,6 +87,7 @@ describe('DigestWorkflowService', () => {
 
     expect(result.digest).toEqual(digestRecord)
     expect(result.knowledgeCard).toBeNull()
+    expect(mockOnKnowledgeCardCreated).not.toHaveBeenCalled()
   })
 
   it('runs automatic flow for important messages', async () => {
@@ -95,6 +103,7 @@ describe('DigestWorkflowService', () => {
     expect(mockDigestService.generateForImportantMessage).toHaveBeenCalledWith('m3')
     expect(result.digest?.sourceKind).toBe('auto')
     expect(result.knowledgeCard).toEqual(knowledgeCard)
+    expect(mockOnKnowledgeCardCreated).toHaveBeenCalledWith(knowledgeCard)
   })
 
   it('returns nulls when automatic digest is skipped', async () => {
@@ -104,5 +113,19 @@ describe('DigestWorkflowService', () => {
 
     expect(result).toEqual({ digest: null, knowledgeCard: null })
     expect(mockKnowledgeExtractionService.extractFromDigest).not.toHaveBeenCalled()
+  })
+
+  it('swallows topic enqueue callback failures', async () => {
+    mockDigestService.generateForRange.mockResolvedValue(digestRecord)
+    mockKnowledgeExtractionService.extractFromDigest.mockResolvedValue(knowledgeCard)
+    mockOnKnowledgeCardCreated.mockRejectedValue(new Error('queue down'))
+
+    const result = await service.generateManualDigest({
+      conversationId: 'conv_1',
+      startTime: 100,
+      endTime: 200,
+    })
+
+    expect(result.knowledgeCard).toEqual(knowledgeCard)
   })
 })

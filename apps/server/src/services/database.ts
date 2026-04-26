@@ -198,9 +198,16 @@ export class DatabaseService {
     await this.prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Topic" (
         "id" TEXT NOT NULL PRIMARY KEY,
+        "kind" TEXT NOT NULL DEFAULT 'window',
+        "status" TEXT NOT NULL DEFAULT 'active',
         "title" TEXT NOT NULL,
+        "summary" TEXT NOT NULL DEFAULT '',
         "description" TEXT,
+        "keywords" TEXT NOT NULL DEFAULT '[]',
         "messageCount" INTEGER NOT NULL DEFAULT 0,
+        "participantCount" INTEGER NOT NULL DEFAULT 0,
+        "sourceCardCount" INTEGER NOT NULL DEFAULT 0,
+        "clusterKey" TEXT,
         "firstSeenAt" INTEGER NOT NULL,
         "lastSeenAt" INTEGER NOT NULL,
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -214,6 +221,18 @@ export class DatabaseService {
         "topicId" TEXT NOT NULL,
         "msgId" TEXT NOT NULL,
         CONSTRAINT "TopicMessage_topicId_fkey" FOREIGN KEY ("topicId") REFERENCES "Topic" ("id") ON DELETE CASCADE
+      )
+    `)
+
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "TopicKnowledgeCard" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "topicId" TEXT NOT NULL,
+        "knowledgeCardId" TEXT NOT NULL,
+        "score" REAL NOT NULL,
+        "rank" INTEGER NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "TopicKnowledgeCard_topicId_fkey" FOREIGN KEY ("topicId") REFERENCES "Topic" ("id") ON DELETE CASCADE
       )
     `)
 
@@ -256,6 +275,27 @@ export class DatabaseService {
         `ALTER TABLE "DigestEntry" ADD COLUMN "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`
       )
     }
+    if (!(await this.hasColumn('Topic', 'kind'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Topic" ADD COLUMN "kind" TEXT NOT NULL DEFAULT 'window'`)
+    }
+    if (!(await this.hasColumn('Topic', 'status'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Topic" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'active'`)
+    }
+    if (!(await this.hasColumn('Topic', 'summary'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Topic" ADD COLUMN "summary" TEXT NOT NULL DEFAULT ''`)
+    }
+    if (!(await this.hasColumn('Topic', 'keywords'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Topic" ADD COLUMN "keywords" TEXT NOT NULL DEFAULT '[]'`)
+    }
+    if (!(await this.hasColumn('Topic', 'participantCount'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Topic" ADD COLUMN "participantCount" INTEGER NOT NULL DEFAULT 0`)
+    }
+    if (!(await this.hasColumn('Topic', 'sourceCardCount'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Topic" ADD COLUMN "sourceCardCount" INTEGER NOT NULL DEFAULT 0`)
+    }
+    if (!(await this.hasColumn('Topic', 'clusterKey'))) {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Topic" ADD COLUMN "clusterKey" TEXT`)
+    }
 
     // FileCache table
     await this.prisma.$executeRawUnsafe(`
@@ -295,10 +335,20 @@ export class DatabaseService {
       `CREATE INDEX IF NOT EXISTS "KnowledgeCard_conversationId_idx" ON "KnowledgeCard"("conversationId")`
     )
     await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Topic_lastSeenAt_idx" ON "Topic"("lastSeenAt")`)
+    await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Topic_status_lastSeenAt_idx" ON "Topic"("status", "lastSeenAt")`)
     await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "TopicMessage_topicId_idx" ON "TopicMessage"("topicId")`)
     await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "TopicMessage_msgId_idx" ON "TopicMessage"("msgId")`)
     await this.prisma.$executeRawUnsafe(
       `CREATE UNIQUE INDEX IF NOT EXISTS "TopicMessage_topicId_msgId_key" ON "TopicMessage"("topicId", "msgId")`
+    )
+    await this.prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "TopicKnowledgeCard_topicId_knowledgeCardId_key" ON "TopicKnowledgeCard"("topicId", "knowledgeCardId")`
+    )
+    await this.prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "TopicKnowledgeCard_topicId_idx" ON "TopicKnowledgeCard"("topicId")`
+    )
+    await this.prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "TopicKnowledgeCard_knowledgeCardId_idx" ON "TopicKnowledgeCard"("knowledgeCardId")`
     )
     await this.prisma.$executeRawUnsafe(
       `CREATE INDEX IF NOT EXISTS "ImportanceRule_type_isActive_idx" ON "ImportanceRule"("type", "isActive")`

@@ -368,5 +368,61 @@ describe('DatabaseService', () => {
       expect(card.digestEntryId).toBe(digest.id)
       expect(card.conversationId).toBe('conv_knowledge')
     })
+
+    it('should persist topic metadata and topic knowledge-card memberships', async () => {
+      const digest = await db.prisma.digestEntry.create({
+        data: {
+          conversationId: 'conv_topic',
+          startTime: 100,
+          endTime: 200,
+          summary: '摘要',
+          messageCount: 3,
+          sourceKind: 'manual',
+          status: 'ready',
+        }
+      })
+
+      const card = await db.prisma.knowledgeCard.create({
+        data: {
+          digestEntryId: digest.id,
+          conversationId: 'conv_topic',
+          title: '预算讨论',
+          summary: '讨论预算审批',
+          decisions: '[]',
+          actionItems: '[]',
+          risks: '[]',
+          participants: '[]',
+          timeAnchors: '[]',
+        }
+      })
+
+      const topic = await db.prisma.topic.create({
+        data: {
+          kind: 'window',
+          status: 'active',
+          title: '预算主题',
+          summary: '近期预算讨论',
+          description: null,
+          keywords: '["预算","审批"]',
+          messageCount: 0,
+          participantCount: 2,
+          sourceCardCount: 1,
+          clusterKey: 'budget-window',
+          firstSeenAt: 100,
+          lastSeenAt: 200,
+        }
+      })
+
+      const membership = await db.prisma.topicKnowledgeCard.create({
+        data: {
+          topicId: topic.id,
+          knowledgeCardId: card.id,
+          score: 0.91,
+          rank: 1,
+        }
+      })
+
+      expect(membership.topicId).toBe(topic.id)
+    })
   })
 })
