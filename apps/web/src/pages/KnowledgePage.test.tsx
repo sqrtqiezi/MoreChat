@@ -80,14 +80,24 @@ describe('KnowledgePage routing', () => {
     expect(screen.getByText('搜索微信历史消息')).toBeInTheDocument()
   })
 
-  it('updates knowledge store from the search controls', async () => {
+  it('applies search control updates with the expected timing semantics', async () => {
     const user = userEvent.setup()
 
     render(<App />)
 
-    await user.type(await screen.findByRole('textbox', { name: '搜索消息' }), '项目复盘')
+    const searchInput = await screen.findByRole('textbox', { name: '搜索消息' })
+
+    await user.type(searchInput, '项目复盘')
+
+    expect(useKnowledgeStore.getState().query).toBe('')
+
     await user.click(screen.getByRole('button', { name: '语义' }))
+    expect(useKnowledgeStore.getState().mode).toBe('semantic')
+
     await user.click(screen.getByRole('checkbox', { name: '仅重要消息' }))
+    expect(useKnowledgeStore.getState().filters.important).toBe(true)
+    expect(useKnowledgeStore.getState().query).toBe('')
+
     await user.click(screen.getByRole('button', { name: '搜索' }))
 
     expect(useKnowledgeStore.getState().query).toBe('项目复盘')
