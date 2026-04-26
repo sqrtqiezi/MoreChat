@@ -24,7 +24,8 @@
     "migrate:vectors": "tsx scripts/migrate-vectors.ts",
     "migrate:tags": "tsx scripts/migrate-tags.ts",
     "migrate:semantic-tags": "tsx scripts/migrate-semantic-tags.ts",
-    "migrate:entities": "tsx scripts/migrate-entities.ts"
+    "migrate:entities": "tsx scripts/migrate-entities.ts",
+    "verify:embedding-model": "tsx scripts/verify-embedding-model.ts"
   },
   "dependencies": {
     "@duckdb/node-api": "1.4.4-r.3",
