@@ -21,14 +21,17 @@ describe('search routes', () => {
 
   describe('GET /api/search', () => {
     it('should return search results', async () => {
-      vi.mocked(mockSearchService.search).mockResolvedValue([
-        {
-          msgId: 'msg_1',
-          content: '你好世界',
-          createTime: 1700000000,
-          fromUsername: 'user_a',
-        }
-      ])
+      vi.mocked(mockSearchService.search).mockResolvedValue({
+        results: [
+          {
+            msgId: 'msg_1',
+            content: '你好世界',
+            createTime: 1700000000,
+            fromUsername: 'user_a',
+          }
+        ],
+        appliedType: 'keyword',
+      } as any)
 
       const res = await app.request('/api/search?q=你好')
       const body = await res.json()
@@ -38,6 +41,7 @@ describe('search routes', () => {
       expect(body.data.results).toHaveLength(1)
       expect(body.data.results[0].msgId).toBe('msg_1')
       expect(body.data.query).toBe('你好')
+      expect(body.data.appliedType).toBe('keyword')
       expect(mockSearchService.search).toHaveBeenCalledWith(
         expect.objectContaining({ q: '你好', type: 'keyword', limit: 20, offset: 0 })
       )
@@ -60,7 +64,7 @@ describe('search routes', () => {
     })
 
     it('should support pagination', async () => {
-      vi.mocked(mockSearchService.search).mockResolvedValue([])
+      vi.mocked(mockSearchService.search).mockResolvedValue({ results: [], appliedType: 'keyword' } as any)
 
       const res = await app.request('/api/search?q=test&limit=10&offset=20')
       const body = await res.json()
@@ -72,7 +76,7 @@ describe('search routes', () => {
     })
 
     it('should pass optional filters to search service', async () => {
-      vi.mocked(mockSearchService.search).mockResolvedValue([])
+      vi.mocked(mockSearchService.search).mockResolvedValue({ results: [], appliedType: 'keyword' } as any)
 
       const res = await app.request('/api/search?q=hello&from=user_a&group=room_1&after=1000&before=2000')
       expect(res.status).toBe(200)
@@ -85,6 +89,50 @@ describe('search routes', () => {
           before: 2000,
         })
       )
+    })
+
+    it('should parse important=false as false', async () => {
+      vi.mocked(mockSearchService.search).mockResolvedValue({ results: [], appliedType: 'keyword' } as any)
+
+      const res = await app.request('/api/search?q=hello&important=false')
+
+      expect(res.status).toBe(200)
+      expect(mockSearchService.search).toHaveBeenCalledWith(
+        expect.objectContaining({
+          q: 'hello',
+          important: false,
+        })
+      )
+    })
+
+    it('should parse important=true as true', async () => {
+      vi.mocked(mockSearchService.search).mockResolvedValue({ results: [], appliedType: 'keyword' } as any)
+
+      const res = await app.request('/api/search?q=hello&important=true')
+
+      expect(res.status).toBe(200)
+      expect(mockSearchService.search).toHaveBeenCalledWith(
+        expect.objectContaining({
+          q: 'hello',
+          important: true,
+        })
+      )
+    })
+
+    it('should surface search mode downgrades in the API response', async () => {
+      vi.mocked(mockSearchService.search).mockResolvedValue({
+        results: [],
+        appliedType: 'keyword',
+        downgradedFrom: 'semantic',
+      } as any)
+
+      const res = await app.request('/api/search?q=hello&type=semantic')
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body.success).toBe(true)
+      expect(body.data.appliedType).toBe('keyword')
+      expect(body.data.downgradedFrom).toBe('semantic')
     })
 
     it('should return 500 on service error', async () => {
