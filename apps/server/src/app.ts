@@ -16,6 +16,7 @@ import { rulesRoutes } from './routes/rules.js'
 import { entitiesRoutes } from './routes/entities.js'
 import { digestRoutes } from './routes/digest.js'
 import { topicsRoutes } from './routes/topics.js'
+import { highlightsRoutes } from './routes/highlights.js'
 import type { ProfileState } from './routes/me.js'
 import type { ClientService } from './services/clientService.js'
 import type { ConversationService } from './services/conversationService.js'
@@ -143,6 +144,7 @@ export function createApp(deps: AppDependencies) {
   if (deps.db) {
     app.route('/api/entities', entitiesRoutes({ db: deps.db }))
     app.route('/api/topics', topicsRoutes({ db: deps.db }))
+    app.route('/api/highlights', highlightsRoutes({ db: deps.db }))
   }
 
   app.route('/api/digest', digestRoutes({ digestWorkflowService: deps.digestWorkflowService }))

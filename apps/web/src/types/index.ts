@@ -94,3 +94,48 @@ export interface TopicSummary {
   lastSeenAt: number;
   status: string;
 }
+
+export interface HighlightTag {
+  tag: string;
+  source: string;
+}
+
+export interface HighlightDigest {
+  id: string;
+  summary: string;
+  messageCount: number;
+  startTime: number;
+  endTime: number;
+}
+
+export interface HighlightKnowledgeCard {
+  id: string;
+  title: string;
+  summary: string;
+  decisions: string;
+  actionItems: string;
+}
+
+export interface HighlightItem {
+  msgId: string;
+  content: string;
+  createTime: number;
+  fromUsername: string;
+  toUsername: string;
+  conversationId: string;
+  tags: HighlightTag[];
+  digest?: HighlightDigest;
+  knowledgeCard?: HighlightKnowledgeCard;
+}
+
+export interface HighlightsResponse {
+  items: HighlightItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface TopicDetailResponse {
+  topic: TopicSummary;
+  messages: SearchResultItem[];
+}

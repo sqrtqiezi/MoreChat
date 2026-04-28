@@ -12,6 +12,7 @@ describe('topics routes', () => {
       prisma: {
         topic: {
           findMany: vi.fn(),
+          findUnique: vi.fn(),
         },
         topicMessage: {
           findMany: vi.fn(),
@@ -50,7 +51,17 @@ describe('topics routes', () => {
     })
   })
 
-  it('returns topic messages by joining TopicMessage to MessageIndex', async () => {
+  it('returns topic metadata with ordered messages', async () => {
+    vi.mocked(mockDb.prisma.topic.findUnique).mockResolvedValue({
+      id: 'topic_1',
+      title: '预算主题',
+      summary: '近期预算讨论',
+      messageCount: 2,
+      participantCount: 3,
+      lastSeenAt: 200,
+      status: 'active',
+      kind: 'window',
+    } as any)
     vi.mocked(mockDb.prisma.topicMessage.findMany).mockResolvedValue([
       { msgId: 'm1', topicId: 'topic_1' },
       { msgId: 'm2', topicId: 'topic_1' },
@@ -65,21 +76,49 @@ describe('topics routes', () => {
 
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
-    expect(mockDb.prisma.messageIndex.findMany).toHaveBeenCalledWith({
-      where: {
-        msgId: { in: ['m1', 'm2'] },
-      },
-      orderBy: { createTime: 'asc' },
+    expect(mockDb.prisma.topic.findUnique).toHaveBeenCalledWith({ where: { id: 'topic_1' } })
+    expect(body.data).toEqual({
+      topic: expect.objectContaining({ id: 'topic_1', title: '预算主题' }),
+      messages: [
+        expect.objectContaining({ msgId: 'm1', createTime: 100 }),
+        expect.objectContaining({ msgId: 'm2', createTime: 200 }),
+      ],
     })
   })
 
+  it('returns 404 when the topic does not exist', async () => {
+    vi.mocked(mockDb.prisma.topic.findUnique).mockResolvedValue(null)
+
+    const res = await app.request('/api/topics/missing/messages')
+    const body = await res.json()
+
+    expect(res.status).toBe(404)
+    expect(body.success).toBe(false)
+    expect(body.error.message).toBe('Topic not found')
+    expect(mockDb.prisma.topicMessage.findMany).not.toHaveBeenCalled()
+    expect(mockDb.prisma.messageIndex.findMany).not.toHaveBeenCalled()
+  })
+
   it('returns empty list when a topic has no messages', async () => {
+    vi.mocked(mockDb.prisma.topic.findUnique).mockResolvedValue({
+      id: 'topic_1',
+      title: '预算主题',
+      summary: '近期预算讨论',
+      messageCount: 0,
+      participantCount: 0,
+      lastSeenAt: 0,
+      status: 'active',
+      kind: 'window',
+    } as any)
     vi.mocked(mockDb.prisma.topicMessage.findMany).mockResolvedValue([])
 
     const res = await app.request('/api/topics/topic_1/messages')
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data).toEqual([])
+    expect(body.data).toEqual({
+      topic: expect.objectContaining({ id: 'topic_1' }),
+      messages: [],
+    })
   })
 })

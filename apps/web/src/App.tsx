@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { ChatPage } from './pages/ChatPage';
 import { KnowledgePage } from './pages/KnowledgePage';
+import { FeedPage } from './pages/FeedPage';
+import { TopicsPage } from './pages/TopicsPage';
+import { TopicDetailPage } from './pages/TopicDetailPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { getCurrentUser } from './api/chat'
 
@@ -21,6 +24,30 @@ function App() {
           element={
             <ProtectedRoute>
               <KnowledgePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/feed"
+          element={
+            <ProtectedRoute>
+              <FeedPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/topics"
+          element={
+            <ProtectedRoute>
+              <TopicsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/topics/:topicId"
+          element={
+            <ProtectedRoute>
+              <TopicDetailPage />
             </ProtectedRoute>
           }
         />
