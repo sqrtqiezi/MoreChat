@@ -345,6 +345,7 @@ async function main() {
       get wsService() { return wsService },
       searchService,
       digestWorkflowService,
+      dataLake: dataLakeService,
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
       userProfile: {
         getProfileState: () => profileState

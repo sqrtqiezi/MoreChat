@@ -30,6 +30,7 @@ import type { FileService } from './services/fileService.js'
 import type { DirectoryService } from './services/directoryService.js'
 import type { SearchService } from './services/searchService.js'
 import type { DatabaseService } from './services/database.js'
+import type { DataLakeService } from './services/dataLake.js'
 import type { RuleEngine } from './services/ruleEngine.js'
 import type { DigestWorkflowService } from './services/digestWorkflowService.js'
 import { logger } from './lib/logger.js'
@@ -47,6 +48,7 @@ export interface AppDependencies {
   wsService: WebSocketService
   searchService: SearchService
   db?: DatabaseService
+  dataLake?: DataLakeService
   ruleEngine?: RuleEngine
   digestWorkflowService?: DigestWorkflowService
   clientGuid: string
@@ -144,7 +146,10 @@ export function createApp(deps: AppDependencies) {
   if (deps.db) {
     app.route('/api/entities', entitiesRoutes({ db: deps.db }))
     app.route('/api/topics', topicsRoutes({ db: deps.db }))
-    app.route('/api/highlights', highlightsRoutes({ db: deps.db }))
+  }
+
+  if (deps.db && deps.dataLake) {
+    app.route('/api/highlights', highlightsRoutes({ db: deps.db, dataLake: deps.dataLake }))
   }
 
   app.route('/api/digest', digestRoutes({ digestWorkflowService: deps.digestWorkflowService }))
