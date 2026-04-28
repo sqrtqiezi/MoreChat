@@ -59,10 +59,19 @@ export function highlightsRoutes(deps: HighlightsRouteDeps) {
         })
       }
 
+      type IndexRecord = {
+        msgId: string
+        dataLakeKey: string
+        createTime: number
+        fromUsername: string
+        toUsername: string
+        conversationId: string
+      }
+
       const indexes = await deps.db.prisma.messageIndex.findMany({
         where: { msgId: { in: page.map(([msgId]) => msgId) } },
-      })
-      const indexById = new Map(indexes.map((record: { msgId: string; dataLakeKey: string; createTime: number; fromUsername: string; toUsername: string; conversationId: string }) => [record.msgId, record]))
+      }) as unknown as IndexRecord[]
+      const indexById = new Map(indexes.map((record) => [record.msgId, record]))
 
       const items = await Promise.all(page.map(async ([msgId, group]) => {
         const index = indexById.get(msgId)
