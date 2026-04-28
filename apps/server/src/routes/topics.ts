@@ -45,23 +45,29 @@ export function topicsRoutes(deps: TopicsRouteDeps) {
   router.get('/:topicId/messages', async (c) => {
     try {
       const topicId = c.req.param('topicId')
+      const topic = await deps.db.prisma.topic.findUnique({ where: { id: topicId } })
+
+      if (!topic) {
+        return c.json({ success: false, error: { message: 'Topic not found' } }, 404)
+      }
+
       const rows = await deps.db.prisma.topicMessage.findMany({
         where: { topicId },
         orderBy: { msgId: 'asc' },
       })
 
       if (rows.length === 0) {
-        return c.json({ success: true, data: [] })
+        return c.json({ success: true, data: { topic, messages: [] } })
       }
 
-      const indexes = await deps.db.prisma.messageIndex.findMany({
+      const messages = await deps.db.prisma.messageIndex.findMany({
         where: {
           msgId: { in: rows.map((row: { msgId: string }) => row.msgId) },
         },
         orderBy: { createTime: 'asc' },
       })
 
-      return c.json({ success: true, data: indexes })
+      return c.json({ success: true, data: { topic, messages } })
     } catch (error) {
       logger.error({ err: error }, 'Failed to fetch topic messages')
       return c.json({ success: false, error: { message: 'Failed to fetch topic messages' } }, 500)
