@@ -1,5 +1,12 @@
 import client from './client';
-import type { SearchFilters, SearchMode, SearchResponse, TopicSummary } from '../types';
+import type {
+  HighlightsResponse,
+  SearchFilters,
+  SearchMode,
+  SearchResponse,
+  TopicDetailResponse,
+  TopicSummary,
+} from '../types';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -34,6 +41,28 @@ export const knowledgeApi = {
 
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error?.message || 'Failed to load topics');
+    }
+
+    return response.data.data;
+  },
+
+  async listHighlights(limit = 20, offset = 0): Promise<HighlightsResponse> {
+    const response = await client.get<ApiResponse<HighlightsResponse>>('/highlights', {
+      params: { limit, offset },
+    });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error?.message || 'Failed to load highlights');
+    }
+
+    return response.data.data;
+  },
+
+  async getTopicMessages(topicId: string): Promise<TopicDetailResponse> {
+    const response = await client.get<ApiResponse<TopicDetailResponse>>(`/topics/${topicId}/messages`);
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error?.message || 'Failed to load topic detail');
     }
 
     return response.data.data;
