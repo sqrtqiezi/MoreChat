@@ -5,10 +5,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { highlightsRoutes } from './highlights.js'
 import type { DatabaseService } from '../services/database.js'
+import type { DataLakeService } from '../services/dataLake.js'
 
 describe('highlights routes', () => {
   let app: Hono
   let mockDb: DatabaseService
+  let mockDataLake: DataLakeService
 
   beforeEach(() => {
     mockDb = {
@@ -29,8 +31,12 @@ describe('highlights routes', () => {
       },
     } as any
 
+    mockDataLake = {
+      getMessage: vi.fn(),
+    } as any
+
     app = new Hono()
-    app.route('/api/highlights', highlightsRoutes({ db: mockDb }))
+    app.route('/api/highlights', highlightsRoutes({ db: mockDb, dataLake: mockDataLake }))
   })
 
   it('returns important messages with digest and knowledge card when available', async () => {
@@ -41,13 +47,14 @@ describe('highlights routes', () => {
     vi.mocked(mockDb.prisma.messageIndex.findMany).mockResolvedValue([
       {
         msgId: 'm1',
-        content: '预算今晚确认',
+        dataLakeKey: 'hot/conversation-1/2026-04-28.jsonl:m1',
         createTime: 1714298400,
         fromUsername: 'alice',
         toUsername: 'room-1',
         conversationId: 'conversation-1',
       },
     ] as any)
+    vi.mocked(mockDataLake.getMessage).mockResolvedValue({ content: '预算今晚确认' } as any)
     vi.mocked(mockDb.prisma.digestEntry.findFirst).mockResolvedValue({
       id: 'd1',
       summary: '今天确认预算安排',
@@ -90,13 +97,14 @@ describe('highlights routes', () => {
     vi.mocked(mockDb.prisma.messageIndex.findMany).mockResolvedValue([
       {
         msgId: 'm3',
-        content: '这个事项要重点跟进',
+        dataLakeKey: 'hot/conversation-3/2026-04-28.jsonl:m3',
         createTime: 1714305600,
         fromUsername: 'carol',
         toUsername: 'room-3',
         conversationId: 'conversation-3',
       },
     ] as any)
+    vi.mocked(mockDataLake.getMessage).mockResolvedValue({ content: '这个事项要重点跟进' } as any)
     vi.mocked(mockDb.prisma.digestEntry.findFirst).mockResolvedValue(null)
 
     const res = await app.request('/api/highlights?limit=20&offset=0')
@@ -124,13 +132,14 @@ describe('highlights routes', () => {
     vi.mocked(mockDb.prisma.messageIndex.findMany).mockResolvedValue([
       {
         msgId: 'm2',
-        content: '@你 明早带合同',
+        dataLakeKey: 'hot/conversation-2/2026-04-28.jsonl:m2',
         createTime: 1714302000,
         fromUsername: 'bob',
         toUsername: 'room-2',
         conversationId: 'conversation-2',
       },
     ] as any)
+    vi.mocked(mockDataLake.getMessage).mockResolvedValue({ content: '@你 明早带合同' } as any)
     vi.mocked(mockDb.prisma.digestEntry.findFirst).mockResolvedValue(null)
 
     const res = await app.request('/api/highlights')

@@ -4,10 +4,12 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { DatabaseService } from '../services/database.js'
+import type { DataLakeService } from '../services/dataLake.js'
 import { logger } from '../lib/logger.js'
 
 interface HighlightsRouteDeps {
   db: DatabaseService
+  dataLake: DataLakeService
 }
 
 const listQuerySchema = z.object({
@@ -60,12 +62,20 @@ export function highlightsRoutes(deps: HighlightsRouteDeps) {
       const indexes = await deps.db.prisma.messageIndex.findMany({
         where: { msgId: { in: page.map(([msgId]) => msgId) } },
       })
-      const indexById = new Map(indexes.map((index: any) => [index.msgId, index]))
+      const indexById = new Map(indexes.map((record) => [record.msgId, record]))
 
       const items = await Promise.all(page.map(async ([msgId, group]) => {
         const index = indexById.get(msgId)
         if (!index) {
           return null
+        }
+
+        let content = ''
+        try {
+          const msg = await deps.dataLake.getMessage(index.dataLakeKey)
+          content = msg.content
+        } catch {
+          logger.warn(`无法从 DataLake 获取消息 ${msgId}`)
         }
 
         const digest = await deps.db.prisma.digestEntry.findFirst({
@@ -84,7 +94,7 @@ export function highlightsRoutes(deps: HighlightsRouteDeps) {
 
         return {
           msgId: index.msgId,
-          content: index.content,
+          content,
           createTime: index.createTime,
           fromUsername: index.fromUsername,
           toUsername: index.toUsername,
