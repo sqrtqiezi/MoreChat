@@ -75,6 +75,14 @@ vi.mock('../hooks/useSearch', () => ({
   useSearch: () => mockUseSearch(),
 }))
 
+vi.mock('../hooks/useTopicsPreview', () => ({
+  useTopicsPreview: () => ({ data: [] }),
+}))
+
+vi.mock('../hooks/useHighlights', () => ({
+  useHighlights: () => ({ data: { total: 0 } }),
+}))
+
 function renderKnowledgePage() {
   return render(
     <MemoryRouter>
@@ -109,6 +117,16 @@ describe('KnowledgePage routing', () => {
     expect(await screen.findByRole('textbox', { name: '搜索消息' })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: '知识库导航' })).toBeInTheDocument()
     expect(screen.getByText('搜索微信历史消息')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Search' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('renders feed and topics navigation entries', async () => {
+    render(<App />)
+
+    expect(await screen.findByRole('link', { name: 'Search' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Feed' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Topics' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Chat' })).toBeInTheDocument()
   })
 
   it('applies search control updates with the expected timing semantics', async () => {
