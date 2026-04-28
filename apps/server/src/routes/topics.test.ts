@@ -76,6 +76,7 @@ describe('topics routes', () => {
 
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
+    expect(mockDb.prisma.topic.findUnique).toHaveBeenCalledWith({ where: { id: 'topic_1' } })
     expect(body.data).toEqual({
       topic: expect.objectContaining({ id: 'topic_1', title: '预算主题' }),
       messages: [
@@ -94,6 +95,8 @@ describe('topics routes', () => {
     expect(res.status).toBe(404)
     expect(body.success).toBe(false)
     expect(body.error.message).toBe('Topic not found')
+    expect(mockDb.prisma.topicMessage.findMany).not.toHaveBeenCalled()
+    expect(mockDb.prisma.messageIndex.findMany).not.toHaveBeenCalled()
   })
 
   it('returns empty list when a topic has no messages', async () => {

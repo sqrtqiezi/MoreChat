@@ -1,5 +1,5 @@
 // ABOUTME: Minimal topic query routes for listing recent window topics and loading their messages
-// ABOUTME: Keeps topic API read-only and scoped to phase 2E backend validation needs
+// ABOUTME: Keeps topic API read-only, serving topic listings and message detail lookups
 
 import { Hono } from 'hono'
 import { z } from 'zod'
