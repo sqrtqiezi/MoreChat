@@ -28,15 +28,29 @@ export function highlightsRoutes(deps: HighlightsRouteDeps) {
         }, 400)
       }
 
-      const tags = await deps.db.prisma.messageTag.findMany({
+      const allTags = await deps.db.prisma.messageTag.findMany({
         where: { tag: 'important' },
         orderBy: { createdAt: 'desc' },
-        take: parsed.data.limit,
-        skip: parsed.data.offset,
       })
-      const total = await deps.db.prisma.messageTag.count({ where: { tag: 'important' } })
 
-      if (tags.length === 0) {
+      // 按 msgId 分组，聚合所有 source，取最新 createdAt 用于排序
+      const grouped = new Map<string, { tags: { tag: string; source: string }[]; latestAt: Date }>()
+      for (const t of allTags) {
+        const existing = grouped.get(t.msgId)
+        if (existing) {
+          existing.tags.push({ tag: t.tag, source: t.source })
+          if (t.createdAt > existing.latestAt) existing.latestAt = t.createdAt
+        } else {
+          grouped.set(t.msgId, { tags: [{ tag: t.tag, source: t.source }], latestAt: t.createdAt })
+        }
+      }
+
+      const sortedMsgIds = [...grouped.entries()]
+        .sort((a, b) => b[1].latestAt.getTime() - a[1].latestAt.getTime())
+      const total = sortedMsgIds.length
+      const page = sortedMsgIds.slice(parsed.data.offset, parsed.data.offset + parsed.data.limit)
+
+      if (page.length === 0) {
         return c.json({
           success: true,
           data: { items: [], total, limit: parsed.data.limit, offset: parsed.data.offset },
@@ -44,12 +58,12 @@ export function highlightsRoutes(deps: HighlightsRouteDeps) {
       }
 
       const indexes = await deps.db.prisma.messageIndex.findMany({
-        where: { msgId: { in: tags.map((tag: { msgId: string }) => tag.msgId) } },
+        where: { msgId: { in: page.map(([msgId]) => msgId) } },
       })
       const indexById = new Map(indexes.map((index: any) => [index.msgId, index]))
 
-      const items = await Promise.all(tags.map(async (tag: any) => {
-        const index = indexById.get(tag.msgId)
+      const items = await Promise.all(page.map(async ([msgId, group]) => {
+        const index = indexById.get(msgId)
         if (!index) {
           return null
         }
@@ -75,7 +89,7 @@ export function highlightsRoutes(deps: HighlightsRouteDeps) {
           fromUsername: index.fromUsername,
           toUsername: index.toUsername,
           conversationId: index.conversationId,
-          tags: [{ tag: tag.tag, source: tag.source }],
+          tags: group.tags,
           digest: digest
             ? {
                 id: digest.id,

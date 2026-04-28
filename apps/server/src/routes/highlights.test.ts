@@ -82,11 +82,45 @@ describe('highlights routes', () => {
     })
   })
 
+  it('deduplicates important messages by msgId and keeps all tag sources', async () => {
+    vi.mocked(mockDb.prisma.messageTag.findMany).mockResolvedValue([
+      { msgId: 'm3', tag: 'important', source: 'ai:semantic', createdAt: new Date('2026-04-28T12:01:00Z') },
+      { msgId: 'm3', tag: 'important', source: 'rule:keyword', createdAt: new Date('2026-04-28T12:00:00Z') },
+    ] as any)
+    vi.mocked(mockDb.prisma.messageIndex.findMany).mockResolvedValue([
+      {
+        msgId: 'm3',
+        content: '这个事项要重点跟进',
+        createTime: 1714305600,
+        fromUsername: 'carol',
+        toUsername: 'room-3',
+        conversationId: 'conversation-3',
+      },
+    ] as any)
+    vi.mocked(mockDb.prisma.digestEntry.findFirst).mockResolvedValue(null)
+
+    const res = await app.request('/api/highlights?limit=20&offset=0')
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.success).toBe(true)
+    expect(body.data.total).toBe(1)
+    expect(body.data.items).toHaveLength(1)
+    expect(body.data.items[0]).toMatchObject({
+      msgId: 'm3',
+      content: '这个事项要重点跟进',
+    })
+    expect(body.data.items[0].tags).toEqual(expect.arrayContaining([
+      { tag: 'important', source: 'ai:semantic' },
+      { tag: 'important', source: 'rule:keyword' },
+    ]))
+    expect(mockDb.prisma.digestEntry.findFirst).toHaveBeenCalledTimes(1)
+  })
+
   it('returns the raw message when no digest is available', async () => {
     vi.mocked(mockDb.prisma.messageTag.findMany).mockResolvedValue([
       { msgId: 'm2', tag: 'important', source: 'rule:mention', createdAt: new Date('2026-04-28T11:00:00Z') },
     ] as any)
-    vi.mocked(mockDb.prisma.messageTag.count).mockResolvedValue(1)
     vi.mocked(mockDb.prisma.messageIndex.findMany).mockResolvedValue([
       {
         msgId: 'm2',
