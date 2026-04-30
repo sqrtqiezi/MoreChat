@@ -1,5 +1,5 @@
 import { useChatStore } from '../../stores/chatStore';
-import { ConversationItem } from './ConversationItem';
+import { ConversationGroup } from './ConversationGroup';
 import { useConversations } from '../../hooks/useConversations';
 import { ConversationSkeleton } from '../common/Skeleton';
 import { EmptyState } from '../common/EmptyState';
@@ -10,6 +10,10 @@ export function ConversationList() {
     (state) => state.selectedConversationId
   );
   const selectConversation = useChatStore((state) => state.selectConversation);
+  const isChatGroupCollapsed = useChatStore((state) => state.isChatGroupCollapsed);
+  const isMpGroupCollapsed = useChatStore((state) => state.isMpGroupCollapsed);
+  const toggleChatGroupCollapsed = useChatStore((state) => state.toggleChatGroupCollapsed);
+  const toggleMpGroupCollapsed = useChatStore((state) => state.toggleMpGroupCollapsed);
 
   if (isLoading) {
     return (
@@ -45,16 +49,30 @@ export function ConversationList() {
     );
   }
 
+  // 按 contactType 分组
+  const chatConversations = conversations.filter((conv) => conv.contactType !== 3);
+  const mpConversations = conversations.filter((conv) => conv.contactType === 3);
+
   return (
     <div className="overflow-y-auto flex-1">
-      {conversations.map((conversation) => (
-        <ConversationItem
-          key={conversation.id}
-          conversation={conversation}
-          isSelected={selectedConversationId === conversation.id}
-          onClick={() => selectConversation(conversation.id)}
-        />
-      ))}
+      <ConversationGroup
+        title="聊天"
+        count={chatConversations.length}
+        conversations={chatConversations}
+        isCollapsed={isChatGroupCollapsed}
+        onToggle={toggleChatGroupCollapsed}
+        selectedId={selectedConversationId}
+        onSelect={selectConversation}
+      />
+      <ConversationGroup
+        title="公众号"
+        count={mpConversations.length}
+        conversations={mpConversations}
+        isCollapsed={isMpGroupCollapsed}
+        onToggle={toggleMpGroupCollapsed}
+        selectedId={selectedConversationId}
+        onSelect={selectConversation}
+      />
     </div>
   );
 }
