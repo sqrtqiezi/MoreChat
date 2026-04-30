@@ -13,8 +13,6 @@ import { ContactSyncService } from './services/contactSyncService.js'
 import { ArchiveService } from './services/archiveService.js'
 import { ImageService } from './services/imageService.js'
 import { OssService } from './services/ossService.js'
-import { EmojiService } from './services/emojiService.js'
-import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
 import { FileService } from './services/fileService.js'
 import { DuckDBService } from './services/duckdbService.js'
 import { Tokenizer } from './services/tokenizer.js'
@@ -283,11 +281,6 @@ async function main() {
     const searchService = new SearchService(duckdbService, tokenizer, databaseService, dataLakeService, embeddingService)
     logger.info('SearchService initialized')
 
-    // 初始化 EmojiService
-    const emojiService = new EmojiService(databaseService, juhexbotAdapter, ossService)
-
-    // MessageService 需要 emojiQueue，使用 getter 延迟访问
-    let emojiQueue: EmojiDownloadQueue
     let fileServiceRef: FileService
     const messageService = new MessageService(
       databaseService,
@@ -295,8 +288,6 @@ async function main() {
       juhexbotAdapter,
       profileState.username,
       ossService,
-      emojiService,
-      { enqueue: (msgId: string, conversationId: string) => emojiQueue.enqueue(msgId, conversationId) } as any,
       { processFileMessage: (msgId: string, content: string) => fileServiceRef.processFileMessage(msgId, content) } as any,
       duckdbService,
       tokenizer,
@@ -338,7 +329,6 @@ async function main() {
       directoryService,
       messageService,
       imageService,
-      emojiService,
       fileService,
       contactSyncService,
       juhexbotAdapter,
@@ -367,10 +357,6 @@ async function main() {
     // 5. 创建 WebSocket 服务
     wsService = new WebSocketService(server as unknown as Server)
     logger.info('WebSocket service initialized')
-
-    // 初始化 EmojiDownloadQueue
-    emojiQueue = new EmojiDownloadQueue(emojiService, wsService)
-    logger.info('EmojiDownloadQueue initialized')
 
     // 6. 启动联系人同步后台任务
     contactSyncService.startBackfillScheduler()
