@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef } from 'react';
 import { chatApi } from '../api/chat';
 import type { Message } from '../types';
-import { consumePendingMsgId } from '../utils/pendingMessages';
 import { useChatStore } from '../stores/chatStore';
 
 const HIGHLIGHT_DURATION = 2000; // ms
@@ -81,23 +80,12 @@ export function useMessages(conversationId: string | null) {
     (message: Message) => {
       if (!conversationId) return;
       const isAtBottom = useChatStore.getState().isAtBottom;
-      const isPending = consumePendingMsgId(message.id);
 
       queryClient.setQueryData<MessageQueryData>(
         ['messages', conversationId], (old) => {
         if (!old) return { messages: [message], hasMore: false, highlightedIds: [message.id], unreadCount: 0 };
 
-        if (isPending) {
-          // 替换乐观消息为真实数据
-          return {
-            ...old,
-            messages: old.messages.map((m) =>
-              m.id === message.id ? message : m
-            ),
-          };
-        }
-
-        // 按 msgId 去重（非 pending 的普通消息）
+        // 按 msgId 去重
         if (old.messages.some((m) => m.id === message.id)) return old;
         return {
           messages: [...old.messages, message],
@@ -107,18 +95,16 @@ export function useMessages(conversationId: string | null) {
         };
       });
 
-      if (!isPending) {
-        setTimeout(() => {
-          queryClient.setQueryData<MessageQueryData>(
-            ['messages', conversationId], (old) => {
-            if (!old) return old;
-            return {
-              ...old,
-              highlightedIds: old.highlightedIds.filter((id) => id !== message.id),
-            };
-          });
-        }, HIGHLIGHT_DURATION);
-      }
+      setTimeout(() => {
+        queryClient.setQueryData<MessageQueryData>(
+          ['messages', conversationId], (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            highlightedIds: old.highlightedIds.filter((id) => id !== message.id),
+          };
+        });
+      }, HIGHLIGHT_DURATION);
     },
     [conversationId, queryClient]
   );
