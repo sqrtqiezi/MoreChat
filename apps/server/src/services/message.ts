@@ -2,8 +2,6 @@ import type { DatabaseService } from './database.js'
 import type { DataLakeService, ChatMessage } from './dataLake.js'
 import type { JuhexbotAdapter, ParsedWebhookPayload } from './juhexbotAdapter.js'
 import type { OssService } from './ossService.js'
-import type { EmojiService } from './emojiService.js'
-import type { EmojiDownloadQueue } from './emojiDownloadQueue.js'
 import type { FileService } from './fileService.js'
 import type { DuckDBService } from './duckdbService.js'
 import type { Tokenizer } from './tokenizer.js'
@@ -53,8 +51,6 @@ export class MessageService {
     private adapter: JuhexbotAdapter,
     private clientUsername: string,
     private ossService: OssService,
-    private emojiService?: EmojiService,
-    private emojiQueue?: EmojiDownloadQueue,
     private fileService?: FileService,
     private duckdb?: DuckDBService,
     private tokenizer?: Tokenizer,
@@ -224,12 +220,6 @@ export class MessageService {
 
     // 更新会话最后消息时间
     await this.db.updateConversationLastMessage(conversation.id, new Date(message.createTime * 1000))
-
-    // 处理表情消息
-    if (message.msgType === 47 && this.emojiService && this.emojiQueue) {
-      await this.emojiService.processEmojiMessage(message.msgId, message.content)
-      this.emojiQueue.enqueue(message.msgId, conversation.id)
-    }
 
     const { displayType, displayContent, referMsg } = processMessageContent(message.msgType, message.content)
 
