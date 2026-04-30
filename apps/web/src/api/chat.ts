@@ -318,4 +318,24 @@ export const chatApi = {
 
     return response.data.data;
   },
+
+  async searchMessages(query: string) {
+    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      throw new Error('Failed to search messages');
+    }
+    const json = await response.json();
+    return json.data;
+  },
+
+  async getMessagesAround(conversationId: string, msgId: string, limit: number = 21) {
+    const response = await fetch(
+      `/api/conversations/${conversationId}/messages?around=${msgId}&limit=${limit}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to get messages around');
+    }
+    const json = await response.json();
+    return json.data;
+  },
 };
