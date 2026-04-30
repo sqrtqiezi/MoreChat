@@ -11,6 +11,10 @@ interface ChatState {
   clearSelection: () => void;
   isAtBottom: boolean;
   setIsAtBottom: (v: boolean) => void;
+  isChatGroupCollapsed: boolean;
+  isMpGroupCollapsed: boolean;
+  toggleChatGroupCollapsed: () => void;
+  toggleMpGroupCollapsed: () => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -24,4 +28,8 @@ export const useChatStore = create<ChatState>((set) => ({
   clearSelection: () => set({ selectedConversationId: null }),
   isAtBottom: true,
   setIsAtBottom: (v) => set({ isAtBottom: v }),
+  isChatGroupCollapsed: false,
+  isMpGroupCollapsed: false,
+  toggleChatGroupCollapsed: () => set((state) => ({ isChatGroupCollapsed: !state.isChatGroupCollapsed })),
+  toggleMpGroupCollapsed: () => set((state) => ({ isMpGroupCollapsed: !state.isMpGroupCollapsed })),
 }));
