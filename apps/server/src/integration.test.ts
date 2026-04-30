@@ -9,8 +9,6 @@ import { WebSocketService } from './services/websocket.js'
 import { ClientService } from './services/clientService.js'
 import { ConversationService } from './services/conversationService.js'
 import { OssService } from './services/ossService.js'
-import { EmojiService } from './services/emojiService.js'
-import { EmojiDownloadQueue } from './services/emojiDownloadQueue.js'
 import { ImageService } from './services/imageService.js'
 import { DirectoryService } from './services/directoryService.js'
 // ContactSyncService requires wsService at construction time, stub it for integration tests
@@ -69,7 +67,6 @@ describeIfSocketsAvailable('Integration Tests', () => {
 
     const clientService = new ClientService(juhexbotAdapter)
     const conversationService = new ConversationService(databaseService, dataLakeService)
-    const emojiService = new EmojiService(databaseService, juhexbotAdapter, ossService)
     const imageService = new ImageService(databaseService.prisma, dataLakeService, juhexbotAdapter)
     const directoryService = new DirectoryService(databaseService)
 
@@ -81,8 +78,7 @@ describeIfSocketsAvailable('Integration Tests', () => {
       syncContact: async () => {},
     } as any
 
-    const emojiQueue = new EmojiDownloadQueue(emojiService, { broadcast: () => {}, sendToClient: () => {} } as any)
-    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, 'test-guid', ossService, emojiService, emojiQueue)
+    const messageService = new MessageService(databaseService, dataLakeService, juhexbotAdapter, 'test-guid', ossService)
 
     const app = createApp({
       clientService,
@@ -90,7 +86,6 @@ describeIfSocketsAvailable('Integration Tests', () => {
       directoryService,
       messageService,
       imageService,
-      emojiService,
       contactSyncService,
       juhexbotAdapter,
       get wsService() { return _wsService },
