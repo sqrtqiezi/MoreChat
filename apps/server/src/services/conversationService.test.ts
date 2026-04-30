@@ -169,4 +169,57 @@ describe('ConversationService', () => {
       expect(result.messages[0].isRecalled).toBe(false)
     })
   })
+
+  describe('getMessagesAround', () => {
+    beforeEach(() => {
+      mockDb.findMessageIndexInConversation = vi.fn()
+    })
+
+    it('should return messages around target message', async () => {
+      // Mock 目标消息
+      vi.mocked(mockDb.findMessageIndexInConversation).mockResolvedValue({
+        msgId: 'msg-5',
+        createTime: 5000,
+        dataLakeKey: 'test/msg-5'
+      })
+
+      // Mock 前面的消息（倒序）
+      vi.mocked(mockDb.getMessageIndexes)
+        .mockResolvedValueOnce([
+          { msgId: 'msg-4', createTime: 4000, dataLakeKey: 'test/msg-4' },
+          { msgId: 'msg-3', createTime: 3000, dataLakeKey: 'test/msg-3' }
+        ])
+        // Mock 后面的消息（倒序）
+        .mockResolvedValueOnce([
+          { msgId: 'msg-7', createTime: 7000, dataLakeKey: 'test/msg-7' },
+          { msgId: 'msg-6', createTime: 6000, dataLakeKey: 'test/msg-6' },
+          { msgId: 'msg-5', createTime: 5000, dataLakeKey: 'test/msg-5' }
+        ])
+
+      // Mock DataLake 返回
+      vi.mocked(mockDataLake.getMessages).mockResolvedValue([
+        { msg_id: 'msg-3', msg_type: 1, content: 'msg 3', create_time: 3000, from_username: 'u1', to_username: 'u2' },
+        { msg_id: 'msg-4', msg_type: 1, content: 'msg 4', create_time: 4000, from_username: 'u1', to_username: 'u2' },
+        { msg_id: 'msg-5', msg_type: 1, content: 'msg 5', create_time: 5000, from_username: 'u1', to_username: 'u2' },
+        { msg_id: 'msg-6', msg_type: 1, content: 'msg 6', create_time: 6000, from_username: 'u1', to_username: 'u2' },
+        { msg_id: 'msg-7', msg_type: 1, content: 'msg 7', create_time: 7000, from_username: 'u1', to_username: 'u2' }
+      ])
+
+      vi.mocked(mockDb.findContactsByUsernames).mockResolvedValue([])
+
+      const result = await service.getMessagesAround('conv-1', 'msg-5', 5)
+
+      expect(result.messages).toHaveLength(5)
+      expect(result.targetIndex).toBe(2)
+      expect(result.messages[2].msgId).toBe('msg-5')
+    })
+
+    it('should throw error if message not found', async () => {
+      vi.mocked(mockDb.findMessageIndexInConversation).mockResolvedValue(null)
+
+      await expect(
+        service.getMessagesAround('conv-1', 'non-existent', 5)
+      ).rejects.toThrow('Message not found')
+    })
+  })
 })

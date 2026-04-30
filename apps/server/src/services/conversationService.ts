@@ -137,4 +137,92 @@ export class ConversationService {
     // 数据库按 desc 取最新 N 条，反转为升序（旧→新）返回给前端
     return { messages: messages.reverse(), hasMore }
   }
+
+  async getMessagesAround(
+    conversationId: string,
+    msgId: string,
+    limit: number = 21
+  ): Promise<{ messages: any[], targetIndex: number }> {
+    type MessageIndexRow = { dataLakeKey: string; isRecalled?: boolean }
+
+    // 1. 查询目标消息
+    const targetMsg = await this.db.findMessageIndexInConversation(conversationId, msgId)
+    if (!targetMsg) {
+      throw new Error('Message not found')
+    }
+
+    // 2. 计算前后数量
+    const before = Math.floor(limit / 2)
+    const after = limit - before
+
+    // 3. 查询前面的消息（createTime < target，倒序）
+    const beforeIndexes = await this.db.getMessageIndexes(conversationId, {
+      before: targetMsg.createTime,
+      limit: before
+    }) as MessageIndexRow[]
+
+    // 4. 查询后面的消息（createTime >= target，倒序）
+    const afterIndexes = await this.db.getMessageIndexes(conversationId, {
+      after: targetMsg.createTime,
+      limit: after
+    }) as MessageIndexRow[]
+
+    // 5. 合并索引（beforeIndexes 需要反转变为正序，afterIndexes 也需要反转）
+    const allIndexes = [...beforeIndexes.reverse(), ...afterIndexes.reverse()]
+
+    // 6. 从 DataLake 加载完整消息
+    const rawMessages = await this.dataLake.getMessages(
+      allIndexes.map((idx: MessageIndexRow) => idx.dataLakeKey)
+    )
+
+    const hydrated: Array<{ index: MessageIndexRow; raw: ChatMessage | undefined }> = allIndexes.map((index: MessageIndexRow, i: number) => ({
+      index,
+      raw: rawMessages[i]
+    }))
+
+    const available = hydrated.filter((entry: { index: MessageIndexRow; raw: ChatMessage | undefined }): entry is { index: MessageIndexRow; raw: ChatMessage } => Boolean(entry.raw))
+
+    // 7. 批量解析群聊发送者昵称
+    const senderUsernames = [...new Set(
+      available.map(({ raw }: { raw: ChatMessage }) => raw.chatroom_sender).filter(Boolean) as string[]
+    )]
+    const senderNicknameMap = new Map<string, string>()
+    if (senderUsernames.length > 0) {
+      const contacts = await this.db.findContactsByUsernames(senderUsernames)
+      for (const c of contacts) {
+        senderNicknameMap.set(c.username, c.remark || c.nickname)
+      }
+    }
+
+    // 8. 转换字段名（复用现有的 processMessageContent 函数）
+    const messages = available.map(({ raw, index }: { raw: ChatMessage; index: MessageIndexRow }) => {
+      const msg: ChatMessage = raw
+      const { displayType, displayContent, referMsg } = processMessageContent(msg.msg_type, msg.content)
+      return {
+        msgId: msg.msg_id,
+        msgType: msg.msg_type,
+        fromUsername: msg.from_username,
+        toUsername: msg.to_username,
+        content: msg.content,
+        createTime: msg.create_time,
+        chatroomSender: msg.chatroom_sender,
+        senderNickname: msg.chatroom_sender
+          ? senderNicknameMap.get(msg.chatroom_sender)
+          : undefined,
+        desc: msg.desc,
+        isChatroomMsg: msg.is_chatroom_msg,
+        chatroom: msg.chatroom,
+        source: msg.source,
+        displayType,
+        displayContent,
+        referMsg,
+        isRecalled: index?.isRecalled ?? false,
+      }
+    })
+
+    // 9. 计算目标消息索引（前面消息数量）
+    const targetIndex = beforeIndexes.length
+
+    return { messages, targetIndex }
+  }
 }
