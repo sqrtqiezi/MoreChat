@@ -90,14 +90,29 @@ export function conversationRoutes(deps: ConversationRouteDeps) {
     try {
       const id = c.req.param('id')
       const limit = parseInt(c.req.query('limit') || '20')
-      const before = c.req.query('before') ? parseInt(c.req.query('before')!) : undefined
+      const beforeParam = c.req.query('before')
       const around = c.req.query('around')
 
-      // around 和 before 互斥
-      if (around && before !== undefined) {
+      // around 和 before 互斥（基于原始参数判断，避免 parseInt NaN 干扰）
+      if (around && beforeParam) {
         return c.json({
           success: false,
           error: { message: 'Cannot use both around and before parameters' }
+        }, 400)
+      }
+
+      const before = beforeParam ? parseInt(beforeParam) : undefined
+      if (beforeParam && (isNaN(before!) || before! < 0)) {
+        return c.json({
+          success: false,
+          error: { message: 'Invalid before parameter' }
+        }, 400)
+      }
+
+      if (around !== undefined && around.trim() === '') {
+        return c.json({
+          success: false,
+          error: { message: 'around parameter cannot be empty' }
         }, 400)
       }
 
