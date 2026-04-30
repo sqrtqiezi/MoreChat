@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ChatWindow } from '../components/chat/ChatWindow';
+import { ChatSearchResultsPane } from '../components/chat/ChatSearchResultsPane';
+import { ChatMessageDetailPane } from '../components/chat/ChatMessageDetailPane';
 import { useChatStore } from '../stores/chatStore';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useMessages } from '../hooks/useMessages';
@@ -15,6 +17,8 @@ export function ChatPage() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const conversationId = searchParams.get('conversationId');
+  const query = searchParams.get('q') ?? '';
+  const isSearchMode = query.length > 0;
   const effectiveConversationId = conversationId ?? selectedConversationId;
 
   useEffect(() => {
@@ -85,7 +89,14 @@ export function ChatPage() {
   return (
     <div className="h-screen flex">
       <Sidebar />
-      <ChatWindow selectedConversationId={effectiveConversationId} />
+      {isSearchMode ? (
+        <>
+          <ChatSearchResultsPane query={query} />
+          <ChatMessageDetailPane />
+        </>
+      ) : (
+        <ChatWindow selectedConversationId={effectiveConversationId} />
+      )}
       {!isConnected && (
         <div className="fixed bottom-4 right-4 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg shadow-lg text-sm">
           正在重新连接...
