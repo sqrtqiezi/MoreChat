@@ -69,8 +69,68 @@ export class ConversationService {
     return { conversationId: created.id }
   }
 
+  private async hydrateMessages(
+    conversationId: string,
+    indexes: Array<{ dataLakeKey: string; msgId?: string; isRecalled?: boolean }>
+  ) {
+    const rawMessages = await this.dataLake.getMessages(
+      indexes.map(idx => idx.dataLakeKey)
+    )
+
+    const hydrated = indexes.map((index, i) => ({
+      index,
+      raw: rawMessages[i] as ChatMessage | undefined
+    }))
+    const available = hydrated.filter(
+      (entry): entry is { index: typeof indexes[number]; raw: ChatMessage } => Boolean(entry.raw)
+    )
+    const missingCount = hydrated.length - available.length
+    if (missingCount > 0) {
+      logger.warn({ conversationId, missingCount, requested: hydrated.length }, 'Missing messages in Data Lake for existing indexes')
+    }
+
+    // 批量解析群聊发送者昵称
+    const senderUsernames = [...new Set(
+      available.map(({ raw }) => raw.chatroom_sender).filter(Boolean) as string[]
+    )]
+    const senderNicknameMap = new Map<string, string>()
+    if (senderUsernames.length > 0) {
+      const contacts = await this.db.findContactsByUsernames(senderUsernames)
+      for (const c of contacts) {
+        senderNicknameMap.set(c.username, c.remark || c.nickname)
+      }
+    }
+
+    // 转换字段名：下划线 -> 驼峰
+    const messages = available.map(({ raw, index }) => {
+      const { displayType, displayContent, referMsg } = processMessageContent(raw.msg_type, raw.content)
+      return {
+        msgId: raw.msg_id,
+        msgType: raw.msg_type,
+        fromUsername: raw.from_username,
+        toUsername: raw.to_username,
+        content: raw.content,
+        createTime: raw.create_time,
+        chatroomSender: raw.chatroom_sender,
+        senderNickname: raw.chatroom_sender
+          ? senderNicknameMap.get(raw.chatroom_sender)
+          : undefined,
+        desc: raw.desc,
+        isChatroomMsg: raw.is_chatroom_msg,
+        chatroom: raw.chatroom,
+        source: raw.source,
+        displayType,
+        displayContent,
+        referMsg,
+        isRecalled: index?.isRecalled ?? false,
+      }
+    })
+
+    return { messages, available }
+  }
+
   async getMessages(conversationId: string, options: { limit?: number; before?: number } = {}) {
-    type MessageIndexRow = { dataLakeKey: string; isRecalled?: boolean }
+    type MessageIndexRow = { dataLakeKey: string; msgId?: string; isRecalled?: boolean }
 
     const limit = options.limit || 20
     // 多取一条用于判断 hasMore
@@ -82,57 +142,7 @@ export class ConversationService {
     const hasMore = indexes.length > limit
     const actualIndexes: MessageIndexRow[] = hasMore ? indexes.slice(0, limit) : indexes
 
-    const rawMessages = await this.dataLake.getMessages(
-      actualIndexes.map((idx: MessageIndexRow) => idx.dataLakeKey)
-    )
-
-    const hydrated: Array<{ index: MessageIndexRow; raw: ChatMessage | undefined }> = actualIndexes.map((index: MessageIndexRow, i: number) => ({
-      index,
-      raw: rawMessages[i]
-    }))
-    const available = hydrated.filter((entry: { index: MessageIndexRow; raw: ChatMessage | undefined }): entry is { index: MessageIndexRow; raw: ChatMessage } => Boolean(entry.raw))
-    const missingCount = hydrated.length - available.length
-    if (missingCount > 0) {
-      logger.warn({ conversationId, missingCount, requested: hydrated.length }, 'Missing messages in Data Lake for existing indexes')
-    }
-
-    // 批量解析群聊发送者昵称
-    const senderUsernames = [...new Set(
-      available.map(({ raw }: { raw: ChatMessage }) => raw.chatroom_sender).filter(Boolean) as string[]
-    )]
-    const senderNicknameMap = new Map<string, string>()
-    if (senderUsernames.length > 0) {
-      const contacts = await this.db.findContactsByUsernames(senderUsernames)
-      for (const c of contacts) {
-        senderNicknameMap.set(c.username, c.remark || c.nickname)
-      }
-    }
-
-    // 转换字段名：下划线 -> 驼峰
-    const messages = available.map(({ raw, index }: { raw: ChatMessage; index: MessageIndexRow }) => {
-      const msg: ChatMessage = raw
-      const { displayType, displayContent, referMsg } = processMessageContent(msg.msg_type, msg.content)
-      return {
-        msgId: msg.msg_id,
-        msgType: msg.msg_type,
-        fromUsername: msg.from_username,
-        toUsername: msg.to_username,
-        content: msg.content,
-        createTime: msg.create_time,
-        chatroomSender: msg.chatroom_sender,
-        senderNickname: msg.chatroom_sender
-          ? senderNicknameMap.get(msg.chatroom_sender)
-          : undefined,
-        desc: msg.desc,
-        isChatroomMsg: msg.is_chatroom_msg,
-        chatroom: msg.chatroom,
-        source: msg.source,
-        displayType,
-        displayContent,
-        referMsg,
-        isRecalled: index?.isRecalled ?? false,
-      }
-    })
+    const { messages } = await this.hydrateMessages(conversationId, actualIndexes)
 
     // 数据库按 desc 取最新 N 条，反转为升序（旧→新）返回给前端
     return { messages: messages.reverse(), hasMore }
@@ -143,7 +153,7 @@ export class ConversationService {
     msgId: string,
     limit: number = 21
   ): Promise<{ messages: any[], targetIndex: number }> {
-    type MessageIndexRow = { dataLakeKey: string; isRecalled?: boolean }
+    type MessageIndexRow = { dataLakeKey: string; msgId?: string; isRecalled?: boolean }
 
     // 1. 查询目标消息
     const targetMsg = await this.db.findMessageIndexInConversation(conversationId, msgId)
@@ -170,58 +180,11 @@ export class ConversationService {
     // 5. 合并索引（beforeIndexes 需要反转变为正序，afterIndexes 也需要反转）
     const allIndexes = [...beforeIndexes.reverse(), ...afterIndexes.reverse()]
 
-    // 6. 从 DataLake 加载完整消息
-    const rawMessages = await this.dataLake.getMessages(
-      allIndexes.map((idx: MessageIndexRow) => idx.dataLakeKey)
-    )
+    // 6. 从 DataLake 加载完整消息，过滤缺失项
+    const { messages, available } = await this.hydrateMessages(conversationId, allIndexes)
 
-    const hydrated: Array<{ index: MessageIndexRow; raw: ChatMessage | undefined }> = allIndexes.map((index: MessageIndexRow, i: number) => ({
-      index,
-      raw: rawMessages[i]
-    }))
-
-    const available = hydrated.filter((entry: { index: MessageIndexRow; raw: ChatMessage | undefined }): entry is { index: MessageIndexRow; raw: ChatMessage } => Boolean(entry.raw))
-
-    // 7. 批量解析群聊发送者昵称
-    const senderUsernames = [...new Set(
-      available.map(({ raw }: { raw: ChatMessage }) => raw.chatroom_sender).filter(Boolean) as string[]
-    )]
-    const senderNicknameMap = new Map<string, string>()
-    if (senderUsernames.length > 0) {
-      const contacts = await this.db.findContactsByUsernames(senderUsernames)
-      for (const c of contacts) {
-        senderNicknameMap.set(c.username, c.remark || c.nickname)
-      }
-    }
-
-    // 8. 转换字段名（复用现有的 processMessageContent 函数）
-    const messages = available.map(({ raw, index }: { raw: ChatMessage; index: MessageIndexRow }) => {
-      const msg: ChatMessage = raw
-      const { displayType, displayContent, referMsg } = processMessageContent(msg.msg_type, msg.content)
-      return {
-        msgId: msg.msg_id,
-        msgType: msg.msg_type,
-        fromUsername: msg.from_username,
-        toUsername: msg.to_username,
-        content: msg.content,
-        createTime: msg.create_time,
-        chatroomSender: msg.chatroom_sender,
-        senderNickname: msg.chatroom_sender
-          ? senderNicknameMap.get(msg.chatroom_sender)
-          : undefined,
-        desc: msg.desc,
-        isChatroomMsg: msg.is_chatroom_msg,
-        chatroom: msg.chatroom,
-        source: msg.source,
-        displayType,
-        displayContent,
-        referMsg,
-        isRecalled: index?.isRecalled ?? false,
-      }
-    })
-
-    // 9. 计算目标消息索引（前面消息数量）
-    const targetIndex = beforeIndexes.length
+    // 7. 计算目标消息在 available 数组中的实际位置
+    const targetIndex = available.findIndex(({ index }) => index.msgId === msgId)
 
     return { messages, targetIndex }
   }
