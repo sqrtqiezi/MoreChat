@@ -152,9 +152,7 @@ export class ConversationService {
     conversationId: string,
     msgId: string,
     limit: number = 21
-  ): Promise<{ messages: any[], targetIndex: number }> {
-    type MessageIndexRow = { dataLakeKey: string; msgId?: string; isRecalled?: boolean }
-
+  ) {
     // 1. 查询目标消息
     const targetMsg = await this.db.findMessageIndexInConversation(conversationId, msgId)
     if (!targetMsg) {
@@ -169,13 +167,13 @@ export class ConversationService {
     const beforeIndexes = await this.db.getMessageIndexes(conversationId, {
       before: targetMsg.createTime,
       limit: before
-    }) as MessageIndexRow[]
+    })
 
     // 4. 查询后面的消息（createTime >= target，倒序）
     const afterIndexes = await this.db.getMessageIndexes(conversationId, {
       after: targetMsg.createTime,
       limit: after
-    }) as MessageIndexRow[]
+    })
 
     // 5. 合并索引（beforeIndexes 需要反转变为正序，afterIndexes 也需要反转）
     const allIndexes = [...beforeIndexes.reverse(), ...afterIndexes.reverse()]
@@ -185,6 +183,9 @@ export class ConversationService {
 
     // 7. 计算目标消息在 available 数组中的实际位置
     const targetIndex = available.findIndex(({ index }) => index.msgId === msgId)
+    if (targetIndex === -1) {
+      logger.warn({ conversationId, msgId }, 'Target message missing from DataLake in getMessagesAround')
+    }
 
     return { messages, targetIndex }
   }
