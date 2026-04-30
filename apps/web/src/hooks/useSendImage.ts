@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatApi, getCurrentUser } from '../api/chat';
-import { addPendingMsgId } from '../utils/pendingMessages';
 import type { Message } from '../types';
 
 interface SendImageData {
@@ -71,7 +70,6 @@ export function useSendImage() {
         }
       );
 
-      addPendingMsgId(data.msgId);
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
 
