@@ -5,7 +5,6 @@ import { chatApi } from '../../api/chat';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { ImageLightbox } from './ImageLightbox';
-import { EmojiMessage } from '../EmojiMessage';
 import { WechatEmojiText } from '../WechatEmojiText';
 import { FileMessage } from './FileMessage';
 import { LinkMessage } from './LinkMessage';
@@ -204,15 +203,6 @@ export const MessageItem = memo(function MessageItem({ message, isHighlighted, o
           )}
           <span>{content}</span>
         </div>
-      );
-    }
-
-    if (displayType === 'emoji') {
-      return (
-        <EmojiMessage
-          msgId={msgId}
-          displayContent={content}
-        />
       );
     }
 
