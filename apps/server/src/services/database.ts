@@ -672,50 +672,6 @@ export class DatabaseService {
     })
   }
 
-  // --- EmojiCache ---
-
-  async createEmojiCache(data: {
-    msgId: string
-    aesKey: string
-    cdnUrl: string
-    encryptUrl?: string
-    md5?: string
-    fileSize?: number
-    productId?: string
-    status: string
-  }) {
-    return this.prisma.emojiCache.create({
-      data: {
-        msgId: data.msgId,
-        aesKey: data.aesKey,
-        cdnUrl: data.cdnUrl,
-        encryptUrl: data.encryptUrl,
-        md5: data.md5,
-        fileSize: data.fileSize,
-        productId: data.productId,
-        status: data.status
-      }
-    })
-  }
-
-  async findEmojiCacheByMsgId(msgId: string) {
-    return this.prisma.emojiCache.findUnique({
-      where: { msgId }
-    })
-  }
-
-  async updateEmojiCache(msgId: string, data: {
-    status?: string
-    ossUrl?: string
-    errorMessage?: string
-    downloadedAt?: Date
-  }) {
-    return this.prisma.emojiCache.update({
-      where: { msgId },
-      data
-    })
-  }
-
   // --- FileCache ---
 
   async createFileCache(data: {
