@@ -658,7 +658,7 @@ export class DatabaseService {
     const { limit = 50, before, after } = options
 
     // before 和 after 互斥
-    if (before && after) {
+    if (before !== undefined && after !== undefined) {
       throw new Error('Cannot use both before and after parameters')
     }
 
@@ -666,8 +666,8 @@ export class DatabaseService {
       where: {
         conversationId,
         msgType: { not: 51 },
-        ...(before ? { createTime: { lt: before } } : {}),
-        ...(after ? { createTime: { gte: after } } : {})
+        ...(before !== undefined ? { createTime: { lt: before } } : {}),
+        ...(after !== undefined ? { createTime: { gte: after } } : {})
       },
       orderBy: { createTime: 'desc' },
       take: limit
