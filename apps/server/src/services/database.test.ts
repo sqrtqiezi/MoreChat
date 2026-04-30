@@ -355,6 +355,52 @@ describe('DatabaseService', () => {
     })
   })
 
+  describe('getMessageIndexes with after parameter', () => {
+    it('should return messages after specified time', async () => {
+      const client = await db.createClient({ guid: 'after-param-client' })
+      const contact = await db.createContact({
+        username: 'user1',
+        nickname: 'User 1',
+        type: '2'
+      })
+      const conversation = await db.createConversation({
+        clientId: client.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      // 创建 5 条消息，时间从 1000 到 5000
+      for (let i = 1; i <= 5; i++) {
+        await db.createMessageIndex({
+          conversationId: conversation.id,
+          msgId: `msg-${i}`,
+          msgType: 1,
+          fromUsername: 'user1',
+          toUsername: 'me',
+          createTime: i * 1000,
+          dataLakeKey: `test/key-${i}`
+        })
+      }
+
+      // 查询 createTime >= 3000 的消息
+      const result = await db.getMessageIndexes(conversation.id, {
+        after: 3000,
+        limit: 10
+      })
+
+      expect(result).toHaveLength(3)
+      expect(result[0].msgId).toBe('msg-5')
+      expect(result[1].msgId).toBe('msg-4')
+      expect(result[2].msgId).toBe('msg-3')
+    })
+
+    it('should throw error when both before and after are provided', async () => {
+      await expect(
+        db.getMessageIndexes('any-conv', { before: 2000, after: 1000 })
+      ).rejects.toThrow('Cannot use both before and after parameters')
+    })
+  })
+
   describe('MessageStateChange', () => {
     it('should record message state change', async () => {
       await db.createMessageStateChange({

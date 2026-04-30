@@ -650,13 +650,24 @@ export class DatabaseService {
     })
   }
 
-  async getMessageIndexes(conversationId: string, options: { limit?: number; before?: number } = {}) {
-    const { limit = 50, before } = options
+  async getMessageIndexes(conversationId: string, options: {
+    limit?: number
+    before?: number
+    after?: number
+  } = {}) {
+    const { limit = 50, before, after } = options
+
+    // before 和 after 互斥
+    if (before && after) {
+      throw new Error('Cannot use both before and after parameters')
+    }
+
     return this.prisma.messageIndex.findMany({
       where: {
         conversationId,
         msgType: { not: 51 },
-        ...(before ? { createTime: { lt: before } } : {})
+        ...(before ? { createTime: { lt: before } } : {}),
+        ...(after ? { createTime: { gte: after } } : {})
       },
       orderBy: { createTime: 'desc' },
       take: limit
