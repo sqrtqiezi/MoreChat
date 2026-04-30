@@ -1,14 +1,12 @@
 import { Hono } from 'hono'
 import type { MessageService } from '../services/message.js'
 import type { ImageService } from '../services/imageService.js'
-import type { EmojiService } from '../services/emojiService.js'
 import type { FileService } from '../services/fileService.js'
 import { logger } from '../lib/logger.js'
 
 interface MessageRouteDeps {
   messageService: MessageService
   imageService: ImageService
-  emojiService: EmojiService
   fileService: FileService
 }
 
@@ -88,28 +86,6 @@ export function messageRoutes(deps: MessageRouteDeps) {
         return c.json({ success: false, error: { message: 'Failed to download image from cloud service' } }, 502)
       }
 
-      return c.json({ success: false, error: { message: 'Internal server error' } }, 500)
-    }
-  })
-
-  // GET /api/messages/:msgId/emoji - 获取表情 URL
-  router.get('/:msgId/emoji', async (c) => {
-    try {
-      const msgId = c.req.param('msgId')
-
-      if (!msgId) {
-        return c.json({ success: false, error: { message: 'msgId is required' } }, 400)
-      }
-
-      const ossUrl = await deps.emojiService.getEmojiUrl(msgId)
-
-      if (!ossUrl) {
-        return c.json({ success: false, error: { message: 'Emoji not found or not downloaded yet' } }, 404)
-      }
-
-      return c.json({ success: true, data: { ossUrl } })
-    } catch (error: any) {
-      logger.error({ err: error, msgId: c.req.param('msgId') }, 'Failed to get emoji URL')
       return c.json({ success: false, error: { message: 'Internal server error' } }, 500)
     }
   })

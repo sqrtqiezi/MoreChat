@@ -25,7 +25,6 @@ import type { JuhexbotAdapter } from './services/juhexbotAdapter.js'
 import type { WebSocketService } from './services/websocket.js'
 import type { ContactSyncService } from './services/contactSyncService.js'
 import type { ImageService } from './services/imageService.js'
-import type { EmojiService } from './services/emojiService.js'
 import type { FileService } from './services/fileService.js'
 import type { DirectoryService } from './services/directoryService.js'
 import type { SearchService } from './services/searchService.js'
@@ -41,7 +40,6 @@ export interface AppDependencies {
   directoryService: DirectoryService
   messageService: MessageService
   imageService: ImageService
-  emojiService: EmojiService
   fileService: FileService
   contactSyncService: ContactSyncService
   juhexbotAdapter: JuhexbotAdapter
@@ -135,7 +133,7 @@ export function createApp(deps: AppDependencies) {
     directoryService: deps.directoryService,
     clientGuid: deps.clientGuid
   }))
-  app.route('/api/messages', messageRoutes({ messageService: deps.messageService, imageService: deps.imageService, emojiService: deps.emojiService, fileService: deps.fileService }))
+  app.route('/api/messages', messageRoutes({ messageService: deps.messageService, imageService: deps.imageService, fileService: deps.fileService }))
   app.route('/api/me', meRoutes({ getProfileState: deps.userProfile.getProfileState }))
   app.route('/api/search', searchRoutes({ searchService: deps.searchService }))
 
