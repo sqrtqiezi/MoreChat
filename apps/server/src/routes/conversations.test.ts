@@ -13,6 +13,7 @@ describe('conversation routes', () => {
       getById: vi.fn(),
       markAsRead: vi.fn(),
       getMessages: vi.fn(),
+      getMessagesAround: vi.fn(),
       openConversation: vi.fn()
     } as any
 
@@ -131,6 +132,43 @@ describe('conversation routes', () => {
       expect(res.status).toBe(200)
       expect(body.success).toBe(true)
       expect(body.data.conversationId).toBe('conv_1')
+    })
+  })
+
+  describe('GET /api/conversations/:id/messages?around=msgId', () => {
+    it('should return messages around target message', async () => {
+      vi.mocked(mockConvService.getMessagesAround).mockResolvedValue({
+        messages: [
+          { msgId: 'msg-1', content: 'msg 1', createTime: 1000 },
+          { msgId: 'msg-2', content: 'msg 2', createTime: 2000 },
+          { msgId: 'msg-3', content: 'msg 3', createTime: 3000 },
+        ],
+        targetIndex: 1
+      } as any)
+
+      const res = await app.request('/api/conversations/conv-1/messages?around=msg-2&limit=3')
+
+      expect(res.status).toBe(200)
+      const json = await res.json()
+      expect(json.success).toBe(true)
+      expect(json.data.messages).toHaveLength(3)
+      expect(json.data.targetIndex).toBe(1)
+    })
+
+    it('should return 404 if message not found', async () => {
+      vi.mocked(mockConvService.getMessagesAround).mockRejectedValue(
+        new Error('Message not found')
+      )
+
+      const res = await app.request('/api/conversations/conv-1/messages?around=non-existent')
+
+      expect(res.status).toBe(404)
+    })
+
+    it('should return 400 if both around and before are provided', async () => {
+      const res = await app.request('/api/conversations/conv-1/messages?around=msg-1&before=1000')
+
+      expect(res.status).toBe(400)
     })
   })
 })

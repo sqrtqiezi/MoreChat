@@ -89,12 +89,29 @@ export function conversationRoutes(deps: ConversationRouteDeps) {
   router.get('/:id/messages', async (c) => {
     try {
       const id = c.req.param('id')
-      const limit = parseInt(c.req.query('limit') || '50')
+      const limit = parseInt(c.req.query('limit') || '20')
       const before = c.req.query('before') ? parseInt(c.req.query('before')!) : undefined
+      const around = c.req.query('around')
 
-      const result = await deps.conversationService.getMessages(id, { limit, before })
-      return c.json({ success: true, data: result })
-    } catch (error) {
+      // around 和 before 互斥
+      if (around && before !== undefined) {
+        return c.json({
+          success: false,
+          error: { message: 'Cannot use both around and before parameters' }
+        }, 400)
+      }
+
+      if (around) {
+        const result = await deps.conversationService.getMessagesAround(id, around, limit)
+        return c.json({ success: true, data: result })
+      } else {
+        const result = await deps.conversationService.getMessages(id, { limit, before })
+        return c.json({ success: true, data: result })
+      }
+    } catch (error: any) {
+      if (error.message === 'Message not found') {
+        return c.json({ success: false, error: { message: 'Message not found' } }, 404)
+      }
       logger.error({ err: error }, 'Failed to get messages')
       return c.json({ success: false, error: { message: 'Failed to get messages' } }, 500)
     }
