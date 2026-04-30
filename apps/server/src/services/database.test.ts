@@ -240,6 +240,40 @@ describe('DatabaseService', () => {
       const index = await db.findMessageIndexByMsgId('recall_test_msg')
       expect(index!.isRecalled).toBe(true)
     })
+
+    it('should find message index by conversationId and msgId', async () => {
+      const client = await db.createClient({ guid: 'test-guid-conv' })
+      const contact = await db.createContact({
+        username: 'wxid_test_conv',
+        nickname: 'Test Conv',
+        type: 'friend'
+      })
+      const conversation = await db.createConversation({
+        clientId: client.id,
+        type: 'private',
+        contactId: contact.id
+      })
+
+      await db.createMessageIndex({
+        conversationId: conversation.id,
+        msgId: 'msg-123',
+        msgType: 1,
+        fromUsername: 'wxid_test_conv',
+        toUsername: 'wxid_me',
+        createTime: 1234567890,
+        dataLakeKey: 'test/key'
+      })
+
+      const found = await db.findMessageIndexInConversation(conversation.id, 'msg-123')
+      expect(found).not.toBeNull()
+      expect(found!.msgId).toBe('msg-123')
+      expect(found!.conversationId).toBe(conversation.id)
+    })
+
+    it('should return null if message not found in conversation', async () => {
+      const result = await db.findMessageIndexInConversation('non-existent', 'msg-999')
+      expect(result).toBeNull()
+    })
   })
 
   describe('getConversations', () => {

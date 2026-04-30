@@ -634,6 +634,15 @@ export class DatabaseService {
     })
   }
 
+  async findMessageIndexInConversation(conversationId: string, msgId: string) {
+    return this.prisma.messageIndex.findFirst({
+      where: {
+        conversationId,
+        msgId
+      }
+    })
+  }
+
   async updateMessageIndex(msgId: string, data: { isRecalled: boolean }) {
     return this.prisma.messageIndex.update({
       where: { msgId },
