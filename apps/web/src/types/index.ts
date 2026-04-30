@@ -8,6 +8,7 @@ export interface Conversation {
   lastMessage?: string;
   unreadCount: number;
   updatedAt: string;
+  contactType: number | null;  // 0=Stranger, 1=System, 2=Friend, 3=Mp, 4=ChatRoom, null=Group
 }
 
 // ReferMsg interface
@@ -138,4 +139,9 @@ export interface HighlightsResponse {
 export interface TopicDetailResponse {
   topic: TopicSummary;
   messages: SearchResultItem[];
+}
+
+export interface MessagesAroundResponse {
+  messages: Message[]
+  targetIndex: number
 }

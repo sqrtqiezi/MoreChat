@@ -21,7 +21,7 @@ interface ApiConversation {
   lastMessageAt: string | null;
   createdAt: string;
   updatedAt: string;
-  contact: { id: string; username: string; nickname: string; remark: string | null; avatar: string | null; type: string } | null;
+  contact: { id: string; username: string; nickname: string; remark: string | null; avatar: string | null; type: string; contactType?: number | null } | null;
   group: { id: string; roomUsername: string; name: string; avatar: string | null; memberCount: number } | null;
 }
 
@@ -117,6 +117,7 @@ function mapConversation(raw: ApiConversation): Conversation {
     memberCount: raw.group?.memberCount,
     unreadCount: raw.unreadCount,
     updatedAt: raw.lastMessageAt || raw.updatedAt,
+    contactType: raw.contact?.contactType ?? null,
   };
 }
 
