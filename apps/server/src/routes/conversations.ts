@@ -46,7 +46,11 @@ export function conversationRoutes(deps: ConversationRouteDeps) {
       const limit = parseInt(c.req.query('limit') || '50')
       const offset = parseInt(c.req.query('offset') || '0')
 
-      const conversations = await deps.conversationService.list(deps.clientGuid, limit, offset)
+      const raw = await deps.conversationService.list(deps.clientGuid, limit, offset)
+      const conversations = raw.map((conv: any) => ({
+        ...conv,
+        contactType: conv.contact ? parseInt(conv.contact.type) : null,
+      }))
       return c.json({ success: true, data: { conversations } })
     } catch (error) {
       logger.error({ err: error }, 'Failed to get conversations')

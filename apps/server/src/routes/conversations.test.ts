@@ -36,6 +36,30 @@ describe('conversation routes', () => {
       expect(body.success).toBe(true)
       expect(body.data.conversations).toHaveLength(1)
     })
+
+    it('should return conversations with contactType field for private conversations', async () => {
+      vi.mocked(mockConvService.list).mockResolvedValue([
+        { id: 'conv_1', type: 'private', unreadCount: 0, contact: { id: 'c1', username: 'user1', nickname: 'User 1', type: '3' } }
+      ] as any)
+
+      const res = await app.request('/api/conversations')
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body.data.conversations[0].contactType).toBe(3)
+    })
+
+    it('should return null contactType for group conversations', async () => {
+      vi.mocked(mockConvService.list).mockResolvedValue([
+        { id: 'conv_2', type: 'group', unreadCount: 0, contact: null, group: { id: 'g1', roomUsername: 'room1', name: 'Group 1' } }
+      ] as any)
+
+      const res = await app.request('/api/conversations')
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body.data.conversations[0].contactType).toBeNull()
+    })
   })
 
   describe('GET /api/conversations/:id', () => {
