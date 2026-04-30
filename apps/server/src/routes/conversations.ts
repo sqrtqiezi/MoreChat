@@ -49,7 +49,7 @@ export function conversationRoutes(deps: ConversationRouteDeps) {
       const raw = await deps.conversationService.list(deps.clientGuid, limit, offset)
       const conversations = raw.map((conv: any) => ({
         ...conv,
-        contactType: conv.contact ? parseInt(conv.contact.type) : null,
+        contactType: conv.contact ? (parseInt(conv.contact.type) || null) : null,
       }))
       return c.json({ success: true, data: { conversations } })
     } catch (error) {
