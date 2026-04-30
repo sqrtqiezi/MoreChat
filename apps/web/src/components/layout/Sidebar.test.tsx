@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { BrowserRouter } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { useChatStore } from '../../stores/chatStore'
 
@@ -36,14 +37,22 @@ describe('Sidebar', () => {
       } as any)
     })
 
-    render(<Sidebar />)
+    render(
+      <BrowserRouter>
+        <Sidebar />
+      </BrowserRouter>
+    )
 
     expect(screen.queryByText('conversation-list')).not.toBeInTheDocument()
   })
 
   it('switches between conversations and directory modes from rail buttons', async () => {
     const user = userEvent.setup()
-    render(<Sidebar />)
+    render(
+      <BrowserRouter>
+        <Sidebar />
+      </BrowserRouter>
+    )
 
     expect(screen.getByText('conversation-list')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '联系人' }))
