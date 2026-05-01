@@ -81,6 +81,10 @@ describe('ArchiveService', () => {
 
   describe('daily → monthly Parquet 归档', () => {
     it('should merge daily Parquet into monthly', async () => {
+      // 使用 fake timers 模拟时间为 2026-03-01，这样上个月就是 2026-02
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-03-01T00:00:00Z'))
+
       // 先创建 hot 文件并归档为 daily
       await writeHotFile('conv_a', '2026-02-01', [makeMessage('msg_1', 1738368000)])
       await writeHotFile('conv_a', '2026-02-02', [makeMessage('msg_2', 1738454400)])
@@ -107,6 +111,8 @@ describe('ArchiveService', () => {
       const rows = await parquetReadObjects({ file }) as any[]
 
       expect(rows).toHaveLength(2)
+
+      vi.useRealTimers()
     })
   })
 
