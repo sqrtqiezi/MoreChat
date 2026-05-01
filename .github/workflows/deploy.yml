@@ -154,6 +154,9 @@ jobs:
             # 追加嵌入模型配置
             printf '%s\n' '' '# Embedding' 'EMBEDDING_ENABLED=true' 'EMBEDDING_MODEL_PATH=/opt/morechat/models/bge-small-zh-v1.5' >> apps/server/.env
 
+            # 追加 LLM 配置
+            printf '%s\n' '' '# LLM' "LLM_BASE_URL=${LLM_BASE_URL}" "LLM_API_KEY=${LLM_API_KEY}" "LLM_MODEL=${LLM_MODEL}" >> apps/server/.env
+
             # 安装生产依赖
             echo "📦 Installing production dependencies..."
             if ! command -v g++ >/dev/null 2>&1; then
