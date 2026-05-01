@@ -63,10 +63,20 @@ export function searchRoutes(deps: SearchRouteDeps) {
         }
       })
     } catch (error) {
-      logger.error({ err: error }, 'Search failed')
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorStack = error instanceof Error ? error.stack : undefined
+      logger.error({
+        err: error,
+        message: errorMessage,
+        stack: errorStack,
+        query: rawQuery
+      }, 'Search failed')
       return c.json({
         success: false,
-        error: { message: 'Search failed' }
+        error: {
+          message: 'Search failed',
+          details: errorMessage
+        }
       }, 500)
     }
   })
