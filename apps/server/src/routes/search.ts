@@ -39,8 +39,8 @@ export function searchRoutes(deps: SearchRouteDeps) {
   const router = new Hono()
 
   router.get('/', async (c) => {
+    const rawQuery = c.req.query()
     try {
-      const rawQuery = c.req.query()
       const parsed = searchQuerySchema.safeParse(rawQuery)
 
       if (!parsed.success) {
