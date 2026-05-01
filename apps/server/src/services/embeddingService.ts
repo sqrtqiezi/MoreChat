@@ -24,25 +24,13 @@ export class EmbeddingService {
     }
 
     try {
-      const wasmBackend = env.backends.onnx?.wasm
-
-      // Force WASM backend (disable onnxruntime-node)
-      if (wasmBackend) {
-        wasmBackend.proxy = false;
-        wasmBackend.numThreads = 1;
-      }
       env.allowLocalModels = true;
       env.useBrowserCache = false;
-
-      // Disable onnxruntime-node backend
-      if (env.backends.onnx) {
-        (env.backends.onnx as any).executionProviders = ['wasm'];
-      }
 
       const modelSource = this.getModelSource();
       logger.info(`Loading embedding model: ${modelSource}`);
       this.extractor = await pipeline('feature-extraction', modelSource, {
-        device: 'wasm'
+        device: 'cpu'
       });
       logger.info('Embedding model loaded successfully');
     } catch (error) {
