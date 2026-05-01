@@ -175,7 +175,7 @@ jobs:
 
             # 重新编译 native 模块以匹配服务器的 GLIBC 版本
             echo "🔨 Rebuilding native modules for server environment..."
-            pnpm rebuild nodejieba
+            (cd /opt/morechat/node_modules/.pnpm/nodejieba@3.5.8/node_modules/nodejieba && npx @mapbox/node-pre-gyp rebuild --fallback-to-build)
 
             # 生成 Prisma Client
             echo "🗄️ Generating Prisma Client..."
