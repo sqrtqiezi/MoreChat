@@ -24,10 +24,6 @@ export class ChatPage {
     }).first()
   }
 
-  get firstConversationRow() {
-    return this.conversationList.locator('.cursor-pointer').first()
-  }
-
   get messageTextarea() {
     return this.page.locator('textarea')
   }
@@ -36,14 +32,39 @@ export class ChatPage {
     return this.page.getByRole('button', { name: /^发送$/ })
   }
 
+  get reconnectingIndicator() {
+    return this.page.getByText('正在重新连接...')
+  }
+
+  conversationRowByName(name: string) {
+    return this.conversationList.locator('.cursor-pointer').filter({
+      has: this.page.getByText(name, { exact: true }),
+    }).first()
+  }
+
+  messageByText(text: string) {
+    return this.page.getByText(text, { exact: true }).first()
+  }
+
   async waitForConversationList() {
     await expect(this.conversationList).toBeVisible()
-    await expect(this.firstConversationRow).toBeVisible()
+  }
+
+  async expectConversationVisible(name: string) {
+    await this.waitForConversationList()
+    await expect(this.conversationRowByName(name)).toBeVisible()
   }
 
   async selectFirstConversation() {
     await this.waitForConversationList()
-    await this.firstConversationRow.click()
+    await this.conversationList.locator('.cursor-pointer').first().click()
+  }
+
+  async selectConversationByName(name: string) {
+    const row = this.conversationRowByName(name)
+    await this.expectConversationVisible(name)
+    await row.click()
+    await this.expectMessageInputEnabled()
   }
 
   async fillMessage(text: string) {
@@ -80,6 +101,10 @@ export class ChatPage {
     await expect(this.messageTextarea).toBeEnabled()
   }
 
+  async waitForRealtimeConnected() {
+    await expect(this.reconnectingIndicator).toHaveCount(0)
+  }
+
   async expectSendButtonEnabled() {
     await expect(this.sendButton).toBeEnabled()
   }
@@ -92,7 +117,11 @@ export class ChatPage {
     await expect(this.messageTextarea).toHaveValue('')
   }
 
+  async expectMessageVisible(text: string) {
+    await expect(this.messageByText(text)).toBeVisible()
+  }
+
   async expectRealtimeMessageVisible(text: string) {
-    await expect(this.page.getByText(text)).toBeVisible()
+    await this.expectMessageVisible(text)
   }
 }

@@ -15,6 +15,17 @@ const __dirname = path.dirname(__filename)
 // 全局变量存储服务器进程
 let serverProcess: ChildProcess | null = null
 let webProcess: ChildProcess | null = null
+const serverCwd = path.resolve(__dirname, '../../../server')
+const webCwd = path.resolve(__dirname, '../../')
+const E2E_BOT_ENV = {
+  E2E_BOT_MODE: 'true',
+  JUHEXBOT_CLIENT_GUID: 'guid-e2e-messaging',
+  WEBHOOK_URL: 'http://localhost:3100/webhook',
+  CORS_ORIGIN: 'http://localhost:3000',
+}
+const WEB_E2E_ENV = {
+  VITE_WS_URL: 'ws://localhost:3100',
+}
 
 // 等待服务器启动
 async function waitForServer(url: string, timeout = 120000): Promise<boolean> {
@@ -47,6 +58,51 @@ async function isPortInUse(port: number): Promise<boolean> {
   }
 }
 
+async function runCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+  env?: NodeJS.ProcessEnv
+): Promise<void> {
+  await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: { ...process.env, ...env },
+      stdio: 'pipe',
+      shell: true,
+    })
+
+    let stderr = ''
+
+    child.stdout?.on('data', (data) => {
+      process.stdout.write(data)
+    })
+
+    child.stderr?.on('data', (data) => {
+      const chunk = data.toString()
+      stderr += chunk
+      process.stderr.write(chunk)
+    })
+
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(undefined)
+        return
+      }
+
+      reject(new Error(`Command failed: ${command} ${args.join(' ')}\n${stderr}`))
+    })
+  })
+}
+
+async function prepareMessagingE2EData() {
+  console.log('🌱 Resetting and seeding messaging E2E data...')
+  await runCommand('pnpm', ['exec', 'tsx', 'scripts/reset-e2e-messaging.ts'], serverCwd, E2E_BOT_ENV)
+  await runCommand('pnpm', ['exec', 'tsx', 'scripts/seed-test-data.ts', '--scenario', 'messaging'], serverCwd, E2E_BOT_ENV)
+  console.log('✅ Messaging E2E data ready')
+}
+
 // 确保报告目录存在并启动服务器
 BeforeAll({ timeout: 180000 }, async function () {
   // 创建报告目录
@@ -61,6 +117,8 @@ BeforeAll({ timeout: 180000 }, async function () {
   const serverRunning = await isPortInUse(3100)
   const webRunning = await isPortInUse(3000)
 
+  await prepareMessagingE2EData()
+
   if (serverRunning && webRunning) {
     console.log('✅ Servers already running')
     return
@@ -71,7 +129,8 @@ BeforeAll({ timeout: 180000 }, async function () {
   // 启动后端服务器
   if (!serverRunning) {
     serverProcess = spawn('pnpm', ['dev'], {
-      cwd: path.resolve(__dirname, '../../../server'),
+      cwd: serverCwd,
+      env: { ...process.env, ...E2E_BOT_ENV },
       stdio: 'pipe',
       shell: true
     })
@@ -102,7 +161,8 @@ BeforeAll({ timeout: 180000 }, async function () {
   // 启动前端服务器
   if (!webRunning) {
     webProcess = spawn('pnpm', ['dev'], {
-      cwd: path.resolve(__dirname, '../../'),
+      cwd: webCwd,
+      env: { ...process.env, ...WEB_E2E_ENV },
       stdio: 'pipe',
       shell: true
     })
