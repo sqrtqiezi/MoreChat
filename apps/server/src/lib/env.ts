@@ -39,6 +39,8 @@ interface EnvConfig {
   E2E_BOT_MODE: boolean
 }
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
+
 function parseBooleanFlag(value: string | undefined): boolean {
   if (!value) {
     return false
@@ -47,18 +49,51 @@ function parseBooleanFlag(value: string | undefined): boolean {
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
 }
 
+function requireEnv(keys: string[]): void {
+  for (const key of keys) {
+    if (!process.env[key]) {
+      throw new Error(`${key} is required in environment variables`)
+    }
+  }
+}
+
+function isLocalUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value)
+    return LOCAL_HOSTS.has(parsed.hostname)
+  } catch {
+    return false
+  }
+}
+
+function assertSafeE2EBotMode(nodeEnv: string): void {
+  if (nodeEnv === 'production') {
+    throw new Error('E2E_BOT_MODE is not allowed when NODE_ENV=production')
+  }
+
+  if (process.env.WEBHOOK_URL && !isLocalUrl(process.env.WEBHOOK_URL)) {
+    throw new Error('E2E_BOT_MODE requires WEBHOOK_URL to target localhost only')
+  }
+
+  if (process.env.CORS_ORIGIN) {
+    const origins = process.env.CORS_ORIGIN
+      .split(',')
+      .map(origin => origin.trim())
+      .filter(Boolean)
+
+    if (origins.some(origin => !isLocalUrl(origin))) {
+      throw new Error('E2E_BOT_MODE requires CORS_ORIGIN to target localhost only')
+    }
+  }
+}
+
 function loadEnv(): EnvConfig {
-  const required = [
+  const baseRequired = [
     'DATABASE_URL',
     'DATA_LAKE_TYPE',
     'DATA_LAKE_PATH',
     'PORT',
     'NODE_ENV',
-    'JUHEXBOT_API_URL',
-    'JUHEXBOT_APP_KEY',
-    'JUHEXBOT_APP_SECRET',
-    'JUHEXBOT_CLIENT_GUID',
-    'JUHEXBOT_CLOUD_API_URL',
     'AUTH_PASSWORD_HASH',
     'AUTH_JWT_SECRET',
     'ALICLOUD_OSS_REGION',
@@ -67,12 +102,7 @@ function loadEnv(): EnvConfig {
     'ALICLOUD_OSS_ACCESS_KEY_SECRET',
     'ALICLOUD_OSS_ENDPOINT'
   ]
-
-  for (const key of required) {
-    if (!process.env[key]) {
-      throw new Error(`${key} is required in environment variables`)
-    }
-  }
+  requireEnv(baseRequired)
 
   // 验证枚举值
   const dataLakeType = process.env.DATA_LAKE_TYPE
@@ -90,17 +120,35 @@ function loadEnv(): EnvConfig {
   // Local E2E only. Default off so non-test startup keeps the real bot adapter.
   const e2eBotMode = parseBooleanFlag(process.env.E2E_BOT_MODE)
 
+  if (e2eBotMode) {
+    assertSafeE2EBotMode(nodeEnv!)
+  } else {
+    requireEnv([
+      'JUHEXBOT_API_URL',
+      'JUHEXBOT_APP_KEY',
+      'JUHEXBOT_APP_SECRET',
+      'JUHEXBOT_CLIENT_GUID',
+      'JUHEXBOT_CLOUD_API_URL',
+    ])
+  }
+
+  const juhexbotClientGuid = process.env.JUHEXBOT_CLIENT_GUID || 'e2e-bot-client-guid'
+  const juhexbotApiUrl = process.env.JUHEXBOT_API_URL || 'http://127.0.0.1:9/e2e-offline'
+  const juhexbotAppKey = process.env.JUHEXBOT_APP_KEY || 'e2e-offline-app-key'
+  const juhexbotAppSecret = process.env.JUHEXBOT_APP_SECRET || 'e2e-offline-app-secret'
+  const juhexbotCloudApiUrl = process.env.JUHEXBOT_CLOUD_API_URL || 'http://127.0.0.1:9/e2e-offline-cloud'
+
   return {
     DATABASE_URL: process.env.DATABASE_URL!,
     DATA_LAKE_TYPE: dataLakeType as 'filesystem' | 's3' | 'minio',
     DATA_LAKE_PATH: process.env.DATA_LAKE_PATH!,
     PORT: process.env.PORT!,
     NODE_ENV: nodeEnv as 'development' | 'production' | 'test',
-    JUHEXBOT_API_URL: process.env.JUHEXBOT_API_URL!,
-    JUHEXBOT_APP_KEY: process.env.JUHEXBOT_APP_KEY!,
-    JUHEXBOT_APP_SECRET: process.env.JUHEXBOT_APP_SECRET!,
-    JUHEXBOT_CLIENT_GUID: process.env.JUHEXBOT_CLIENT_GUID!,
-    JUHEXBOT_CLOUD_API_URL: process.env.JUHEXBOT_CLOUD_API_URL!,
+    JUHEXBOT_API_URL: juhexbotApiUrl,
+    JUHEXBOT_APP_KEY: juhexbotAppKey,
+    JUHEXBOT_APP_SECRET: juhexbotAppSecret,
+    JUHEXBOT_CLIENT_GUID: juhexbotClientGuid,
+    JUHEXBOT_CLOUD_API_URL: juhexbotCloudApiUrl,
     WEBHOOK_URL: process.env.WEBHOOK_URL,
     LOG_LEVEL: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
     AUTH_PASSWORD_HASH: process.env.AUTH_PASSWORD_HASH!,

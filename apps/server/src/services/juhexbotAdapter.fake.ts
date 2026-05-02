@@ -1,4 +1,5 @@
 import {
+  CDN_FILE_TYPE,
   JuhexbotAdapter,
   type ChatroomMemberInfo,
   type ContactInfo,
@@ -10,6 +11,12 @@ import {
 
 const E2E_PROFILE_NICKNAME = 'MoreChat E2E Bot'
 const E2E_PROFILE_AVATAR = 'https://example.invalid/assets/morechat-e2e-bot.png'
+const E2E_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs='
+const E2E_FILE_DATA_URL = 'data:application/octet-stream;base64,ZTJlLWJvdW5kYXJ5LWZpbGU='
+const E2E_EMOJI_BUFFER = Buffer.from(
+  'R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=',
+  'base64'
+)
 
 export class JuhexbotAdapterFake extends JuhexbotAdapter {
   private fakeConfig: JuhexbotConfig
@@ -36,6 +43,11 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
     throw new Error('JuhexbotAdapterFake does not support network requests')
   }
 
+  private nextId(prefix: string): string {
+    this.sentMessageSequence += 1
+    return `${prefix}-${String(this.sentMessageSequence).padStart(6, '0')}`
+  }
+
   override async getProfile(): Promise<UserProfile> {
     const profile = {
       username: this.fakeConfig.clientUsername ?? `e2e_bot_${this.fakeConfig.clientGuid}`,
@@ -54,9 +66,8 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
   }
 
   override async sendTextMessage(_toUsername: string, _content: string): Promise<{ msgId: string }> {
-    this.sentMessageSequence += 1
     return {
-      msgId: `e2e-msg-${String(this.sentMessageSequence).padStart(6, '0')}`,
+      msgId: this.nextId('e2e-msg'),
     }
   }
 
@@ -72,9 +83,8 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
       content: string
     }
   }): Promise<{ msgId: string }> {
-    this.sentMessageSequence += 1
     return {
-      msgId: `e2e-refer-${String(this.sentMessageSequence).padStart(6, '0')}`,
+      msgId: this.nextId('e2e-refer'),
     }
   }
 
@@ -108,5 +118,70 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
         { username: `${roomUsername}_member`, nickname: `E2E ${roomUsername} Member` },
       ],
     }
+  }
+
+  override async getCdnInfo(): Promise<{
+    cdn_info: string
+    client_version: number
+    device_type: string
+    username: string
+  }> {
+    return {
+      cdn_info: 'e2e-offline-cdn',
+      client_version: 0,
+      device_type: 'e2e-offline',
+      username: this.fakeConfig.clientUsername ?? `e2e_bot_${this.fakeConfig.clientGuid}`,
+    }
+  }
+
+  override async uploadImageToCdn(imageUrl: string): Promise<{
+    fileId: string
+    aesKey: string
+    fileSize: number
+    fileMd5: string
+  }> {
+    const token = Buffer.from(imageUrl).toString('base64url').slice(0, 16) || 'offline'
+    return {
+      fileId: `e2e-file-${token}`,
+      aesKey: 'e2e-aes-key',
+      fileSize: imageUrl.length,
+      fileMd5: 'e2e-md5',
+    }
+  }
+
+  override async sendImageMessage(_params: {
+    toUsername: string
+    fileId: string
+    aesKey: string
+    fileSize: number
+    bigFileSize: number
+    thumbFileSize: number
+    fileMd5: string
+    thumbWidth: number
+    thumbHeight: number
+    fileCrc: number
+  }): Promise<{ msgId: string; newMsgId?: string }> {
+    const msgId = this.nextId('e2e-image')
+    return {
+      msgId,
+      newMsgId: msgId,
+    }
+  }
+
+  override async downloadImage(
+    _aesKey: string,
+    _fileId: string,
+    _fileName: string,
+    fileType: number = CDN_FILE_TYPE.IMAGE_MID
+  ): Promise<string> {
+    return fileType === CDN_FILE_TYPE.ATTACHMENT ? E2E_FILE_DATA_URL : E2E_IMAGE_DATA_URL
+  }
+
+  override async downloadEmoji(_params: {
+    cdnUrl: string
+    aesKey?: string
+    encryptUrl?: string
+  }): Promise<Buffer> {
+    return E2E_EMOJI_BUFFER
   }
 }
