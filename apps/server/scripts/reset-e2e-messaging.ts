@@ -15,7 +15,16 @@ export const E2E_MESSAGING_CONVERSATION_ID = 'conv_e2e_messaging_private'
 export const E2E_MESSAGING_INITIAL_MESSAGE_INDEX_ID = 'msgidx_e2e_messaging_initial'
 export const E2E_MESSAGING_INITIAL_MESSAGE_ID = 'msg_e2e_messaging_initial'
 export const E2E_MESSAGING_INITIAL_MESSAGE_CONTENT = 'E2E baseline message: hello from the seeded contact.'
-export const E2E_MESSAGING_INITIAL_MESSAGE_TIMESTAMP = 1767225600
+export function getRecentMessagingSeedTimestamp(now: Date = new Date()) {
+  const localNoon = new Date(now)
+  localNoon.setHours(12, 0, 0, 0)
+
+  if (localNoon.getTime() > now.getTime()) {
+    localNoon.setDate(localNoon.getDate() - 1)
+  }
+
+  return Math.floor(localNoon.getTime() / 1000)
+}
 
 const prisma = new PrismaClient()
 
@@ -29,13 +38,18 @@ async function removeIfExists(targetPath: string) {
   await fs.rm(targetPath, { recursive: true, force: true })
 }
 
-function isMessagingE2EMessage(raw: string) {
+function isMessagingE2EMessage(raw: string, msgIds: Set<string>) {
   try {
     const parsed = JSON.parse(raw) as {
+      msg_id?: string
       from_username?: string
       to_username?: string
       chatroom?: string
       chatroom_sender?: string
+    }
+
+    if (parsed.msg_id && msgIds.has(parsed.msg_id)) {
+      return true
     }
 
     if (parsed.chatroom || parsed.chatroom_sender) {
@@ -52,7 +66,7 @@ function isMessagingE2EMessage(raw: string) {
   }
 }
 
-async function pruneRawLakeFiles(dataLakePath: string) {
+async function pruneRawLakeFiles(dataLakePath: string, msgIds: Set<string>) {
   const rawDir = path.join(dataLakePath, 'raw')
 
   let entries: string[]
@@ -75,7 +89,7 @@ async function pruneRawLakeFiles(dataLakePath: string) {
     const filePath = path.join(rawDir, entry)
     const content = await fs.readFile(filePath, 'utf-8')
     const lines = content.split('\n').filter(Boolean)
-    const filteredLines = lines.filter((line) => !isMessagingE2EMessage(line))
+    const filteredLines = lines.filter((line) => !isMessagingE2EMessage(line, msgIds))
 
     if (filteredLines.length === lines.length) {
       continue
@@ -109,6 +123,9 @@ export async function resetMessagingE2EState({ prisma, dataLakePath, quiet = fal
     where: {
       OR: [
         { id: E2E_MESSAGING_CONVERSATION_ID },
+        ...(e2eClient
+          ? [{ clientId: e2eClient.id }]
+          : []),
         ...(e2eClient && e2eContact
           ? [{ clientId: e2eClient.id, contactId: e2eContact.id }]
           : []),
@@ -131,6 +148,7 @@ export async function resetMessagingE2EState({ prisma, dataLakePath, quiet = fal
     select: { msgId: true },
   })
   const msgIds = Array.from(new Set(messageIndexes.map((messageIndex) => messageIndex.msgId)))
+  const msgIdSet = new Set(msgIds)
 
   await prisma.$transaction(async (tx) => {
     if (msgIds.length > 0) {
@@ -183,7 +201,7 @@ export async function resetMessagingE2EState({ prisma, dataLakePath, quiet = fal
     await removeIfExists(path.join(dataLakePath, 'conversations', conversationId))
   }
 
-  const touchedRawFiles = await pruneRawLakeFiles(dataLakePath)
+  const touchedRawFiles = await pruneRawLakeFiles(dataLakePath, msgIdSet)
 
   if (!quiet) {
     console.log('🧹 Reset messaging E2E state complete')

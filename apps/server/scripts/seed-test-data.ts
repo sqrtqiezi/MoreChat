@@ -11,10 +11,10 @@ import {
   E2E_MESSAGING_INITIAL_MESSAGE_CONTENT,
   E2E_MESSAGING_INITIAL_MESSAGE_ID,
   E2E_MESSAGING_INITIAL_MESSAGE_INDEX_ID,
-  E2E_MESSAGING_INITIAL_MESSAGE_TIMESTAMP,
   E2E_MESSAGING_SELF_CONTACT_ID,
   E2E_MESSAGING_SELF_NICKNAME,
   E2E_MESSAGING_SELF_USERNAME,
+  getRecentMessagingSeedTimestamp,
   resetMessagingE2EState,
 } from './reset-e2e-messaging.js'
 
@@ -42,6 +42,7 @@ async function seedMessagingScenario() {
   console.log('🌱 Seeding messaging E2E baseline...')
 
   const dataLakePath = getDataLakePath()
+  const initialMessageTimestamp = getRecentMessagingSeedTimestamp()
   await resetMessagingE2EState({ prisma, dataLakePath, quiet: true })
 
   const client = await prisma.client.create({
@@ -79,7 +80,7 @@ async function seedMessagingScenario() {
       type: 'private',
       contactId: E2E_MESSAGING_CONTACT_ID,
       unreadCount: 0,
-      lastMessageAt: new Date(E2E_MESSAGING_INITIAL_MESSAGE_TIMESTAMP * 1000),
+      lastMessageAt: new Date(initialMessageTimestamp * 1000),
     },
   })
 
@@ -93,7 +94,7 @@ async function seedMessagingScenario() {
     from_username: E2E_MESSAGING_CONTACT_USERNAME,
     to_username: E2E_MESSAGING_SELF_USERNAME,
     content: E2E_MESSAGING_INITIAL_MESSAGE_CONTENT,
-    create_time: E2E_MESSAGING_INITIAL_MESSAGE_TIMESTAMP,
+    create_time: initialMessageTimestamp,
     msg_type: 1,
     chatroom_sender: '',
     desc: '',
@@ -124,6 +125,7 @@ async function seedMessagingScenario() {
   console.log(`   contact: ${E2E_MESSAGING_CONTACT_USERNAME} (${E2E_MESSAGING_CONTACT_NICKNAME})`)
   console.log(`   conversationId: ${conversation.id}`)
   console.log(`   messageId: ${initialMessage.msg_id}`)
+  console.log(`   messageTimestamp: ${initialMessage.create_time}`)
 }
 
 async function main() {
