@@ -40,7 +40,7 @@ test.describe('认证与登录', () => {
     expect(page.url()).not.toContain('/login')
 
     // 验证 localStorage 中保存了 token
-    const token = await page.evaluate(() => localStorage.getItem('token'))
+    const token = await page.evaluate(() => localStorage.getItem('auth_token'))
     expect(token).toBeTruthy()
     expect(typeof token).toBe('string')
 
@@ -81,7 +81,7 @@ test.describe('认证与登录', () => {
     expect(hasErrorToast || hasErrorText).toBeTruthy()
 
     // 验证 localStorage 中没有 token
-    const token = await page.evaluate(() => localStorage.getItem('token'))
+    const token = await page.evaluate(() => localStorage.getItem('auth_token'))
     expect(token).toBeFalsy()
   })
 
@@ -91,7 +91,7 @@ test.describe('认证与登录', () => {
     await page.evaluate(() => {
       // 设置一个明显过期的 JWT token（payload 中 exp 是过去的时间）
       // 这是一个示例过期 token，实际项目中应该根据真实的 JWT 格式
-      localStorage.setItem('token', 'expired.token.here')
+      localStorage.setItem('auth_token', 'expired.token.here')
     })
 
     // 尝试访问受保护的页面
