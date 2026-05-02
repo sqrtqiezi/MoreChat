@@ -17,7 +17,8 @@ import { FileService } from './services/fileService.js'
 import { DuckDBService } from './services/duckdbService.js'
 import { Tokenizer } from './services/tokenizer.js'
 import { SearchService } from './services/searchService.js'
-import { EmbeddingService } from './services/embeddingService.js'
+// EmbeddingService 使用动态 import，避免在禁用时加载 onnxruntime
+// import { EmbeddingService } from './services/embeddingService.js'
 import { EmbeddingQueue } from './services/embeddingQueue.js'
 import { RuleEngine } from './services/ruleEngine.js'
 import { KnowledgeQueue } from './services/knowledgeQueue.js'
@@ -114,25 +115,35 @@ async function main() {
     // 初始化 KnowledgeQueue（用于实体提取和语义重要性分析）
     const knowledgeQueue = new KnowledgeQueue()
     const ruleEngine = new RuleEngine(databaseService)
-    let embeddingService: EmbeddingService | undefined
+    let embeddingService: any | undefined
     let embeddingQueue: EmbeddingQueue | undefined
     let semanticImportanceService: SemanticImportanceService | undefined
 
     // 初始化 EmbeddingService 和 EmbeddingQueue（用于语义搜索）
-    const candidateEmbeddingService = new EmbeddingService()
-    await candidateEmbeddingService.initialize()
-    if (candidateEmbeddingService.isAvailable()) {
-      embeddingService = candidateEmbeddingService
-      logger.info('EmbeddingService initialized')
+    // 使用动态 import 避免在禁用时加载 onnxruntime 依赖
+    if (env.EMBEDDING_ENABLED) {
+      try {
+        const { EmbeddingService } = await import('./services/embeddingService.js')
+        const candidateEmbeddingService = new EmbeddingService()
+        await candidateEmbeddingService.initialize()
+        if (candidateEmbeddingService.isAvailable()) {
+          embeddingService = candidateEmbeddingService
+          logger.info('EmbeddingService initialized')
 
-      embeddingQueue = new EmbeddingQueue(embeddingService, duckdbService)
-      logger.info('EmbeddingQueue initialized')
+          embeddingQueue = new EmbeddingQueue(embeddingService, duckdbService)
+          logger.info('EmbeddingQueue initialized')
 
-      semanticImportanceService = new SemanticImportanceService(embeddingService)
-      await semanticImportanceService.initialize()
-      logger.info('SemanticImportanceService initialized')
+          semanticImportanceService = new SemanticImportanceService(embeddingService)
+          await semanticImportanceService.initialize()
+          logger.info('SemanticImportanceService initialized')
+        } else {
+          logger.warn('Embedding features disabled because the model could not be loaded')
+        }
+      } catch (error) {
+        logger.error({ err: error }, 'Failed to load EmbeddingService, embedding features disabled')
+      }
     } else {
-      logger.warn('Embedding features disabled because the model could not be loaded')
+      logger.info('Embedding features disabled via EMBEDDING_ENABLED=false')
     }
 
     // 初始化 EntityExtractorService（用于实体提取）

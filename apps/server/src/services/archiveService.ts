@@ -68,7 +68,10 @@ export class ArchiveService {
     if (next <= now) next.setDate(next.getDate() + 1)
 
     const delay = next.getTime() - now.getTime()
-    logger.info({ nextRun: next.toISOString() }, 'Daily archive scheduled')
+    // Node.js setTimeout 最大支持 2^31-1 毫秒（约 24.8 天）
+    const MAX_TIMEOUT = 2147483647
+    const safeDelay = Math.min(delay, MAX_TIMEOUT)
+    logger.info({ nextRun: next.toISOString(), delayMs: safeDelay }, 'Daily archive scheduled')
 
     this.dailyTimer = setTimeout(async () => {
       try {
@@ -77,7 +80,7 @@ export class ArchiveService {
         logger.error({ err }, 'Daily archive failed')
       }
       this.scheduleDailyArchive()
-    }, delay)
+    }, safeDelay)
   }
 
   private scheduleMonthlyArchive() {
@@ -88,7 +91,10 @@ export class ArchiveService {
     if (next <= now) next.setMonth(next.getMonth() + 1)
 
     const delay = next.getTime() - now.getTime()
-    logger.info({ nextRun: next.toISOString() }, 'Monthly archive scheduled')
+    // Node.js setTimeout 最大支持 2^31-1 毫秒（约 24.8 天）
+    const MAX_TIMEOUT = 2147483647
+    const safeDelay = Math.min(delay, MAX_TIMEOUT)
+    logger.info({ nextRun: next.toISOString(), delayMs: safeDelay }, 'Monthly archive scheduled')
 
     this.monthlyTimer = setTimeout(async () => {
       try {
@@ -97,7 +103,7 @@ export class ArchiveService {
         logger.error({ err }, 'Monthly archive failed')
       }
       this.scheduleMonthlyArchive()
-    }, delay)
+    }, safeDelay)
   }
 
   /**
