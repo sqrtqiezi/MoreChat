@@ -1,8 +1,12 @@
 // Cucumber 配置文件
+const defaultPaths =
+  process.env.CUCUMBER_DISABLE_DEFAULT_PATHS === '1'
+    ? {}
+    : { paths: ['tests/features/**/*.feature'] }
+
 module.exports = {
   default: {
-    // 指定 feature 文件路径
-    paths: ['tests/features/**/*.feature'],
+    ...defaultPaths,
 
     // 使用 import 而不是 require（支持 ES modules）
     import: ['tests/steps/**/*.ts', 'tests/hooks/**/*.ts', 'tests/support/**/*.ts'],

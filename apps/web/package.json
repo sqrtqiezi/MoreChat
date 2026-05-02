@@ -10,10 +10,10 @@
     "lint": "eslint . --ext ts,tsx",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "test:cucumber": "NODE_OPTIONS='--import tsx' cucumber-js",
-    "test:cucumber:parallel": "NODE_OPTIONS='--import tsx' cucumber-js --parallel 4",
-    "test:cucumber:smoke": "NODE_OPTIONS='--import tsx' cucumber-js --tags @smoke",
-    "test:cucumber:debug": "HEADLESS=false NODE_OPTIONS='--import tsx' cucumber-js"
+    "test:cucumber": "NODE_OPTIONS='--import tsx' node scripts/run-cucumber.mjs",
+    "test:cucumber:parallel": "NODE_OPTIONS='--import tsx' node scripts/run-cucumber.mjs --parallel 4",
+    "test:cucumber:smoke": "NODE_OPTIONS='--import tsx' node scripts/run-cucumber.mjs --tags @smoke",
+    "test:cucumber:debug": "HEADLESS=false NODE_OPTIONS='--import tsx' node scripts/run-cucumber.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.6.0",
