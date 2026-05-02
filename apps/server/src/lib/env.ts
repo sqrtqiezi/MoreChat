@@ -122,6 +122,7 @@ function loadEnv(): EnvConfig {
 
   if (e2eBotMode) {
     assertSafeE2EBotMode(nodeEnv!)
+    requireEnv(['JUHEXBOT_CLIENT_GUID'])
   } else {
     requireEnv([
       'JUHEXBOT_API_URL',
@@ -132,7 +133,7 @@ function loadEnv(): EnvConfig {
     ])
   }
 
-  const juhexbotClientGuid = process.env.JUHEXBOT_CLIENT_GUID || 'e2e-bot-client-guid'
+  const juhexbotClientGuid = process.env.JUHEXBOT_CLIENT_GUID!
   const juhexbotApiUrl = process.env.JUHEXBOT_API_URL || 'http://127.0.0.1:9/e2e-offline'
   const juhexbotAppKey = process.env.JUHEXBOT_APP_KEY || 'e2e-offline-app-key'
   const juhexbotAppSecret = process.env.JUHEXBOT_APP_SECRET || 'e2e-offline-app-secret'
