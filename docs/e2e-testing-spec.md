@@ -10,9 +10,11 @@
 - **浏览器自动化**: Playwright
 - **编程语言**: TypeScript
 - **测试运行器**: @cucumber/cucumber
-- **报告工具**: cucumber-html-reporter
+- **报告输出**: Cucumber 内置 `html:` / `json:` formatters，配合 `@cucumber/pretty-formatter` 终端输出
 
 ## 3. 项目结构
+
+以下是简化后的当前结构示意，不是完整文件树：
 
 ```
 apps/web/
@@ -33,12 +35,8 @@ apps/web/
 │   │   └── hooks.ts
 │   └── support/           # 辅助工具
 │       └── world.ts       # Custom World
-├── cucumber.js            # Cucumber 配置
-├── reports/               # 测试报告（自动生成）
-│   ├── cucumber-report.html
-│   ├── cucumber-report.json
-│   ├── screenshots/
-│   └── videos/
+├── cucumber.cjs           # Cucumber 配置
+├── reports/               # 运行时生成的报告与调试产物（按实际配置而定）
 └── e2e/                   # 旧的 Playwright 测试（待迁移）
 ```
 
@@ -217,48 +215,13 @@ const testPassword = process.env.TEST_PASSWORD || 'test123'
 
 ### 8.2 测试数据文件
 
-```
-tests/
-└── fixtures/
-    ├── users.json
-    ├── messages.json
-    └── config.json
-```
+当前仓库没有约定独立的 `tests/fixtures/` 目录；默认做法是把测试数据放在对应的 `feature`、`step`、`hooks` 或 `support` 文件中，保持数据来源和场景靠近。
 
-### 8.3 动态数据生成
+### 8.3 可选扩展示例
 
-```typescript
-// 使用 faker 或自定义工具生成测试数据
-import { faker } from '@faker-js/faker'
+如果后续需要集中管理 fixtures 或引入随机数据生成，再把它们当作可选扩展补充；当前不应把 `tests/fixtures/` 或 `@faker-js/faker` 视为已落地约定。
 
-const testUser = {
-  username: faker.internet.userName(),
-  email: faker.internet.email()
-}
-```
-
-## 9. 测试执行
-
-### 9.1 命令行执行
-
-```bash
-# 运行所有测试
-pnpm test:cucumber
-
-# 运行特定 feature
-pnpm test:cucumber tests/features/auth.feature
-
-# 运行特定标签
-pnpm test:cucumber --tags "@smoke"
-
-# 并发执行
-pnpm test:cucumber --parallel 4
-
-# 调试模式
-HEADLESS=false pnpm test:cucumber
-```
-
-### 9.2 环境变量
+## 9. 环境变量
 
 ```bash
 # 基础 URL
@@ -285,7 +248,7 @@ VIDEO=true
 ### 10.2 失败处理
 
 - 自动截图保存到 `reports/screenshots/`
-- 视频录制保存到 `reports/videos/`
+- 如启用视频录制，可能会生成额外的调试产物
 - 错误堆栈信息包含在报告中
 
 ## 11. 最佳实践
@@ -311,35 +274,20 @@ VIDEO=true
 3. **文档更新**: 及时更新测试文档和规范
 4. **代码审查**: 测试代码也需要代码审查
 
-## 12. 常见问题
+## 12. 附录
 
-### 12.1 测试不稳定
-
-- **原因**: 异步操作、网络延迟、元素未加载
-- **解决**: 使用 `waitFor` 等待元素，增加合理的超时时间
-
-### 12.2 测试速度慢
-
-- **原因**: 串行执行、等待时间过长
-- **解决**: 并发执行、优化等待策略、使用 API 准备数据
-
-### 12.3 元素定位失败
-
-- **原因**: 页面结构变化、选择器不稳定
-- **解决**: 使用稳定的选择器、添加 `data-testid`
-
-## 13. 附录
-
-### 13.1 参考资源
+### 12.1 参考资源
 
 - [Cucumber 官方文档](https://cucumber.io/docs/cucumber/)
 - [Playwright 官方文档](https://playwright.dev/)
 - [Gherkin 语法参考](https://cucumber.io/docs/gherkin/reference/)
 
-### 13.2 示例项目
+### 12.2 示例项目
 
 - [Playwright-Cucumber](https://github.com/ghoshasish99/Playwright-Cucumber)
 - [cucumber-playwright-typescript](https://github.com/tallyb/cucumber-playwright-typescript)
+
+> 执行、环境准备和排错说明见 `docs/e2e-testing-guide.md`。
 
 ---
 

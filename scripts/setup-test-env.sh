@@ -40,11 +40,14 @@ else
     echo "✅ 依赖已安装"
 fi
 
+NEEDS_MANUAL_ENV_CONFIG=0
+
 # 检查 server .env 文件
 if [ ! -f "apps/server/.env" ]; then
     echo "⚠️  apps/server/.env 不存在，从示例文件复制..."
     cp apps/server/.env.example apps/server/.env
     echo "⚠️  请编辑 apps/server/.env 配置必要的环境变量"
+    NEEDS_MANUAL_ENV_CONFIG=1
 fi
 echo "✅ Server 配置文件存在"
 
@@ -71,8 +74,9 @@ if ! npx playwright --version &> /dev/null; then
     exit 1
 fi
 
-# 检查浏览器是否已安装
-if ! npx playwright list-files | grep -q "chromium"; then
+# 检查 Chromium 浏览器是否已安装
+CHROMIUM_PATH=$(node -e "const { chromium } = require('@playwright/test'); process.stdout.write(chromium.executablePath())")
+if [ ! -x "$CHROMIUM_PATH" ]; then
     echo "📥 安装 Playwright 浏览器..."
     npx playwright install chromium
 else
@@ -81,10 +85,16 @@ fi
 
 cd ../..
 
+if [ "$NEEDS_MANUAL_ENV_CONFIG" -eq 1 ]; then
+    echo ""
+    echo "⚠️  测试环境尚未就绪：apps/server/.env 只是从示例复制，仍需手动配置后才能通过 E2E 测试。"
+    exit 1
+fi
+
 echo ""
 echo "✅ 测试环境准备完成！"
 echo ""
 echo "📝 下一步："
 echo "   1. 确保 apps/server/.env 配置正确"
 echo "   2. 运行数据库迁移: cd apps/server && npx prisma migrate dev"
-echo "   3. 运行测试: cd apps/web && pnpm test:e2e"
+echo "   3. 运行测试（Cucumber + Playwright）: cd apps/web && pnpm test:cucumber"
