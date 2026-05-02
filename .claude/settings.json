@@ -1,5 +1,21 @@
 {
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git push*)",
+            "command": "input=$(cat); exit_code=$(echo \"$input\" | jq -r '.tool_response.exit_code // 0'); if [ \"$exit_code\" = \"0\" ]; then /Users/niujin/develop/MoreChat/scripts/deploy-and-watch.sh 2>&1 | tail -20; fi",
+            "timeout": 600,
+            "statusMessage": "监控部署进度..."
+          }
+        ]
+      }
+    ]
   }
 }
