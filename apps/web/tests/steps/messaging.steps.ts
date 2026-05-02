@@ -2,8 +2,8 @@
 // ABOUTME: 使用 Playwright route mock 拦截 API 请求，模拟消息发送和接收
 
 import { Given, When, Then } from '@cucumber/cucumber'
-import { expect } from '@playwright/test'
 import { CustomWorld } from '../support/world'
+import { ChatPage } from '../pages/ChatPage'
 
 const MOCK_CONVERSATION = {
   id: 'mock-conv-001',
@@ -118,53 +118,44 @@ Given('消息发送 API 已被 mock', async function (this: CustomWorld) {
 })
 
 Given('我选择了一个会话', { timeout: 30000 }, async function (this: CustomWorld) {
-  // 等待会话列表加载
-  await this.page!.waitForTimeout(3000)
-  // 点击第一个会话项
-  const conversationItem = this.page!.locator('.cursor-pointer').first()
-  await expect(conversationItem).toBeVisible({ timeout: 10000 })
-  await conversationItem.click()
-  await this.page!.waitForTimeout(1000)
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.selectFirstConversation()
+  await chatPage.expectMessageInputEnabled()
 })
 
 When('我在消息输入框输入 {string}', async function (this: CustomWorld, text: string) {
-  const textarea = this.page!.locator('textarea')
-  await expect(textarea).toBeVisible()
-  await textarea.fill(text)
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.fillMessage(text)
 })
 
 Then('发送按钮应该可用', async function (this: CustomWorld) {
-  const sendButton = this.page!.getByRole('button', { name: /发送/ })
-  await expect(sendButton).toBeEnabled()
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.expectSendButtonEnabled()
 })
 
 Then('发送按钮应该不可用', async function (this: CustomWorld) {
-  const sendButton = this.page!.getByRole('button', { name: /发送/ })
-  await expect(sendButton).toBeDisabled()
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.expectSendButtonDisabled()
 })
 
 When('我点击发送按钮', { timeout: 15000 }, async function (this: CustomWorld) {
-  // 用键盘 Enter 发送，避免按钮文本切换导致的 locator 问题
-  const textarea = this.page!.locator('textarea')
-  await textarea.press('Enter')
-  await this.page!.waitForTimeout(2000)
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.clickSendButton()
 })
 
 Then('消息输入框应该被清空', async function (this: CustomWorld) {
-  const textarea = this.page!.locator('textarea')
-  await expect(textarea).toHaveValue('')
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.expectMessageInputCleared()
 })
 
-Then('消息输入框应该被禁用', async function (this: CustomWorld) {
-  // 未选择会话时，textarea 应该被禁用
-  const textarea = this.page!.locator('textarea')
-  if (await textarea.count() > 0) {
-    await expect(textarea).toBeDisabled()
-  } else {
-    // 如果没有 textarea，说明还在空状态页面，也算通过
-    const welcome = this.page!.getByText('欢迎使用 MoreChat')
-    await expect(welcome).toBeVisible()
-  }
+Then('应该显示未选择会话的引导空状态', async function (this: CustomWorld) {
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.expectUnselectedConversationState()
+})
+
+Then('消息输入框应该可用', async function (this: CustomWorld) {
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.expectMessageInputEnabled()
 })
 
 When('服务器推送一条新消息', { timeout: 15000 }, async function (this: CustomWorld) {
@@ -197,11 +188,6 @@ When('服务器推送一条新消息', { timeout: 15000 }, async function (this:
 })
 
 Then('我应该在聊天窗口看到新消息', async function (this: CustomWorld) {
-  // WebSocket 推送的消息应该出现在聊天窗口
-  const newMessage = this.page!.getByText('这是一条通过 WebSocket 推送的消息')
-  // 消息可能需要一些时间才能出现
-  const count = await newMessage.count()
-  // 如果消息出现了，测试通过；如果没有，可能是 WebSocket 连接问题
-  // 在 mock 环境中，WebSocket 可能不完全工作，所以我们放宽验证
-  expect(count >= 0).toBe(true)
+  const chatPage = new ChatPage(this.page!)
+  await chatPage.expectRealtimeMessageVisible('这是一条通过 WebSocket 推送的消息')
 })
