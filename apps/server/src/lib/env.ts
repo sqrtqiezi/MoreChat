@@ -36,6 +36,15 @@ interface EnvConfig {
   LLM_API_KEY?: string
   LLM_MODEL?: string
   DIGEST_ENABLED: boolean
+  E2E_BOT_MODE: boolean
+}
+
+function parseBooleanFlag(value: string | undefined): boolean {
+  if (!value) {
+    return false
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
 }
 
 function loadEnv(): EnvConfig {
@@ -78,6 +87,8 @@ function loadEnv(): EnvConfig {
 
   const embeddingEnabled = process.env.EMBEDDING_ENABLED !== 'false'
   const digestEnabled = process.env.DIGEST_ENABLED !== 'false'
+  // Local E2E only. Default off so non-test startup keeps the real bot adapter.
+  const e2eBotMode = parseBooleanFlag(process.env.E2E_BOT_MODE)
 
   return {
     DATABASE_URL: process.env.DATABASE_URL!,
@@ -105,7 +116,8 @@ function loadEnv(): EnvConfig {
     LLM_BASE_URL: process.env.LLM_BASE_URL,
     LLM_API_KEY: process.env.LLM_API_KEY,
     LLM_MODEL: process.env.LLM_MODEL,
-    DIGEST_ENABLED: digestEnabled
+    DIGEST_ENABLED: digestEnabled,
+    E2E_BOT_MODE: e2eBotMode
   }
 }
 

@@ -5,6 +5,7 @@ import { DataLakeService } from './services/dataLake.js'
 import { DatabaseService } from './services/database.js'
 import { MessageService } from './services/message.js'
 import { JuhexbotAdapter } from './services/juhexbotAdapter.js'
+import { JuhexbotAdapterFake } from './services/juhexbotAdapter.fake.js'
 import { WebSocketService } from './services/websocket.js'
 import { ClientService } from './services/clientService.js'
 import { ConversationService } from './services/conversationService.js'
@@ -62,13 +63,20 @@ async function main() {
       logger.info({ guid: env.JUHEXBOT_CLIENT_GUID }, 'Client record created')
     }
 
-    const juhexbotAdapter = new JuhexbotAdapter({
+    const juhexbotConfig = {
       apiUrl: env.JUHEXBOT_API_URL,
       appKey: env.JUHEXBOT_APP_KEY,
       appSecret: env.JUHEXBOT_APP_SECRET,
       clientGuid: env.JUHEXBOT_CLIENT_GUID,
       cloudApiUrl: env.JUHEXBOT_CLOUD_API_URL
-    })
+    }
+    const juhexbotAdapter: JuhexbotAdapter = env.E2E_BOT_MODE
+      ? new JuhexbotAdapterFake(juhexbotConfig)
+      : new JuhexbotAdapter(juhexbotConfig)
+
+    if (env.E2E_BOT_MODE) {
+      logger.warn('E2E_BOT_MODE enabled: using offline Juhexbot adapter')
+    }
 
     // 获取登录用户信息（带重试 + 降级）
     let profileState: ProfileState = {
