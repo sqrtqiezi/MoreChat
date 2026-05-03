@@ -27,6 +27,7 @@ lerna-debug.log*
 # Local env files
 .env
 .env*.local
+*.env.backup
 
 # Vercel
 .vercel
@@ -57,6 +58,9 @@ playwright-report/
 test-results/
 **/test-results/
 screenshot-*.png
+apps/web/reports/
+apps/web/e2e/
+test-data/
 
 # Local superpowers plugin
 .superpowers/
