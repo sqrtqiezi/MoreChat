@@ -43,7 +43,7 @@ bash scripts/setup-test-env.sh
 - 数据库目录与数据库文件
 - Playwright Chromium 浏览器
 
-注意：脚本最后打印的测试命令仍是旧的 `pnpm test:e2e`，实际应以本文和 `apps/web/package.json` 为准，使用 `pnpm test:cucumber`。
+脚本最后会打印当前正确的测试入口：`cd apps/web && pnpm test:cucumber`。
 
 ### 2. 准备服务端环境
 
@@ -59,7 +59,7 @@ AUTH_JWT_SECRET="dev-jwt-secret-change-in-production"
 EMBEDDING_ENABLED=false
 ```
 
-如果要运行消息链路 E2E，还需要显式设置：
+正常运行 `@messaging-e2e` 场景时，不需要手动在 `.env` 中写入消息专用测试变量；Hooks 会在启动自管 runtime 时自动注入：
 
 ```bash
 E2E_BOT_MODE=true
@@ -72,6 +72,7 @@ WEBHOOK_URL="http://localhost:3100/webhook"
 - `E2E_BOT_MODE=true` 会让服务端改用离线 Bot 适配器，避免访问真实 juhexbot 网络。
 - `JUHEXBOT_CLIENT_GUID` 必须与 seed 数据中的客户端 GUID 对齐；当前消息场景使用 `guid-e2e-messaging`。
 - `WEBHOOK_URL` 与 `CORS_ORIGIN` 在 E2E Bot 模式下都必须指向本机地址。
+- 这些值主要用于理解消息场景运行时边界，或在手动调试 server 脚本时复现 hook 行为。
 
 如果数据库尚未初始化，先执行迁移：
 
@@ -80,9 +81,17 @@ cd apps/server
 npx prisma migrate dev
 ```
 
-### 3. 重置并写入消息场景测试数据
+### 3. 消息场景的自动准备行为
 
-消息场景在运行前应先清理并重建固定数据：
+带有 `@messaging-e2e` 标签的场景会在每个 scenario 开始前由 Hooks 自动完成以下准备：
+
+- 拒绝复用未知的 `3000` / `3100` 监听进程
+- 要求这两个端口为空；如果被外部进程占用，消息场景会直接中止
+- 在空端口上启动由 Hooks 自己持有的前后端 runtime
+- 为后端注入 `E2E_BOT_MODE`、`JUHEXBOT_CLIENT_GUID`、`WEBHOOK_URL` 等消息专用环境变量
+- 自动执行 reset/seed，确保每个消息 scenario 都有固定会话和初始消息
+
+自动 reset/seed 使用的命令是：
 
 ```bash
 cd apps/server
@@ -97,7 +106,7 @@ pnpm exec tsx scripts/seed-test-data.ts --scenario messaging
 - 一条私聊会话
 - 一条初始文本消息
 
-推荐在每次运行 `messaging.feature` 前执行一次，避免上次测试残留数据影响结果。
+只有在需要手动排查、脱离 Hooks 单独复现服务端状态时，才需要把这两条命令当作人工操作步骤。
 
 ### 4. 运行测试
 
@@ -108,13 +117,13 @@ cd apps/web
 pnpm test:cucumber
 ```
 
-当前 Hooks 会在测试开始时检查 `3000` 和 `3100` 端口：
+当前 Hooks 对运行时的处理分两类：
 
-- 如果前后端服务已启动，则复用现有服务
-- 如果未启动，则自动拉起本地前后端服务
-- 测试结束后，会关闭由测试进程启动的服务
+- 非 messaging 场景：如果 `3000` 和 `3100` 上已有本地服务，Hooks 可以复用；如果没有，则自动拉起本地前后端服务。
+- `@messaging-e2e` 场景：Hooks 不会复用未知监听进程。`3000` 和 `3100` 必须为空，否则测试直接失败；端口空闲后，Hooks 才会启动自管 runtime 并注入消息专用环境变量。
+- 测试结束后，会关闭由测试进程启动并持有的服务。
 
-运行 `messaging.feature` 前，不要把“端口上正好有服务”视为充分条件；应确认当前本地前后端实例已经加载 `E2E_BOT_MODE`、`JUHEXBOT_CLIENT_GUID` 和最新 reset/seed 后的数据。
+运行 `messaging.feature` 时，不要预先启动未知的本地前后端实例占用 `3000` / `3100`；应让 Hooks 自己启动并持有这组消息测试 runtime。
 
 ## 常用命令
 
@@ -173,7 +182,10 @@ apps/web/
 
 ### 1. 端口被占用
 
-如果 `3000` 或 `3100` 被其他进程占用，测试可能会连接到错误服务实例。
+如果 `3000` 或 `3100` 被其他进程占用：
+
+- 对非 messaging 场景，测试可能会复用该实例。
+- 对 `@messaging-e2e` 场景，Hooks 会拒绝复用未知监听进程并直接报错。
 
 ```bash
 lsof -i :3000
@@ -189,8 +201,7 @@ lsof -i :3100
 - `apps/server/.env` 中的 `DATABASE_URL` 是否正确
 - `apps/server/data/morechat.db` 是否存在
 - 是否已执行 `npx prisma migrate dev`
-- 对消息场景是否已执行 `pnpm exec tsx scripts/reset-e2e-messaging.ts`
-- 对消息场景是否已执行 `pnpm exec tsx scripts/seed-test-data.ts --scenario messaging`
+- 如果你是绕过 Hooks 手动调试消息链路，是否已执行 reset/seed 命令
 
 ### 3. Playwright 浏览器未安装
 
@@ -216,11 +227,11 @@ npx playwright install chromium
 
 如果 `messaging.feature` 没有看到 `E2E Messaging Peer` 会话，优先排查：
 
-- `apps/server/.env` 是否启用了 `E2E_BOT_MODE=true`
-- `JUHEXBOT_CLIENT_GUID` 是否为 `guid-e2e-messaging`
-- 是否刚执行过 reset/seed 命令
-- `WEBHOOK_URL`、`CORS_ORIGIN` 是否仍指向本机
-- 当前 `3100` 端口是否是你预期的本地 server，而不是另一个残留实例
+- 运行前 `3000` / `3100` 是否已被外部进程占用
+- 是否让 Hooks 接管了消息 runtime，而不是手动预启动另一套前后端
+- 如果是手动调试模式，是否注入了 `E2E_BOT_MODE=true`
+- 如果是手动调试模式，`JUHEXBOT_CLIENT_GUID` 是否为 `guid-e2e-messaging`
+- 如果是手动调试模式，是否刚执行过 reset/seed 命令
 
 ## 文档边界
 

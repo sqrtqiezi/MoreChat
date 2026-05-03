@@ -31,8 +31,9 @@
 
 当前基础设施能力：
 
-- 运行测试时自动检查并复用 `3000` / `3100` 端口上的本地服务
-- 若服务未启动，则由 Hooks 自动拉起前后端
+- 非 messaging 场景运行时，若 `3000` / `3100` 上已有本地服务，Hooks 可以复用；若服务未启动，则自动拉起前后端
+- `@messaging-e2e` 场景要求由 Hooks 自己持有 runtime：遇到未知的 `3000` / `3100` 监听进程会直接拒绝复用并中止，端口空闲后再以注入的消息专用环境启动前后端
+- `@messaging-e2e` Hooks 会在每个场景前自动执行 reset/seed
 - 失败时自动截图到 `apps/web/reports/screenshots/`
 - 运行完成后生成 HTML / JSON 报告到 `apps/web/reports/`
 
@@ -48,7 +49,7 @@
 | 聊天页基础状态 | `apps/web/tests/features/chat.feature` | 聊天页空状态与结构展示 |
 | Feed | `apps/web/tests/features/feed.feature` | Feed 页面基础加载与展示状态 |
 | Topics | `apps/web/tests/features/topics.feature` | Topics 页面基础加载与展示状态 |
-| 消息发送相关 | `apps/web/tests/features/messaging.feature` | 部分场景已写，仍存在阻塞问题 |
+| 消息发送相关 | `apps/web/tests/features/messaging.feature` | 已迁移到 hook-owned runtime + 自动 reset/seed 的真实环境链路 |
 
 ### 3.2 覆盖特点
 
