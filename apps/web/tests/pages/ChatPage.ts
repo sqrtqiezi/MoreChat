@@ -75,6 +75,11 @@ export class ChatPage {
     await this.expectMessageInputEnabled()
   }
 
+  async reloadAndSelectConversationByName(name: string) {
+    await this.page.reload({ waitUntil: 'networkidle' })
+    await this.selectConversationByName(name)
+  }
+
   async fillMessage(text: string) {
     await this.expectMessageInputEnabled()
     await this.messageTextarea.fill(text)

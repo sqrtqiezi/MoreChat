@@ -47,6 +47,11 @@ When('我点击发送按钮', { timeout: 15000 }, async function (this: CustomWo
   await chatPage.clickSendButton()
 })
 
+When('我刷新页面并重新打开名为 {string} 的会话', { timeout: 30000 }, async function (this: CustomWorld, name: string) {
+  const chatPage = getChatPage(this)
+  await chatPage.reloadAndSelectConversationByName(name)
+})
+
 Then('消息输入框应该被清空', async function (this: CustomWorld) {
   const chatPage = getChatPage(this)
   await chatPage.expectMessageInputCleared()
