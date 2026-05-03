@@ -36,6 +36,14 @@ export class ChatPage {
     return this.page.getByText('正在重新连接...')
   }
 
+  get activeChatPane() {
+    return this.page.locator('div.flex-1.flex.flex-col.bg-white.overflow-hidden')
+  }
+
+  get activeMessagePane() {
+    return this.activeChatPane.locator('div.flex-1.relative.overflow-hidden')
+  }
+
   conversationRowByName(name: string) {
     return this.conversationList.locator('.cursor-pointer').filter({
       has: this.page.getByText(name, { exact: true }),
@@ -43,7 +51,7 @@ export class ChatPage {
   }
 
   messageByText(text: string) {
-    return this.page.getByText(text, { exact: true }).first()
+    return this.activeMessagePane.getByText(text, { exact: true }).first()
   }
 
   async waitForConversationList() {

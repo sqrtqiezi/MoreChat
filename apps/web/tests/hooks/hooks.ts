@@ -17,6 +17,7 @@ let serverProcess: ChildProcess | null = null
 let webProcess: ChildProcess | null = null
 const serverCwd = path.resolve(__dirname, '../../../server')
 const webCwd = path.resolve(__dirname, '../../')
+const MESSAGING_E2E_TAG = '@messaging-e2e'
 const E2E_BOT_ENV = {
   E2E_BOT_MODE: 'true',
   JUHEXBOT_CLIENT_GUID: 'guid-e2e-messaging',
@@ -26,6 +27,8 @@ const E2E_BOT_ENV = {
 const WEB_E2E_ENV = {
   VITE_WS_URL: 'ws://localhost:3100',
 }
+type RuntimeMode = 'none' | 'generic' | 'messaging'
+let runtimeMode: RuntimeMode = 'none'
 
 // 等待服务器启动
 async function waitForServer(url: string, timeout = 120000): Promise<boolean> {
@@ -55,6 +58,19 @@ async function isPortInUse(port: number): Promise<boolean> {
     })
   } catch {
     return false
+  }
+}
+
+async function readPortOwner(port: number): Promise<string> {
+  try {
+    const { exec } = await import('child_process')
+    return await new Promise((resolve) => {
+      exec(`lsof -nP -iTCP:${port} -sTCP:LISTEN`, (error, stdout) => {
+        resolve(stdout.trim() || `unknown listener on port ${port}`)
+      })
+    })
+  } catch {
+    return `unknown listener on port ${port}`
   }
 }
 
@@ -103,6 +119,125 @@ async function prepareMessagingE2EData() {
   console.log('✅ Messaging E2E data ready')
 }
 
+async function startBackend(env?: NodeJS.ProcessEnv) {
+  serverProcess = spawn('pnpm', ['dev'], {
+    cwd: serverCwd,
+    env: { ...process.env, ...env },
+    stdio: 'pipe',
+    shell: true
+  })
+
+  serverProcess.stdout?.on('data', (data) => {
+    const output = data.toString()
+    if (output.includes('Server started') || output.includes('started on')) {
+      console.log('✅ Backend server started')
+    }
+  })
+
+  serverProcess.stderr?.on('data', (data) => {
+    const error = data.toString()
+    if (!error.includes('TimeoutOverflowWarning')) {
+      console.error('Backend error:', error)
+    }
+  })
+
+  console.log('⏳ Waiting for backend server...')
+  const serverReady = await waitForServer('http://localhost:3100/health')
+  if (!serverReady) {
+    throw new Error('Backend server failed to start')
+  }
+  console.log('✅ Backend server ready')
+}
+
+async function startFrontend(env?: NodeJS.ProcessEnv) {
+  webProcess = spawn('pnpm', ['dev'], {
+    cwd: webCwd,
+    env: { ...process.env, ...env },
+    stdio: 'pipe',
+    shell: true
+  })
+
+  webProcess.stdout?.on('data', (data) => {
+    const output = data.toString()
+    if (output.includes('Local:') || output.includes('localhost:3000')) {
+      console.log('✅ Frontend server started')
+    }
+  })
+
+  webProcess.stderr?.on('data', (data) => {
+    console.error('Frontend error:', data.toString())
+  })
+
+  console.log('⏳ Waiting for frontend server...')
+  const webReady = await waitForServer('http://localhost:3000')
+  if (!webReady) {
+    throw new Error('Frontend server failed to start')
+  }
+  console.log('✅ Frontend server ready')
+}
+
+async function ensureGenericRuntime() {
+  if (runtimeMode !== 'none') {
+    return
+  }
+
+  const serverRunning = await isPortInUse(3100)
+  const webRunning = await isPortInUse(3000)
+
+  if (serverRunning && webRunning) {
+    console.log('✅ Servers already running')
+    runtimeMode = 'generic'
+    return
+  }
+
+  console.log('🚀 Starting local servers...')
+
+  if (!serverRunning) {
+    await startBackend()
+  }
+
+  if (!webRunning) {
+    await startFrontend()
+  }
+
+  runtimeMode = 'generic'
+  console.log('✅ All servers ready, starting tests...')
+}
+
+async function ensureMessagingRuntime() {
+  if (runtimeMode === 'messaging') {
+    return
+  }
+
+  if (runtimeMode !== 'none') {
+    throw new Error('Messaging E2E requires an isolated runtime, but shared test servers are already running without messaging E2E configuration. Stop existing test servers and rerun the messaging feature.')
+  }
+
+  const serverRunning = await isPortInUse(3100)
+  const webRunning = await isPortInUse(3000)
+
+  if (serverRunning || webRunning) {
+    const occupiedPorts = await Promise.all(
+      [3100, 3000]
+        .filter((port) => (port === 3100 ? serverRunning : webRunning))
+        .map(async (port) => `port ${port}:\n${await readPortOwner(port)}`)
+    )
+    throw new Error(
+      `Messaging E2E refuses to reuse unknown listeners.\n${occupiedPorts.join('\n\n')}\nFree ports 3000 and 3100, then rerun.`
+    )
+  }
+
+  console.log('🚀 Starting messaging E2E runtime...')
+  await startBackend(E2E_BOT_ENV)
+  await startFrontend(WEB_E2E_ENV)
+  runtimeMode = 'messaging'
+  console.log('✅ Messaging E2E runtime ready')
+}
+
+function hasMessagingE2ETag(pickle: { tags?: Array<{ name: string }> }) {
+  return pickle.tags?.some((tag) => tag.name === MESSAGING_E2E_TAG) ?? false
+}
+
 // 确保报告目录存在并启动服务器
 BeforeAll({ timeout: 180000 }, async function () {
   // 创建报告目录
@@ -112,86 +247,18 @@ BeforeAll({ timeout: 180000 }, async function () {
       fs.mkdirSync(dir, { recursive: true })
     }
   })
+})
 
-  // 检查服务器是否已经在运行
-  const serverRunning = await isPortInUse(3100)
-  const webRunning = await isPortInUse(3000)
-
+Before({ tags: MESSAGING_E2E_TAG, timeout: 180000 }, async function () {
+  await ensureMessagingRuntime()
   await prepareMessagingE2EData()
-
-  if (serverRunning && webRunning) {
-    console.log('✅ Servers already running')
-    return
-  }
-
-  console.log('🚀 Starting local servers...')
-
-  // 启动后端服务器
-  if (!serverRunning) {
-    serverProcess = spawn('pnpm', ['dev'], {
-      cwd: serverCwd,
-      env: { ...process.env, ...E2E_BOT_ENV },
-      stdio: 'pipe',
-      shell: true
-    })
-
-    serverProcess.stdout?.on('data', (data) => {
-      const output = data.toString()
-      if (output.includes('Server started') || output.includes('started on')) {
-        console.log('✅ Backend server started')
-      }
-    })
-
-    serverProcess.stderr?.on('data', (data) => {
-      const error = data.toString()
-      if (!error.includes('TimeoutOverflowWarning')) {
-        console.error('Backend error:', error)
-      }
-    })
-
-    // 等待后端服务器启动
-    console.log('⏳ Waiting for backend server...')
-    const serverReady = await waitForServer('http://localhost:3100/health')
-    if (!serverReady) {
-      throw new Error('Backend server failed to start')
-    }
-    console.log('✅ Backend server ready')
-  }
-
-  // 启动前端服务器
-  if (!webRunning) {
-    webProcess = spawn('pnpm', ['dev'], {
-      cwd: webCwd,
-      env: { ...process.env, ...WEB_E2E_ENV },
-      stdio: 'pipe',
-      shell: true
-    })
-
-    webProcess.stdout?.on('data', (data) => {
-      const output = data.toString()
-      if (output.includes('Local:') || output.includes('localhost:3000')) {
-        console.log('✅ Frontend server started')
-      }
-    })
-
-    webProcess.stderr?.on('data', (data) => {
-      console.error('Frontend error:', data.toString())
-    })
-
-    // 等待前端服务器启动
-    console.log('⏳ Waiting for frontend server...')
-    const webReady = await waitForServer('http://localhost:3000')
-    if (!webReady) {
-      throw new Error('Frontend server failed to start')
-    }
-    console.log('✅ Frontend server ready')
-  }
-
-  console.log('✅ All servers ready, starting tests...')
 })
 
 // 每个场景前：初始化浏览器
-Before(async function (this: CustomWorld) {
+Before(async function (this: CustomWorld, { pickle }) {
+  if (!hasMessagingE2ETag(pickle)) {
+    await ensureGenericRuntime()
+  }
   await this.init()
 })
 
