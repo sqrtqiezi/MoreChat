@@ -74,6 +74,18 @@ async function readPortOwner(port: number): Promise<string> {
   }
 }
 
+async function waitForPortReleased(port: number, timeout = 15000): Promise<void> {
+  const startTime = Date.now()
+  while (Date.now() - startTime < timeout) {
+    if (!(await isPortInUse(port))) {
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, 250))
+  }
+
+  throw new Error(`Port ${port} did not release within ${timeout}ms`)
+}
+
 async function runCommand(
   command: string,
   args: string[],
@@ -117,6 +129,43 @@ async function prepareMessagingE2EData() {
   await runCommand('pnpm', ['exec', 'tsx', 'scripts/reset-e2e-messaging.ts'], serverCwd, E2E_BOT_ENV)
   await runCommand('pnpm', ['exec', 'tsx', 'scripts/seed-test-data.ts', '--scenario', 'messaging'], serverCwd, E2E_BOT_ENV)
   console.log('✅ Messaging E2E data ready')
+}
+
+function ownsFullRuntime() {
+  return Boolean(serverProcess && webProcess)
+}
+
+async function stopOwnedProcess(processRef: ChildProcess | null, name: string, port: number): Promise<ChildProcess | null> {
+  if (!processRef) {
+    return null
+  }
+
+  console.log(`🛑 Stopping ${name}...`)
+
+  await new Promise<void>((resolve) => {
+    let settled = false
+
+    const finish = () => {
+      if (!settled) {
+        settled = true
+        resolve()
+      }
+    }
+
+    processRef.once('exit', finish)
+    processRef.kill('SIGTERM')
+
+    setTimeout(finish, 5000)
+  })
+
+  await waitForPortReleased(port)
+  return null
+}
+
+async function stopOwnedRuntime() {
+  serverProcess = await stopOwnedProcess(serverProcess, 'backend server', 3100)
+  webProcess = await stopOwnedProcess(webProcess, 'frontend server', 3000)
+  runtimeMode = 'none'
 }
 
 async function startBackend(env?: NodeJS.ProcessEnv) {
@@ -209,8 +258,12 @@ async function ensureMessagingRuntime() {
     return
   }
 
-  if (runtimeMode !== 'none') {
-    throw new Error('Messaging E2E requires an isolated runtime, but shared test servers are already running without messaging E2E configuration. Stop existing test servers and rerun the messaging feature.')
+  if (runtimeMode === 'generic') {
+    if (!ownsFullRuntime()) {
+      throw new Error('Messaging E2E cannot upgrade a generic runtime that is not fully owned by the test hooks. Stop external listeners on ports 3000/3100 and rerun the messaging feature.')
+    }
+
+    await stopOwnedRuntime()
   }
 
   const serverRunning = await isPortInUse(3100)
@@ -281,17 +334,5 @@ After(async function (this: CustomWorld, { pickle, result }) {
 // 所有测试完成后的清理
 AfterAll(async function () {
   console.log('✅ All tests completed')
-
-  // 关闭服务器进程
-  if (serverProcess) {
-    console.log('🛑 Stopping backend server...')
-    serverProcess.kill('SIGTERM')
-    serverProcess = null
-  }
-
-  if (webProcess) {
-    console.log('🛑 Stopping frontend server...')
-    webProcess.kill('SIGTERM')
-    webProcess = null
-  }
+  await stopOwnedRuntime()
 })
