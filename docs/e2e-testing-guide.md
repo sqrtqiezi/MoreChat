@@ -47,17 +47,27 @@ bash scripts/setup-test-env.sh
 
 ### 2. 准备服务端环境
 
-确认 `apps/server/.env` 至少包含当前测试所需的核心配置，例如：
+确认 `apps/server/.env` 满足当前服务端真实启动要求。`apps/server/src/lib/env.ts` 目前除了数据库和认证外，还要求基础存储配置，例如 `DATA_LAKE_TYPE` 和 `ALICLOUD_OSS_*` 这些键；不要把下面的片段理解为完整可启动配置。
+
+最少应对照 `apps/server/.env.example` 或当前 `env.ts` 的必填项补齐完整配置。下面只列出与本地 E2E 最直接相关的一部分示例：
 
 ```bash
 DATABASE_URL="file:../data/morechat.db"
+DATA_LAKE_TYPE="filesystem"
 DATA_LAKE_PATH="./data/lake"
 PORT=3100
 NODE_ENV="development"
 AUTH_PASSWORD_HASH="$2b$10$xhaDIjVx7SyJJlulTxfLvuiqdo5cOeJqLvZlDJdwiQgjCVOgqNuh."
 AUTH_JWT_SECRET="dev-jwt-secret-change-in-production"
+ALICLOUD_OSS_REGION="local"
+ALICLOUD_OSS_BUCKET="local"
+ALICLOUD_OSS_ACCESS_KEY_ID="local"
+ALICLOUD_OSS_ACCESS_KEY_SECRET="local"
+ALICLOUD_OSS_ENDPOINT="http://localhost"
 EMBEDDING_ENABLED=false
 ```
+
+如果不是消息专用 E2E Bot 模式，服务端启动还会继续要求 `JUHEXBOT_API_URL`、`JUHEXBOT_APP_KEY`、`JUHEXBOT_APP_SECRET`、`JUHEXBOT_CLIENT_GUID`、`JUHEXBOT_CLOUD_API_URL` 等 Bot 配置。
 
 正常运行 `@messaging-e2e` 场景时，不需要手动在 `.env` 中写入消息专用测试变量；Hooks 会在启动自管 runtime 时自动注入：
 
@@ -173,8 +183,10 @@ apps/web/
 
 当前 Hooks 实现包含以下行为：
 
-- `BeforeAll`：准备报告目录，必要时自动启动前后端服务
-- `Before`：为每个场景初始化浏览器上下文
+- `BeforeAll`：只准备报告目录
+- `Before`（`@messaging-e2e`）：启动 hook-owned messaging runtime，并自动执行 reset/seed
+- `Before`（非 messaging）：按需复用或拉起通用前后端 runtime
+- `Before`（所有场景）：初始化浏览器上下文
 - `After`：失败时截图，并回收浏览器资源
 - `AfterAll`：关闭测试期间拉起的服务进程
 
