@@ -11,6 +11,7 @@ import {
 
 const E2E_PROFILE_NICKNAME = 'MoreChat E2E Bot'
 const E2E_PROFILE_AVATAR = 'https://example.invalid/assets/morechat-e2e-bot.png'
+const E2E_SELF_USERNAME = 'wxid_e2e_messaging_user'
 const E2E_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs='
 const E2E_FILE_DATA_URL = 'data:application/octet-stream;base64,ZTJlLWJvdW5kYXJ5LWZpbGU='
 const E2E_EMOJI_BUFFER = Buffer.from(
@@ -36,7 +37,7 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
   }
 
   override getCurrentUsername(): string | undefined {
-    return this.fakeConfig.clientUsername
+    return this.resolveCurrentUsername()
   }
 
   override async sendRequest<T>(_path: string, _data: T): Promise<{ errcode: number; errmsg: string; data: any }> {
@@ -48,9 +49,13 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
     return `${prefix}-${String(this.sentMessageSequence).padStart(6, '0')}`
   }
 
+  private resolveCurrentUsername(): string {
+    return this.fakeConfig.clientUsername ?? E2E_SELF_USERNAME
+  }
+
   override async getProfile(): Promise<UserProfile> {
     const profile = {
-      username: this.fakeConfig.clientUsername ?? `e2e_bot_${this.fakeConfig.clientGuid}`,
+      username: this.resolveCurrentUsername(),
       nickname: E2E_PROFILE_NICKNAME,
       avatar: E2E_PROFILE_AVATAR,
     }
@@ -110,7 +115,7 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
   }
 
   override async getChatroomMemberDetail(roomUsername: string, version?: number): Promise<ChatroomMemberInfo> {
-    const currentUsername = this.fakeConfig.clientUsername ?? `e2e_bot_${this.fakeConfig.clientGuid}`
+    const currentUsername = this.resolveCurrentUsername()
     return {
       version: version ?? 0,
       members: [
@@ -130,7 +135,7 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
       cdn_info: 'e2e-offline-cdn',
       client_version: 0,
       device_type: 'e2e-offline',
-      username: this.fakeConfig.clientUsername ?? `e2e_bot_${this.fakeConfig.clientGuid}`,
+      username: this.resolveCurrentUsername(),
     }
   }
 
