@@ -311,24 +311,3 @@ model ImportanceRule {
 
   @@index([type, isActive])
 }
-
-// DEPRECATED (2026-04-30): This table is no longer used after Phase 4 subtraction.
-// The table is kept for historical data but no code reads or writes to it.
-// Safe to drop in a future version after data archival if needed.
-model EmojiCache {
-  msgId        String    @id @map("msg_id")
-  aesKey       String    @map("aes_key")
-  cdnUrl       String    @map("cdn_url")
-  encryptUrl   String?   @map("encrypt_url")
-  md5          String?
-  fileSize     Int?      @map("file_size")
-  productId    String?   @map("product_id")
-  ossUrl       String?   @map("oss_url")
-  status       String    @default("pending")
-  errorMessage String?   @map("error_message")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  downloadedAt DateTime? @map("downloaded_at")
-
-  @@map("emoji_cache")
-  @@index([status])
-}

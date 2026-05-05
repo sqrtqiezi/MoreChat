@@ -124,17 +124,6 @@ export class WebSocketService {
   }
 
   /**
-   * 广播表情下载完成消息
-   */
-  broadcastEmojiDownloaded(data: {
-    msgId: string
-    conversationId: string
-    ossUrl: string
-  }): void {
-    this.broadcast('emoji_downloaded', data)
-  }
-
-  /**
    * 关闭所有连接
    */
   close() {
