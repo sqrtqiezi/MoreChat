@@ -1,14 +1,17 @@
 // ABOUTME: 验证 Feed 页面优先展示知识卡片摘要并支持跳转原始对话
 // ABOUTME: 通过 mock hooks 与路由导航隔离页面行为进行交互测试
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FeedPage } from './FeedPage'
 
 const mockNavigate = vi.fn()
 const mockUseHighlights = vi.fn()
+const mockUseWebSocket = vi.fn()
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
@@ -26,10 +29,32 @@ vi.mock('../hooks/useTopicsPreview', () => ({
   useTopicsPreview: () => ({ data: [], isLoading: false }),
 }))
 
+vi.mock('../hooks/useWebSocket', () => ({
+  useWebSocket: (options: { onMessage?: (data: any) => void; onReconnect?: () => void }) => {
+    mockUseWebSocket(options)
+    return { isConnected: true }
+  },
+}))
+
+function renderWithProviders(ui: ReactNode) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return {
+    queryClient,
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </QueryClientProvider>,
+    ),
+  }
+}
+
 describe('FeedPage', () => {
   beforeEach(() => {
     mockNavigate.mockReset()
     mockUseHighlights.mockReset()
+    mockUseWebSocket.mockReset()
   })
 
   it('renders knowledge-card summary before the raw message', async () => {
@@ -60,11 +85,7 @@ describe('FeedPage', () => {
       isLoading: false,
     })
 
-    render(
-      <MemoryRouter>
-        <FeedPage />
-      </MemoryRouter>,
-    )
+    renderWithProviders(<FeedPage />)
 
     expect(await screen.findByText('预算确认')).toBeInTheDocument()
     expect(screen.getByText('预算将在今晚定稿')).toBeInTheDocument()
@@ -93,13 +114,35 @@ describe('FeedPage', () => {
       isLoading: false,
     })
 
-    render(
-      <MemoryRouter>
-        <FeedPage />
-      </MemoryRouter>,
-    )
+    renderWithProviders(<FeedPage />)
 
     await user.click(await screen.findByRole('button', { name: '打开原始对话' }))
     expect(mockNavigate).toHaveBeenCalledWith('/chat?conversationId=conversation-2')
+  })
+
+  it('invalidates highlights query when receiving highlight:new WebSocket event', async () => {
+    mockUseHighlights.mockReturnValue({
+      data: { items: [], total: 0, limit: 20, offset: 0 },
+      isLoading: false,
+    })
+
+    const { queryClient } = renderWithProviders(<FeedPage />)
+
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const options = mockUseWebSocket.mock.calls[0][0]
+
+    options.onMessage?.({
+      event: 'highlight:new',
+      data: { msgId: 'm3', conversationId: 'c1', sources: ['rule:watchlist'], createTime: 1 },
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['highlights'] })
+
+    invalidateSpy.mockClear()
+    options.onMessage?.({ event: 'message:new', data: {} })
+    expect(invalidateSpy).not.toHaveBeenCalled()
+
+    invalidateSpy.mockClear()
+    options.onReconnect?.()
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['highlights'] })
   })
 })

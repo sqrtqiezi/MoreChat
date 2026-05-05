@@ -32,8 +32,8 @@ describe('createApp', () => {
       } as any,
       imageService: {} as any,
       contactSyncService: {
-        syncGroup: vi.fn(),
-        syncContact: vi.fn()
+        syncGroup: vi.fn().mockResolvedValue(undefined),
+        syncContact: vi.fn().mockResolvedValue(undefined)
       } as any,
       juhexbotAdapter: {
         parseWebhookPayload: vi.fn()
@@ -183,5 +183,54 @@ describe('createApp', () => {
       conversationId: 'conv_1',
       msgId: 'msg_1',
     })
+  })
+
+  it('should broadcast highlight:new when incoming message hits importance rules', async () => {
+    vi.mocked(deps.juhexbotAdapter.parseWebhookPayload).mockReturnValue({
+      message: { msgType: 1, isChatroomMsg: false, fromUsername: 'wxid_user' }
+    } as any)
+    vi.mocked(deps.messageService.handleIncomingMessage).mockResolvedValue({
+      conversationId: 'conv_1',
+      message: { msgId: 'msg_42', createTime: 1700000000 },
+      importantSources: ['rule:watchlist', 'rule:keyword'],
+    } as any)
+
+    const app = createApp(deps)
+    const res = await app.request('/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'message', data: {} })
+    })
+
+    expect(res.status).toBe(200)
+    expect(deps.wsService.broadcast).toHaveBeenCalledWith('message:new', expect.any(Object))
+    expect(deps.wsService.broadcast).toHaveBeenCalledWith('highlight:new', {
+      msgId: 'msg_42',
+      conversationId: 'conv_1',
+      sources: ['rule:watchlist', 'rule:keyword'],
+      createTime: 1700000000,
+    })
+  })
+
+  it('should not broadcast highlight:new when importantSources is absent', async () => {
+    vi.mocked(deps.juhexbotAdapter.parseWebhookPayload).mockReturnValue({
+      message: { msgType: 1, isChatroomMsg: false, fromUsername: 'wxid_user' }
+    } as any)
+    vi.mocked(deps.messageService.handleIncomingMessage).mockResolvedValue({
+      conversationId: 'conv_1',
+      message: { msgId: 'msg_99', createTime: 1700000001 },
+    } as any)
+
+    const app = createApp(deps)
+    const res = await app.request('/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'message', data: {} })
+    })
+
+    expect(res.status).toBe(200)
+    const calls = vi.mocked(deps.wsService.broadcast).mock.calls.map(([event]) => event)
+    expect(calls).toContain('message:new')
+    expect(calls).not.toContain('highlight:new')
   })
 })

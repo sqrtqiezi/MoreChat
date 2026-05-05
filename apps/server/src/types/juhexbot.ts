@@ -146,11 +146,6 @@ export interface VideoMessage extends ChatMsgModel {
   msg_type: 43
 }
 
-// 表情消息 (msg_type: 47)
-export interface EmojiMessage extends ChatMsgModel {
-  msg_type: 47
-}
-
 // 应用消息/链接/文件 (msg_type: 49)
 export interface AppMessage extends ChatMsgModel {
   msg_type: 49
@@ -177,7 +172,6 @@ export type Message =
   | ImageMessage
   | VoiceMessage
   | VideoMessage
-  | EmojiMessage
   | AppMessage
   | VoiceVideoCallMessage
   | SystemMessage

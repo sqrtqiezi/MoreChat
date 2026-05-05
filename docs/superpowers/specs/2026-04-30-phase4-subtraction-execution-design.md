@@ -24,21 +24,22 @@ MoreChat 已完成知识库核心功能的实施：
 1. 表情包下载功能（EmojiService、emojiDownloadQueue）
 2. 表情包相关 API 和前端组件
 3. 不需要的 WebSocket 事件
-4. 消息发送的乐观更新逻辑
+4. 文本消息发送的乐观更新逻辑
 
 **保留内容：**
 1. 图片发送功能（ImageInput、send-image API）
-2. 图片查看功能（ImageService）
-3. 文件访问功能（FileService）
-4. OSS 服务（FileService 依赖）
-5. EmojiCache 数据库表（保留但不再使用）
+2. 图片上传的乐观更新（上传耗时，需要即时反馈）
+3. 图片查看功能（ImageService）
+4. 文件访问功能（FileService）
+5. OSS 服务（FileService 依赖）
 
 ### 1.3 设计决策
 
 **关键决策：**
-- **EmojiCache 表处理**：保留表但停止使用（选项 A）
-- **WebSocket 事件**：保留 message:new、highlight:new、message:recall（选项 B）
-- **消息发送体验**：完全移除乐观更新，等待真实消息（选项 A）
+- **EmojiCache 表处理**：直接删除 Prisma 模型（比原计划更激进，已于 commit a09a76c 完成）
+- **WebSocket 事件**：保留 message:new、highlight:new、message:recall
+- **文本消息发送体验**：移除乐观更新，等待真实消息
+- **图片消息发送体验**：保留乐观更新，原因是图片上传耗时（压缩 + OSS 上传），用户需要立即看到占位消息才知道请求已受理；失败时回滚占位消息
 - **图片发送功能**：保留（用户明确要求）
 - **实施方案**：激进清理 - 一次性完全移除（方案 A）
 
@@ -275,8 +276,8 @@ function MessageInput() {
 
 **简化内容：**
 - 移除表情包选择器按钮和弹窗
-- 移除乐观更新逻辑
-- 保留图片发送功能
+- 移除文本消息的乐观更新逻辑（`useSendMessage`）
+- 保留图片发送功能及其乐观更新（`useSendImage`），原因：图片上传耗时，需要立即显示占位消息
 - 保留文本输入功能
 
 ### 3.3 Hooks 重构
@@ -288,6 +289,9 @@ apps/web/src/hooks/useOptimisticMessage.test.ts
 apps/web/src/hooks/useEmojiDownload.ts
 apps/web/src/hooks/useEmojiDownload.test.ts
 ```
+
+**保留并继续使用：**
+- `apps/web/src/hooks/useSendImage.ts` 的 `onMutate` 占位消息逻辑（图片乐观更新）
 
 **在 `apps/web/src/hooks/useMessages.ts` 中简化：**
 
@@ -301,7 +305,7 @@ export function useMessages(conversationId: string) {
     queryFn: () => fetchMessages(conversationId)
   });
   
-  // 合并真实消息和乐观消息
+  // 合并真实消息和乐观文本消息
   const allMessages = useMemo(() => {
     return [...messages, ...optimisticMessages].sort(byTimestamp);
   }, [messages, optimisticMessages]);
@@ -321,9 +325,9 @@ export function useMessages(conversationId: string) {
 ```
 
 **简化内容：**
-- 移除乐观消息状态管理
-- 移除消息合并逻辑
-- 直接返回服务器数据
+- 移除文本消息的乐观状态管理
+- 移除文本消息的合并逻辑
+- 图片乐观消息仍由 `useSendImage` 的 `onMutate` 直接写入 React Query 缓存
 
 ### 3.4 WebSocket 客户端简化
 
@@ -397,15 +401,15 @@ interface MessageStore {
 // 移除后：
 interface MessageStore {
   messages: Message[];
-  // 完全移除乐观更新和表情包相关状态
+  // 移除文本乐观更新与表情包相关状态
 }
 ```
 
 **简化内容：**
-- 移除乐观消息状态
+- 移除文本消息的乐观状态
 - 移除表情包下载进度状态
 - 移除相关的 action 方法
-- 仅保留真实消息数据
+- 图片乐观消息继续由 React Query 缓存承载（不进入 Zustand store）
 
 ### 3.6 类型定义清理
 
@@ -413,13 +417,6 @@ interface MessageStore {
 
 ```typescript
 // 移除以下类型定义：
-export interface OptimisticMessage {
-  id: string;
-  content: string;
-  timestamp: number;
-  status: 'sending' | 'failed';
-}
-
 export interface EmojiDownloadStatus {
   id: string;
   progress: number;
@@ -441,14 +438,14 @@ export interface Message {
   content: string;
   type: number;
   timestamp: number;
+  status?: 'sending' | 'sent' | 'failed'; // 图片乐观更新仍使用
   // ...
 }
 ```
 
 **清理内容：**
-- 移除乐观消息相关类型
 - 移除表情包相关类型
-- 保留核心消息类型
+- 保留 Message.status 字段，供图片乐观更新使用
 
 ---
 
@@ -502,7 +499,7 @@ UI 更新：显示真实消息，恢复按钮
 
 ### 4.2 消息发送流程（图片）
 
-**保持不变的流程：**
+**保持不变的流程（含乐观更新）：**
 ```
 用户选择图片
   ↓
@@ -510,25 +507,25 @@ UI 更新：显示真实消息，恢复按钮
   ↓
 用户确认发送
   ↓
+前端：useSendImage.onMutate 写入占位消息（status: sending）
+  ↓
 前端：调用 POST /api/conversations/:id/send-image
   ↓
-前端：显示上传进度条
-  ↓
-后端：上传图片到 OSS
+后端：压缩 + 上传图片到 OSS
   ↓
 后端：保存消息到 DataLake + MessageIndex
   ↓
 后端：通过 WebSocket 广播 message:new
   ↓
-前端：收到真实消息
+前端：占位消息替换为真实消息（或失败时回滚）
   ↓
 UI 更新：显示图片消息
 ```
 
-**保留原因：**
-- 图片上传需要时间，用户需要看到进度
-- 上传失败时需要明确的错误提示
-- 图片预览提升用户体验
+**保留乐观更新的原因：**
+- 图片上传需要数秒（压缩 + OSS 上传），用户需要立即看到消息已提交
+- 失败时可明确回滚占位消息并提示错误
+- 与文本消息发送不同，图片无法依赖 WebSocket 在 < 500ms 内返回
 
 ### 4.3 WebSocket 事件处理简化
 

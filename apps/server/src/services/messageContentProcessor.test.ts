@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { processMessageContent, parseImageXml, parseRecallXml, parseEmojiXml, parseFileXml } from './messageContentProcessor.js'
+import { processMessageContent, parseImageXml, parseRecallXml, parseFileXml } from './messageContentProcessor.js'
 
 describe('parseRecallXml', () => {
   it('should extract newmsgid from recall XML', () => {
@@ -480,48 +480,6 @@ describe('parseImageXml', () => {
       aesKey: 'test_aes_key',
       fileId: 'test_cdn_url',
       hasHd: false
-    })
-  })
-})
-
-describe('parseEmojiXml', () => {
-  it('should parse valid emoji XML', () => {
-    const xml = `<msg><emoji aeskey="03ab8c3ec37706ed560587be5afa9d2f" cdnurl="http://wxapp.tc.qq.com/test" md5="c99f17060237ca21e7dce8d80d216e6d" len="73009" width="240" height="240" productid="com.tencent.xin.emoticon.test" encrypturl="http://wxapp.tc.qq.com/encrypt" /></msg>`
-
-    const result = parseEmojiXml(xml)
-
-    expect(result).toEqual({
-      aesKey: '03ab8c3ec37706ed560587be5afa9d2f',
-      cdnUrl: 'http://wxapp.tc.qq.com/test',
-      encryptUrl: 'http://wxapp.tc.qq.com/encrypt',
-      md5: 'c99f17060237ca21e7dce8d80d216e6d',
-      fileSize: 73009,
-      width: 240,
-      height: 240,
-      productId: 'com.tencent.xin.emoticon.test'
-    })
-  })
-
-  it('should return null for invalid XML', () => {
-    expect(parseEmojiXml('')).toBeNull()
-    expect(parseEmojiXml('<msg></msg>')).toBeNull()
-    expect(parseEmojiXml('<msg><emoji /></msg>')).toBeNull()
-  })
-
-  it('should handle missing optional fields', () => {
-    const xml = `<msg><emoji aeskey="test" cdnurl="http://test.com" /></msg>`
-
-    const result = parseEmojiXml(xml)
-
-    expect(result).toEqual({
-      aesKey: 'test',
-      cdnUrl: 'http://test.com',
-      encryptUrl: undefined,
-      md5: undefined,
-      fileSize: undefined,
-      width: undefined,
-      height: undefined,
-      productId: undefined
     })
   })
 })

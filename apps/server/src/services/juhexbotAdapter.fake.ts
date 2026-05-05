@@ -14,10 +14,6 @@ const E2E_PROFILE_AVATAR = 'https://example.invalid/assets/morechat-e2e-bot.png'
 const E2E_SELF_USERNAME = 'wxid_e2e_messaging_user'
 const E2E_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs='
 const E2E_FILE_DATA_URL = 'data:application/octet-stream;base64,ZTJlLWJvdW5kYXJ5LWZpbGU='
-const E2E_EMOJI_BUFFER = Buffer.from(
-  'R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=',
-  'base64'
-)
 
 export class JuhexbotAdapterFake extends JuhexbotAdapter {
   private fakeConfig: JuhexbotConfig
@@ -180,13 +176,5 @@ export class JuhexbotAdapterFake extends JuhexbotAdapter {
     fileType: number = CDN_FILE_TYPE.IMAGE_MID
   ): Promise<string> {
     return fileType === CDN_FILE_TYPE.ATTACHMENT ? E2E_FILE_DATA_URL : E2E_IMAGE_DATA_URL
-  }
-
-  override async downloadEmoji(_params: {
-    cdnUrl: string
-    aesKey?: string
-    encryptUrl?: string
-  }): Promise<Buffer> {
-    return E2E_EMOJI_BUFFER
   }
 }

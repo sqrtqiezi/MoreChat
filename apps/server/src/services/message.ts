@@ -36,6 +36,7 @@ export interface IncomingMessageResult {
       msgId: string
     }
   }
+  importantSources?: string[]
 }
 
 export interface RecallResult {
@@ -145,6 +146,7 @@ export class MessageService {
     // 规则引擎评估（仅文本消息）
     let ruleTagsCount = 0
     let ruleHitImportant = false
+    let importantSources: string[] = []
     if (this.ruleEngine && message.msgType === 1 && message.content) {
       try {
         const currentUsername = this.adapter.getCurrentUsername()
@@ -159,7 +161,9 @@ export class MessageService {
         if (tags.length > 0) {
           await this.ruleEngine.applyTags(tags)
           ruleTagsCount = tags.length
-          ruleHitImportant = tags.some((t) => t.tag === 'important')
+          const importantTags = tags.filter((t) => t.tag === 'important')
+          ruleHitImportant = importantTags.length > 0
+          importantSources = Array.from(new Set(importantTags.map((t) => t.source)))
         }
       } catch (error) {
         logger.warn({ err: error, msgId: message.msgId }, 'Failed to evaluate message rules')
@@ -257,7 +261,8 @@ export class MessageService {
         displayType,
         displayContent,
         referMsg,
-      }
+      },
+      importantSources: importantSources.length > 0 ? importantSources : undefined,
     }
   }
 

@@ -88,6 +88,20 @@ export function createApp(deps: AppDependencies) {
           })
           logger.debug({ conversationId: result.conversationId, msgId: result.message.msgId }, 'Message broadcasted via WebSocket')
 
+          // 规则命中 important 时额外广播 highlight:new，驱动前端 Feed 实时刷新
+          if (result.importantSources && result.importantSources.length > 0) {
+            deps.wsService.broadcast('highlight:new', {
+              msgId: result.message.msgId,
+              conversationId: result.conversationId,
+              sources: result.importantSources,
+              createTime: result.message.createTime,
+            })
+            logger.debug(
+              { msgId: result.message.msgId, sources: result.importantSources },
+              'Highlight broadcasted via WebSocket'
+            )
+          }
+
           // 异步同步联系人信息（不阻塞 webhook 响应）
           const msg = parsed.message
           if (msg.isChatroomMsg && msg.chatroom) {
