@@ -501,11 +501,12 @@ EmojiCache  — 表情包缓存，随 EmojiService 一起移除
 | `services/emojiService.ts` | 表情包下载不再需要 |
 | `services/emojiDownloadQueue.ts` | 同上 |
 | 前端 `EmojiMessage.tsx` | 表情包展示简化为占位符 |
-| 前端 `ImageInput.tsx` | 图片发送移除 |
 | Prisma `EmojiCache` 模型 | 不再需要 |
 | `index.ts` 中 EmojiService 相关代码 | 依赖注入清理 |
 
-**注意：OssService 保留**，因为 FileService 依赖它来存储文件。只移除表情包相关的使用。
+**注意：**
+- **OssService 保留**，因为 FileService 依赖它来存储文件
+- **ImageInput 和图片发送功能保留**，作为应急通信能力（虽然知识库是主要功能，但保留基本的消息发送能力）
 
 ### 7.2 简化
 
@@ -513,7 +514,7 @@ EmojiCache  — 表情包缓存，随 EmojiService 一起移除
 |------|------|
 | WebSocket | 只保留 `message:new` 和 `highlight:new` 两个事件 |
 | 消息发送 | 移除乐观更新逻辑，简化为同步发送 + 等待 webhook 回写 |
-| 前端 MessageInput | 只保留纯文本输入框 |
+| 前端 MessageInput | 保留文本和图片输入（作为应急通信能力），但移除复杂交互逻辑 |
 | 前端路由 | 简化为：搜索页、Feed 页、话题页、对话页 |
 
 ### 7.3 保留不动
@@ -632,6 +633,7 @@ GET  /api/conversations
 GET  /api/conversations/:id/messages
 GET  /api/directory
 POST /api/messages/send  (简化，仅文本)
+POST /api/messages/send-image  (保留，应急通信能力)
 GET  /api/images/:msgId
 GET  /api/files/:msgId
 ```
@@ -639,7 +641,6 @@ GET  /api/files/:msgId
 ### 9.3 移除
 
 ```
-POST /api/messages/send-image
 GET  /api/emoji/:msgId
 ```
 
