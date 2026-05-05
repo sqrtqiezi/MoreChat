@@ -66,16 +66,6 @@ async function main() {
         stats.processed++
 
         try {
-          // 检查是否已有标签（幂等性）
-          const existingTags = await databaseService.prisma.messageTag.findFirst({
-            where: { msgId: msgIndex.msgId }
-          })
-
-          if (existingTags) {
-            stats.skipped++
-            continue
-          }
-
           // 从 DataLake 读取完整消息
           const message = await dataLakeService.getMessage(msgIndex.dataLakeKey)
 
@@ -94,9 +84,24 @@ async function main() {
             msgType: message.msg_type
           })
 
-          // 应用标签
-          if (tags.length > 0) {
-            await ruleEngine.applyTags(tags)
+          // 过滤掉已存在的标签（幂等性）
+          const tagsToApply = []
+          for (const tag of tags) {
+            const existing = await databaseService.prisma.messageTag.findFirst({
+              where: {
+                msgId: tag.msgId,
+                tag: tag.tag,
+                source: tag.source
+              }
+            })
+            if (!existing) {
+              tagsToApply.push(tag)
+            }
+          }
+
+          // 应用新标签
+          if (tagsToApply.length > 0) {
+            await ruleEngine.applyTags(tagsToApply)
             stats.tagged++
           } else {
             stats.skipped++

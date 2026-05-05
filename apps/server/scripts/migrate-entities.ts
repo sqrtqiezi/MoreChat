@@ -65,15 +65,6 @@ async function main() {
         stats.processed++
 
         try {
-          const existingEntity = await databaseService.prisma.messageEntity.findFirst({
-            where: { msgId: msgIndex.msgId }
-          })
-
-          if (existingEntity) {
-            stats.skipped++
-            continue
-          }
-
           const message = await dataLakeService.getMessage(msgIndex.dataLakeKey)
 
           if (!message.content || message.content.trim() === '') {
@@ -83,9 +74,24 @@ async function main() {
 
           const entities = await entityExtractorService.extract(message.content)
 
-          if (entities.length > 0) {
+          // 过滤掉已存在的实体（幂等性）
+          const entitiesToInsert = []
+          for (const entity of entities) {
+            const existing = await databaseService.prisma.messageEntity.findFirst({
+              where: {
+                msgId: msgIndex.msgId,
+                type: entity.type,
+                value: entity.value
+              }
+            })
+            if (!existing) {
+              entitiesToInsert.push(entity)
+            }
+          }
+
+          if (entitiesToInsert.length > 0) {
             await databaseService.prisma.messageEntity.createMany({
-              data: entities.map((e) => ({
+              data: entitiesToInsert.map((e) => ({
                 msgId: msgIndex.msgId,
                 type: e.type,
                 value: e.value

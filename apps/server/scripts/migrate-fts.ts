@@ -70,6 +70,17 @@ async function main() {
         stats.processed++
 
         try {
+          // 检查 FTS 索引是否已存在（幂等性）
+          const existing = await duckdbService.query(
+            'SELECT msg_id FROM message_fts WHERE msg_id = $1',
+            [msgIndex.msgId]
+          )
+
+          if (existing.length > 0) {
+            stats.skipped++
+            continue
+          }
+
           // 从 DataLake 读取完整消息
           const message = await dataLakeService.getMessage(msgIndex.dataLakeKey)
 
